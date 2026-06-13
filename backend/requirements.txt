@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+google-genai
+python-dotenv
+websockets
+# Pinned: newer cryptography has no prebuilt wheel for Python 3.9 / x86_64 macOS
+# and tries to build from source (needs Rust + OpenSSL). 42.0.8 ships a wheel.
+cryptography==42.0.8
