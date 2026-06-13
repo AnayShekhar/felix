@@ -1,0 +1,608 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		9035ED9D2FDDBE2D005BA1F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9035ED872FDDBE2C005BA1F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9035ED8E2FDDBE2C005BA1F5;
+			remoteInfo = FelixApp;
+		};
+		9035EDA72FDDBE2D005BA1F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9035ED872FDDBE2C005BA1F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9035ED8E2FDDBE2C005BA1F5;
+			remoteInfo = FelixApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		9035ED8F2FDDBE2C005BA1F5 /* FelixApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FelixApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9035ED9C2FDDBE2D005BA1F5 /* FelixAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FelixAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9035EDA62FDDBE2D005BA1F5 /* FelixAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FelixAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9035EDCC2FDDC01B005BA1F5 /* Exceptions for "FelixApp" folder in "FelixApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9035ED8E2FDDBE2C005BA1F5 /* FelixApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		9035ED912FDDBE2C005BA1F5 /* FelixApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9035EDCC2FDDC01B005BA1F5 /* Exceptions for "FelixApp" folder in "FelixApp" target */,
+			);
+			path = FelixApp;
+			sourceTree = "<group>";
+		};
+		9035ED9F2FDDBE2D005BA1F5 /* FelixAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FelixAppTests;
+			sourceTree = "<group>";
+		};
+		9035EDA92FDDBE2D005BA1F5 /* FelixAppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FelixAppUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9035ED8C2FDDBE2C005BA1F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9035ED992FDDBE2D005BA1F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9035EDA32FDDBE2D005BA1F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9035ED862FDDBE2C005BA1F5 = {
+			isa = PBXGroup;
+			children = (
+				9035ED912FDDBE2C005BA1F5 /* FelixApp */,
+				9035ED9F2FDDBE2D005BA1F5 /* FelixAppTests */,
+				9035EDA92FDDBE2D005BA1F5 /* FelixAppUITests */,
+				9035ED902FDDBE2C005BA1F5 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9035ED902FDDBE2C005BA1F5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9035ED8F2FDDBE2C005BA1F5 /* FelixApp.app */,
+				9035ED9C2FDDBE2D005BA1F5 /* FelixAppTests.xctest */,
+				9035EDA62FDDBE2D005BA1F5 /* FelixAppUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9035ED8E2FDDBE2C005BA1F5 /* FelixApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9035EDB02FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixApp" */;
+			buildPhases = (
+				9035ED8B2FDDBE2C005BA1F5 /* Sources */,
+				9035ED8C2FDDBE2C005BA1F5 /* Frameworks */,
+				9035ED8D2FDDBE2C005BA1F5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9035ED912FDDBE2C005BA1F5 /* FelixApp */,
+			);
+			name = FelixApp;
+			packageProductDependencies = (
+			);
+			productName = FelixApp;
+			productReference = 9035ED8F2FDDBE2C005BA1F5 /* FelixApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9035ED9B2FDDBE2D005BA1F5 /* FelixAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9035EDB32FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixAppTests" */;
+			buildPhases = (
+				9035ED982FDDBE2D005BA1F5 /* Sources */,
+				9035ED992FDDBE2D005BA1F5 /* Frameworks */,
+				9035ED9A2FDDBE2D005BA1F5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9035ED9E2FDDBE2D005BA1F5 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9035ED9F2FDDBE2D005BA1F5 /* FelixAppTests */,
+			);
+			name = FelixAppTests;
+			packageProductDependencies = (
+			);
+			productName = FelixAppTests;
+			productReference = 9035ED9C2FDDBE2D005BA1F5 /* FelixAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9035EDA52FDDBE2D005BA1F5 /* FelixAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9035EDB62FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixAppUITests" */;
+			buildPhases = (
+				9035EDA22FDDBE2D005BA1F5 /* Sources */,
+				9035EDA32FDDBE2D005BA1F5 /* Frameworks */,
+				9035EDA42FDDBE2D005BA1F5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9035EDA82FDDBE2D005BA1F5 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9035EDA92FDDBE2D005BA1F5 /* FelixAppUITests */,
+			);
+			name = FelixAppUITests;
+			packageProductDependencies = (
+			);
+			productName = FelixAppUITests;
+			productReference = 9035EDA62FDDBE2D005BA1F5 /* FelixAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9035ED872FDDBE2C005BA1F5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					9035ED8E2FDDBE2C005BA1F5 = {
+						CreatedOnToolsVersion = 26.3;
+						LastSwiftMigration = 2630;
+					};
+					9035ED9B2FDDBE2D005BA1F5 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 9035ED8E2FDDBE2C005BA1F5;
+					};
+					9035EDA52FDDBE2D005BA1F5 = {
+						CreatedOnToolsVersion = 26.3;
+						TestTargetID = 9035ED8E2FDDBE2C005BA1F5;
+					};
+				};
+			};
+			buildConfigurationList = 9035ED8A2FDDBE2C005BA1F5 /* Build configuration list for PBXProject "FelixApp" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9035ED862FDDBE2C005BA1F5;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9035ED902FDDBE2C005BA1F5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9035ED8E2FDDBE2C005BA1F5 /* FelixApp */,
+				9035ED9B2FDDBE2D005BA1F5 /* FelixAppTests */,
+				9035EDA52FDDBE2D005BA1F5 /* FelixAppUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9035ED8D2FDDBE2C005BA1F5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9035ED9A2FDDBE2D005BA1F5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9035EDA42FDDBE2D005BA1F5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9035ED8B2FDDBE2C005BA1F5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9035ED982FDDBE2D005BA1F5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9035EDA22FDDBE2D005BA1F5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9035ED9E2FDDBE2D005BA1F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9035ED8E2FDDBE2C005BA1F5 /* FelixApp */;
+			targetProxy = 9035ED9D2FDDBE2D005BA1F5 /* PBXContainerItemProxy */;
+		};
+		9035EDA82FDDBE2D005BA1F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9035ED8E2FDDBE2C005BA1F5 /* FelixApp */;
+			targetProxy = 9035EDA72FDDBE2D005BA1F5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9035EDAE2FDDBE2D005BA1F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9035EDAF2FDDBE2D005BA1F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9035EDB12FDDBE2D005BA1F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FelixApp/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Felix uses the camera to capture visual context.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Felix uses the microphone for voice commands.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Felix transcribes your voice commands.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.FelixApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9035EDB22FDDBE2D005BA1F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FelixApp/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Felix uses the camera to capture visual context.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Felix uses the microphone for voice commands.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Felix transcribes your voice commands.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.FelixApp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9035EDB42FDDBE2D005BA1F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.FelixAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FelixApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FelixApp";
+			};
+			name = Debug;
+		};
+		9035EDB52FDDBE2D005BA1F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.FelixAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FelixApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FelixApp";
+			};
+			name = Release;
+		};
+		9035EDB72FDDBE2D005BA1F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.FelixAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FelixApp;
+			};
+			name = Debug;
+		};
+		9035EDB82FDDBE2D005BA1F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.FelixAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FelixApp;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9035ED8A2FDDBE2C005BA1F5 /* Build configuration list for PBXProject "FelixApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9035EDAE2FDDBE2D005BA1F5 /* Debug */,
+				9035EDAF2FDDBE2D005BA1F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9035EDB02FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9035EDB12FDDBE2D005BA1F5 /* Debug */,
+				9035EDB22FDDBE2D005BA1F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9035EDB32FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9035EDB42FDDBE2D005BA1F5 /* Debug */,
+				9035EDB52FDDBE2D005BA1F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9035EDB62FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9035EDB72FDDBE2D005BA1F5 /* Debug */,
+				9035EDB82FDDBE2D005BA1F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9035ED872FDDBE2C005BA1F5 /* Project object */;
+}
