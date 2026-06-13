@@ -6,17 +6,32 @@ export interface IngestPayload {
   voice_text: string;
 }
 
-export interface IntentOutput {
-  action: string;
-  title: string;
-  content: string;
-  target: string;
+export interface StepResult {
+  index: number;
+  total: number;
+  tool: string;
+  args: Record<string, unknown>;
+  status?: "executed" | "error";
+  message?: string;
+  title?: string;
+  detail?: string;
+  url?: string;
 }
 
+export interface WorkflowComplete {
+  total: number;
+  steps: Array<Omit<StepResult, "index" | "total" | "args"> & {
+    tool: string;
+    args?: Record<string, unknown>;
+  }>;
+}
+
+// Server emits: step_started, step_executed (StepResult) and
+// workflow_complete (WorkflowComplete).
 export interface FelixEvent {
   session_id: string;
-  event: string; // e.g. "intent_processed"
-  data: IntentOutput;
+  event: "step_started" | "step_executed" | "workflow_complete" | string;
+  data: StepResult | WorkflowComplete;
 }
 
 export type ConnectionState = "connecting" | "connected" | "disconnected";

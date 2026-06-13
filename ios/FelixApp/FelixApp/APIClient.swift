@@ -3,10 +3,10 @@ import UIKit
 
 enum APIClient {
     /// POSTs an image + voice command to the backend's /ingest endpoint.
-    /// The structured result also arrives over the WebSocket, so callers
-    /// can ignore the return value if they only render live updates.
+    /// The structured results also arrive over the WebSocket, so the UI renders
+    /// live updates from there; the returned steps are best-effort.
     @discardableResult
-    static func ingest(image: UIImage?, voiceText: String, sessionID: String) async throws -> IntentResult {
+    static func ingest(image: UIImage?, voiceText: String, sessionID: String) async throws -> [StepResult] {
         let base64 = image?
             .jpegData(compressionQuality: 0.5)?
             .base64EncodedString() ?? ""
@@ -24,6 +24,7 @@ enum APIClient {
         req.httpBody = try JSONEncoder().encode(payload)
 
         let (data, _) = try await URLSession.shared.data(for: req)
-        return try JSONDecoder().decode(IntentResult.self, from: data)
+        // Tolerate shape differences — UI is driven by the WebSocket.
+        return (try? JSONDecoder().decode(IngestResponse.self, from: data))?.steps ?? []
     }
 }

@@ -1,6 +1,9 @@
 fastapi
 uvicorn[standard]
-google-genai
+groq
+google-api-python-client
+google-auth
+google-auth-oauthlib
 python-dotenv
 websockets
 # Pinned: newer cryptography has no prebuilt wheel for Python 3.9 / x86_64 macOS

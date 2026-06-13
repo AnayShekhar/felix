@@ -8,18 +8,40 @@ struct IngestPayload: Codable {
     let timestamp: Double
 }
 
-// Matches the backend output contract: { action, title, content, target }
-struct IntentResult: Codable, Identifiable {
-    var id: String { title + action }
-    let action: String
-    let title: String
-    let content: String
-    let target: String
+// A single tool-execution result from the backend.
+// Backend step result: { tool, status, message, title, detail, url? }
+struct StepResult: Codable, Identifiable {
+    var id: String { (tool ?? "") + (title ?? "") + (message ?? "") }
+    let tool: String?
+    let status: String?
+    let message: String?
+    let title: String?
+    let detail: String?
+    let url: String?
 }
 
-// WebSocket envelope: { session_id, event, data: IntentResult }
-struct WSEvent: Codable {
-    let session_id: String
-    let event: String
-    let data: IntentResult
+// /ingest response: { "steps": [StepResult] }
+struct IngestResponse: Codable {
+    let steps: [StepResult]?
+}
+
+// WebSocket envelope: { session_id, event, data }
+// Events: "step_started", "step_executed", "workflow_complete"
+struct WSEnvelope: Codable {
+    let session_id: String?
+    let event: String?
+    let data: WSData?
+}
+
+// Flexible payload covering both per-step events and workflow_complete.
+struct WSData: Codable {
+    let index: Int?
+    let total: Int?
+    let tool: String?
+    let status: String?
+    let message: String?
+    let title: String?
+    let detail: String?
+    let url: String?
+    let steps: [StepResult]?   // present on workflow_complete
 }
