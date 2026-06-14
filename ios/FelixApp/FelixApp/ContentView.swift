@@ -85,7 +85,7 @@ struct ContentView: View {
             Group {
                 if busy {
                     ProgressView().tint(.white).scaleEffect(0.8)
-                } else if speech.phase == .awake {
+                } else if speech.phase == .hearing {
                     Image(systemName: "waveform").symbolEffect(.variableColor.iterative)
                 } else {
                     Image(systemName: "mic.fill")
@@ -104,7 +104,7 @@ struct ContentView: View {
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(
             Capsule().strokeBorder(
-                speech.phase == .awake ? Color.white.opacity(0.5) : Color.white.opacity(0.12),
+                speech.phase == .hearing ? Color.white.opacity(0.5) : Color.white.opacity(0.12),
                 lineWidth: 1
             )
         )
@@ -114,10 +114,11 @@ struct ContentView: View {
 
     private var statusText: String {
         if busy { return "Felix is working…" }
+        if !speech.command.isEmpty { return speech.command }
         switch speech.phase {
-        case .awake:
-            return speech.command.isEmpty ? "Listening…" : speech.command
-        case .listening:
+        case .hearing:
+            return "Listening…"
+        case .waiting:
             return "Say “Hey Felix”"
         case .idle:
             return "Starting…"
@@ -149,14 +150,18 @@ struct ContentView: View {
         speech.requestPermission()
         camera.start()
         ws.connect()
-        speech.onCommand = { cmd in
-            Task { @MainActor in capture(command: cmd) }
-        }
         speech.startListening()
     }
 
     private func capture(command: String) {
         guard !busy else { return }
+        // Require a spoken command — sending an empty one makes Felix guess from
+        // the image alone and produce a random note/expense.
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
         Task { @MainActor in
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             withAnimation(.easeOut(duration: 0.06)) { flash = 0.85 }
@@ -167,9 +172,11 @@ struct ContentView: View {
             defer { sending = false }
             try? await APIClient.ingest(
                 image: image,
-                voiceText: command,
+                voiceText: trimmed,
                 sessionID: sessionID
             )
+            // Sent — clear the transcript so the next command starts fresh.
+            speech.reset()
         }
     }
 }

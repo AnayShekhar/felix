@@ -1,4 +1,4 @@
-"""Groq workflow planner with a deterministic keyword fallback.
+"""Groq/Gemini workflow planner with a deterministic keyword fallback.
 
 The LLM converts user intent (voice + image) into an ordered workflow:
 {"steps": [{"tool": string, "args": {}}, ...]}. No prose, no abstract labels.
@@ -17,9 +17,13 @@ load_dotenv()
 
 logger = logging.getLogger("felix.llm")
 
+# Prioritize Gemini if available (per README), otherwise use Groq.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-# Vision-capable Groq model so the planner can read content from the image.
-MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+
+# Vision-capable models.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 VALID_TOOLS = (
     "notes.create_from_image",
@@ -41,8 +45,19 @@ SYSTEM_INSTRUCTION = (
     "Steps execute in order. To use a previous step's result in a later step, "
     'reference it as {{INDEX.FIELD}} inside a string arg, e.g. {{0.url}} is the '
     "URL produced by step 0. Most results expose: url, title.\n\n"
-    "When an image is provided, EXTRACT all relevant content from it and use it "
-    "to fill the document (slides bullets, sheet rows, note content).\n"
+    "When an image is provided, READ IT CAREFULLY and EXTRACT its content "
+    "VERBATIM to fill the document (slides bullets, sheet rows, note content). "
+    "Transcribe text exactly as written — preserve every number, name, date, "
+    "currency amount, email address, and unit precisely. Do NOT summarize, "
+    "paraphrase, round, correct spelling, or omit anything. For receipts and "
+    "tables, read every row and column and keep their order; align numbers to the "
+    "right columns.\n"
+    "ANTI-FABRICATION (critical for receipts): Use ONLY the merchant name, items, "
+    "quantities, and prices that are ACTUALLY PRINTED in the image. NEVER guess a "
+    "store from branding, NEVER substitute the e-commerce platform (e.g. do not "
+    "write 'Shopify', 'Square', 'Stripe') for the real store name, and NEVER make "
+    "up prices. Read each price digit-for-digit. If a field is unreadable, leave it "
+    "blank ('') instead of inventing a value. Better to leave a cell empty than wrong.\n"
     "CRITICAL: Output only literal values you actually extracted. NEVER invent "
     "placeholder tokens such as {{date}}, {{merchant}}, or {{image.text}} — the "
     "ONLY allowed templating is {{N.field}} referencing a PRIOR step's url/title.\n"
@@ -96,7 +111,7 @@ def _mock_plan(voice_text: str, image: str) -> dict:
 
     Cannot read the image, so document content is minimal in this mode.
     """
-    logger.warning("Falling back to keyword routing (no Groq).")
+    logger.warning("Falling back to keyword routing (no LLM).")
     text = voice_text.strip()
     lower = text.lower()
 
@@ -305,52 +320,90 @@ def _coerce_plan(data: dict, voice_text: str, image: str) -> dict:
     return {"steps": steps}
 
 
+def _call_gemini(voice_text: str, image: str) -> dict:
+    import google.generativeai as genai
+
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel(
+        model_name=GEMINI_MODEL,
+        system_instruction=SYSTEM_INSTRUCTION,
+    )
+
+    contents = [f"User voice command: {voice_text}"]
+    if image:
+        try:
+            img_data = base64.b64decode(image.split(",", 1)[1] if "," in image else image)
+            contents.append({"mime_type": "image/jpeg", "data": img_data})
+        except Exception as e:
+            logger.warning("Failed to decode base64 image for Gemini (%s)", e)
+
+    response = model.generate_content(
+        contents,
+        generation_config=genai.GenerationConfig(
+            response_mime_type="application/json",
+            temperature=0,
+        ),
+    )
+    raw = _strip_fences(response.text or "")
+    data = json.loads(raw)
+    return _coerce_plan(data, voice_text, image)
+
+
+def _call_groq(voice_text: str, image: str) -> dict:
+    from groq import Groq
+
+    client = Groq(api_key=GROQ_API_KEY)
+
+    user_content = [
+        {
+            "type": "text",
+            "text": (
+                f"User voice command: {voice_text}\n\n"
+                "Output ONLY the JSON workflow. No explanations, no markdown."
+            ),
+        }
+    ]
+
+    if image:
+        data_url = image if image.startswith("data:") else f"data:image/jpeg;base64,{image}"
+        try:
+            base64.b64decode(image.split(",", 1)[1] if "," in image else image)
+            user_content.append(
+                {"type": "image_url", "image_url": {"url": data_url}}
+            )
+        except Exception as e:
+            logger.warning("Failed to decode base64 image for Groq (%s)", e)
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=0,
+        response_format={"type": "json_object"},
+    )
+
+    raw = _strip_fences(response.choices[0].message.content or "")
+    data = json.loads(raw)
+    return _coerce_plan(data, voice_text, image)
+
+
 def parse_plan(voice_text: str, image: str) -> dict:
     """Turn voice + image into an ordered workflow {"steps": [...]}.
 
-    Falls back to keyword routing if the key is missing or the call fails.
+    Prioritizes Gemini, then Groq, then keyword fallback.
     """
-    if not GROQ_API_KEY:
-        return _mock_plan(voice_text, image)
+    if GEMINI_API_KEY:
+        try:
+            return _call_gemini(voice_text, image)
+        except Exception as exc:
+            logger.warning("Gemini call failed (%s); trying Groq.", exc)
 
-    try:
-        from groq import Groq
+    if GROQ_API_KEY:
+        try:
+            return _call_groq(voice_text, image)
+        except Exception as exc:
+            logger.warning("Groq call failed (%s); using keyword fallback.", exc)
 
-        client = Groq(api_key=GROQ_API_KEY)
-
-        user_content = [
-            {
-                "type": "text",
-                "text": (
-                    f"User voice command: {voice_text}\n\n"
-                    "Output ONLY the JSON workflow. No explanations, no markdown."
-                ),
-            }
-        ]
-
-        if image:
-            data_url = image if image.startswith("data:") else f"data:image/jpeg;base64,{image}"
-            try:
-                base64.b64decode(image.split(",", 1)[1] if "," in image else image)
-                user_content.append(
-                    {"type": "image_url", "image_url": {"url": data_url}}
-                )
-            except Exception as e:  # noqa: BLE001
-                logger.warning("Failed to decode base64 image (%s); skipping.", e)
-
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
-                {"role": "user", "content": user_content},
-            ],
-            temperature=0,
-            response_format={"type": "json_object"},
-        )
-
-        raw = _strip_fences(response.choices[0].message.content or "")
-        data = json.loads(raw)
-        return _coerce_plan(data, voice_text, image)
-    except Exception as exc:  # noqa: BLE001 - demo must never crash
-        logger.warning("Groq call failed (%s); using keyword fallback.", exc)
-        return _mock_plan(voice_text, image)
+    return _mock_plan(voice_text, image)

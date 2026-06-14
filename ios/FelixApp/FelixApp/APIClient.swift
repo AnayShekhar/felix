@@ -7,8 +7,9 @@ enum APIClient {
     /// live updates from there; the returned steps are best-effort.
     @discardableResult
     static func ingest(image: UIImage?, voiceText: String, sessionID: String) async throws -> [StepResult] {
+        // Higher quality => more reliable text extraction (OCR) by the model.
         let base64 = image?
-            .jpegData(compressionQuality: 0.5)?
+            .jpegData(compressionQuality: 0.85)?
             .base64EncodedString() ?? ""
 
         let payload = IngestPayload(
