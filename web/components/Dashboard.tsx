@@ -88,17 +88,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     let closedByUs = false;
-    setStatus("connecting");
-    const ws = new WebSocket(WS_URL);
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    ws.onopen = () => setStatus("connected");
-    ws.onclose = () => !closedByUs && setStatus("disconnected");
-    ws.onerror = () => setStatus("disconnected");
-
-    ws.onmessage = (msg) => {
+    const onMessage = (msg: MessageEvent) => {
       let evt: FelixEvent;
       try {
-        evt = JSON.parse(msg.data) as FelixEvent;
+        evt = JSON.parse(msg.data as string) as FelixEvent;
       } catch {
         return;
       }
@@ -175,9 +171,28 @@ export default function Dashboard() {
       });
     };
 
+    const connect = () => {
+      if (closedByUs) return;
+      setStatus("connecting");
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => setStatus("connected");
+      ws.onclose = () => {
+        if (!closedByUs) {
+          setStatus("disconnected");
+          reconnectTimer = setTimeout(connect, 2000);
+        }
+      };
+      ws.onerror = () => setStatus("disconnected");
+      ws.onmessage = onMessage;
+    };
+
+    connect();
+
     return () => {
       closedByUs = true;
-      ws.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      ws?.close();
     };
   }, []);
 

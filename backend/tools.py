@@ -277,6 +277,9 @@ def numbers_create_spreadsheet(args: dict) -> dict:
 
     ncols = max((len(r) for r in values), default=1)
     nrows = len(values)
+    # Numbers rejects row/column counts below 2 (header row/column minimum).
+    ncols = max(ncols, 2)
+    nrows = max(nrows, 2)
     fill = _numbers_fill_lines(values)
 
     script = (
@@ -366,13 +369,14 @@ def numbers_add_expense(args: dict) -> dict:
         # Create the file with a header row + the expense row(s), then save.
         values = [EXPENSE_HEADERS] + rows
         fill = _numbers_fill_lines(values)
+        table_rows = max(len(values), 2)
         script = (
             'tell application "Numbers"\n'
             "    activate\n"
             "    set doc to make new document\n"
             "    tell table 1 of sheet 1 of doc\n"
-            f"        set column count to {ncols}\n"
-            f"        set row count to {len(values)}\n"
+            f"        set column count to {max(ncols, 2)}\n"
+            f"        set row count to {table_rows}\n"
             f"        {fill}\n"
             "    end tell\n"
             f'    save doc in POSIX file "{path_as}"\n'

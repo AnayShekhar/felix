@@ -231,18 +231,23 @@ You need 3 things running at once.
 **1. Start the backend** (the brain):
 ```bash
 cd backend
-./venv/bin/uvicorn main:app --reload --port 8000
+./venv/bin/uvicorn main:app --reload --reload-dir . --reload-exclude 'venv' --port 8000
 ```
 
 **2. Start the tunnel** (so the phone can reach your Mac from the internet):
 ```bash
-ngrok http 8000 --domain=greyhound-self-division.ngrok-free.dev
+ngrok http 8000
 ```
-Check it's alive by going to the `/health` link — it should say `{"status":"ok"}`.
+Ngrok prints a public URL like `https://something.ngrok-free.dev`. Copy it into
+`ios/FelixApp/FelixApp/Config.swift` (`baseURL`). If you have a reserved domain on
+your ngrok account, use `ngrok http 8000 --url=your-domain.ngrok-free.dev` instead.
+
+Check it's alive by going to `https://<your-ngrok-url>/health` — it should say
+`{"status":"ok"}`.
 
 **3. Run the iOS app:**
 - Open the Xcode project in `ios/FelixApp/`.
-- Make sure `Config.swift` has the ngrok web address in it.
+- Make sure `ios/FelixApp/FelixApp/Config.swift` has the ngrok URL from step 2.
 - Plug in your iPhone and hit Run. (Use a real phone, not the simulator, so the
   camera and mic actually work.)
 

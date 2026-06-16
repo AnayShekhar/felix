@@ -5,13 +5,27 @@ struct ContentView: View {
     @StateObject private var camera = CameraManager()
     @StateObject private var speech = SpeechRecognizer()
     @StateObject private var ws = WebSocketClient()
+    @StateObject private var discovery = MacDiscovery()
 
     @State private var sending = false
     @State private var flash = 0.0
+    @State private var typedPrompt = ""
+    @FocusState private var promptFocused: Bool
 
     private let sessionID = "ios-\(UUID().uuidString.prefix(6))"
 
     private var busy: Bool { sending || ws.working }
+
+    /// Typed prompt wins over voice when both are present.
+    private var effectiveCommand: String {
+        let typed = typedPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !typed.isEmpty { return typed }
+        return speech.command.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var canCapture: Bool {
+        !busy && discovery.baseURL != nil && !effectiveCommand.isEmpty
+    }
 
     var body: some View {
         ZStack {
@@ -40,7 +54,10 @@ struct ContentView: View {
                     ResultToast(result: result).padding(.horizontal, 20).padding(.bottom, 14)
                 }
                 statusChip
-                    .padding(.bottom, 18)
+                    .padding(.bottom, 12)
+                promptBar
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
                 shutter
                     .padding(.bottom, 28)
             }
@@ -48,6 +65,13 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .onAppear(perform: setup)
+        .onChange(of: discovery.baseURL) { _, base in
+            guard let base else {
+                ws.disconnect()
+                return
+            }
+            ws.connect(to: Config.wsURL(base: base))
+        }
     }
 
     // MARK: - Sections
@@ -114,20 +138,61 @@ struct ContentView: View {
 
     private var statusText: String {
         if busy { return "Felix is working…" }
-        if !speech.command.isEmpty { return speech.command }
+        if !ws.connected { return discovery.statusText }
+        if promptFocused { return "Type your command…" }
+        if !effectiveCommand.isEmpty { return effectiveCommand }
         switch speech.phase {
         case .hearing:
             return "Listening…"
         case .waiting:
-            return "Say “Hey Felix”"
+            return "Say “Hey Felix” or type below"
         case .idle:
             return "Starting…"
         }
     }
 
+    private var promptBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "text.cursor")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.7))
+
+            TextField("turn this into notes", text: $typedPrompt)
+                .focused($promptFocused)
+                .textFieldStyle(.plain)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.white)
+                .submitLabel(.done)
+                .onSubmit { promptFocused = false }
+
+            if !typedPrompt.isEmpty {
+                Button {
+                    typedPrompt = ""
+                    promptFocused = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    promptFocused ? Color.white.opacity(0.45) : Color.white.opacity(0.12),
+                    lineWidth: 1
+                )
+        )
+    }
+
     private var shutter: some View {
         Button {
-            capture(command: speech.command)
+            promptFocused = false
+            capture(command: effectiveCommand)
         } label: {
             ZStack {
                 Circle().stroke(.white.opacity(0.9), lineWidth: 4).frame(width: 74, height: 74)
@@ -140,7 +205,8 @@ struct ContentView: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(busy)
+        .disabled(!canCapture)
+        .opacity(canCapture ? 1 : 0.5)
         .accessibilityLabel("Capture and send to Felix")
     }
 
@@ -149,12 +215,16 @@ struct ContentView: View {
     private func setup() {
         speech.requestPermission()
         camera.start()
-        ws.connect()
+        discovery.start()
         speech.startListening()
     }
 
     private func capture(command: String) {
         guard !busy else { return }
+        guard let baseURL = discovery.baseURL else {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
         // Require a spoken command — sending an empty one makes Felix guess from
         // the image alone and produce a random note/expense.
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -173,10 +243,12 @@ struct ContentView: View {
             try? await APIClient.ingest(
                 image: image,
                 voiceText: trimmed,
-                sessionID: sessionID
+                sessionID: sessionID,
+                baseURL: baseURL
             )
-            // Sent — clear the transcript so the next command starts fresh.
+            // Sent — clear voice + typed prompt for the next capture.
             speech.reset()
+            typedPrompt = ""
         }
     }
 }

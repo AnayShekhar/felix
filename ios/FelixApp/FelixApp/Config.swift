@@ -1,17 +1,12 @@
 import Foundation
 
 enum Config {
-    // 🔧 After deploying to Cloud Run, paste your service URL here.
-    //    e.g. "https://felix-backend-abc123-uc.a.run.app"
-    //    For LAN testing against your Mac instead, use "http://<your-mac-ip>:8000".
-    static let baseURL = "https://greyhound-self-division.ngrok-free.dev"
+    static func ingestURL(base: String) -> URL {
+        URL(string: "\(base)/ingest")!
+    }
 
-
-    static var ingestURL: URL { URL(string: "\(baseURL)/ingest")! }
-
-    static var wsURL: URL {
-        // https -> wss, http -> ws
-        let ws = baseURL
+    static func wsURL(base: String) -> URL {
+        let ws = base
             .replacingOccurrences(of: "https://", with: "wss://")
             .replacingOccurrences(of: "http://", with: "ws://")
         return URL(string: "\(ws)/ws")!

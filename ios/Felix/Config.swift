@@ -4,7 +4,7 @@ enum Config {
     // 🔧 After deploying to Cloud Run, paste your service URL here.
     //    e.g. "https://felix-backend-abc123-uc.a.run.app"
     //    For LAN testing against your Mac instead, use "http://<your-mac-ip>:8000".
-    static let baseURL = "https://greyhound-self-division.ngrok-free.dev"
+    static let baseURL = "https://exciting-essential-writing.ngrok-free.dev"
 
 
     static var ingestURL: URL { URL(string: "\(baseURL)/ingest")! }

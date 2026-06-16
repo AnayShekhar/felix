@@ -1,0 +1,268 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXFileReference section */
+		F1A100012FDDBE2C005BA1F5 /* FelixMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FelixMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		F1A100022FDDC01B005BA1F5 /* Exceptions for "FelixMac" folder in "FelixMac" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				FelixMac.entitlements,
+			);
+			target = F1A100032FDDBE2C005BA1F5 /* FelixMac */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		F1A100042FDDBE2C005BA1F5 /* FelixMac */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F1A100022FDDC01B005BA1F5 /* Exceptions for "FelixMac" folder in "FelixMac" target */,
+			);
+			path = FelixMac;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F1A100052FDDBE2C005BA1F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		F1A100062FDDBE2C005BA1F5 = {
+			isa = PBXGroup;
+			children = (
+				F1A100042FDDBE2C005BA1F5 /* FelixMac */,
+				F1A100072FDDBE2C005BA1F5 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		F1A100072FDDBE2C005BA1F5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F1A100012FDDBE2C005BA1F5 /* FelixMac.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F1A100032FDDBE2C005BA1F5 /* FelixMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F1A100082FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixMac" */;
+			buildPhases = (
+				F1A100092FDDBE2C005BA1F5 /* Sources */,
+				F1A100052FDDBE2C005BA1F5 /* Frameworks */,
+				F1A1000A2FDDBE2C005BA1F5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F1A100042FDDBE2C005BA1F5 /* FelixMac */,
+			);
+			name = FelixMac;
+			packageProductDependencies = (
+			);
+			productName = FelixMac;
+			productReference = F1A100012FDDBE2C005BA1F5 /* FelixMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F1A1000B2FDDBE2C005BA1F5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2630;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					F1A100032FDDBE2C005BA1F5 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+				};
+			};
+			buildConfigurationList = F1A1000C2FDDBE2D005BA1F5 /* Build configuration list for PBXProject "FelixMac" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = F1A100062FDDBE2C005BA1F5;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F1A100072FDDBE2C005BA1F5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F1A100032FDDBE2C005BA1F5 /* FelixMac */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F1A1000A2FDDBE2C005BA1F5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F1A100092FDDBE2C005BA1F5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F1A1000D2FDDBE2D005BA1F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		F1A1000E2FDDBE2D005BA1F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F1A1000F2FDDBE2D005BA1F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FelixMac/FelixMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S4B33K9ZHH;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FelixMac/Info.plist;
+				INFOPLIST_KEY_FelixRepoRoot = "$(SRCROOT)/../..";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSUserNotificationUsageDescription = "Felix notifies you when it starts in the menu bar.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Felix advertises on your local network so your iPhone can find this Mac.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ishaan.FelixMac;
+				PRODUCT_NAME = Felix;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		F1A100102FDDBE2D005BA1F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FelixMac/FelixMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = S4B33K9ZHH;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FelixMac/Info.plist;
+				INFOPLIST_KEY_FelixRepoRoot = "$(SRCROOT)/../..";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSUserNotificationUsageDescription = "Felix notifies you when it starts in the menu bar.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Felix advertises on your local network so your iPhone can find this Mac.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ishaan.FelixMac;
+				PRODUCT_NAME = Felix;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F1A1000C2FDDBE2D005BA1F5 /* Build configuration list for PBXProject "FelixMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F1A1000D2FDDBE2D005BA1F5 /* Debug */,
+				F1A1000E2FDDBE2D005BA1F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F1A100082FDDBE2D005BA1F5 /* Build configuration list for PBXNativeTarget "FelixMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F1A1000F2FDDBE2D005BA1F5 /* Debug */,
+				F1A100102FDDBE2D005BA1F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F1A1000B2FDDBE2C005BA1F5 /* Project object */;
+}

@@ -9,15 +9,31 @@ final class WebSocketClient: ObservableObject {
 
     private var task: URLSessionWebSocketTask?
     private var wantConnection = false
+    private var currentURL: URL?
 
-    func connect() {
+    func connect(to wsURL: URL) {
+        if currentURL == wsURL, task != nil { return }
+        disconnect()
         wantConnection = true
-        guard task == nil else { return }
-        let t = URLSession.shared.webSocketTask(with: Config.wsURL)
+        currentURL = wsURL
+        let t = URLSession.shared.webSocketTask(with: wsURL)
         task = t
         t.resume()
-        connected = true
+        verifyConnection()
         receive()
+    }
+
+    private func verifyConnection() {
+        task?.sendPing { [weak self] error in
+            Task { @MainActor in
+                guard let self, self.wantConnection else { return }
+                if error != nil {
+                    self.handleDisconnect()
+                } else {
+                    self.connected = true
+                }
+            }
+        }
     }
 
     private func receive() {
@@ -30,7 +46,7 @@ final class WebSocketClient: ObservableObject {
                    let env = try? JSONDecoder().decode(WSEnvelope.self, from: data) {
                     Task { @MainActor in self.handle(env) }
                 }
-                self.receive() // keep listening
+                self.receive()
             case .failure:
                 Task { @MainActor in self.handleDisconnect() }
             }
@@ -57,16 +73,18 @@ final class WebSocketClient: ObservableObject {
     private func handleDisconnect() {
         connected = false
         task = nil
-        guard wantConnection else { return }
-        // Auto-reconnect after a short delay.
+        guard wantConnection, let url = currentURL else { return }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_000_000_000)
-            if self.wantConnection { self.connect() }
+            if self.wantConnection, self.currentURL == url {
+                self.connect(to: url)
+            }
         }
     }
 
     func disconnect() {
         wantConnection = false
+        currentURL = nil
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         connected = false
