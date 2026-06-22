@@ -10,6 +10,8 @@ import logging
 import re
 from typing import Awaitable, Callable, List
 
+import db
+import memory
 import tools
 
 logger = logging.getLogger("felix.engine")
@@ -57,20 +59,33 @@ async def run_workflow(
         tool = step.get("tool", "")
         args = _substitute(step.get("args", {}) or {}, results)
 
+        # Log the attempt before executing so even a crash leaves a trail.
+        action_id = db.record_action(session_id, tool, args)
+
         # Announce the step is starting so the UI can show live progress.
         await broadcast({
             "session_id": session_id,
             "event": "step_started",
-            "data": {"index": i, "total": total, "tool": tool, "args": args},
+            "data": {"index": i, "total": total, "tool": tool, "args": args,
+                     "action_id": action_id},
         })
 
         result = await loop.run_in_executor(None, tools.execute, tool, args)
         results.append(result)
 
+        # Persist the result + undo info so it shows up in /history.
+        undo_available, undo_script = tools.build_undo(tool, args, result)
+        db.complete_action(action_id, result, undo_available, undo_script)
+
+        # Learn durable preferences from successful actions (Phase 3 memory).
+        memory.learn_from_action(tool, args, result)
+
         event = {
             "session_id": session_id,
             "event": "step_executed",
-            "data": {"index": i, "total": total, "tool": tool, "args": args, **result},
+            "data": {"index": i, "total": total, "tool": tool, "args": args,
+                     "action_id": action_id, "undo_available": undo_available,
+                     **result},
         }
         set_latest(event)
         await broadcast(event)

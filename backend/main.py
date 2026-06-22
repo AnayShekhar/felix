@@ -1,16 +1,30 @@
 """Felix backend entrypoint."""
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+import db
+import tasks
 import websocket as ws_module
 from routes import router
 from websocket import manager
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="Felix Backend")
+# Ensure the action-history SQLite store exists before serving requests.
+db.init_db()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the background task worker inside the running event loop (Phase 5).
+    tasks.start_worker()
+    yield
+
+
+app = FastAPI(title="Felix Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

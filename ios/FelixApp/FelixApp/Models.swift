@@ -25,15 +25,39 @@ struct IngestResponse: Codable {
     let steps: [StepResult]?
 }
 
+// One row from GET /history. Matches backend db._row_to_dict output.
+struct ActionHistoryItem: Codable, Identifiable {
+    let id: Int
+    let session_id: String?
+    let timestamp: Double?
+    let tool_name: String?
+    let status: String?
+    let message: String?
+    let title: String?
+    let undo_available: Bool
+}
+
+// GET /history response: { "actions": [ActionHistoryItem] }
+struct HistoryResponse: Codable {
+    let actions: [ActionHistoryItem]?
+}
+
+// POST /undo/{id} response: { action_id, status, message }
+struct UndoResponse: Codable {
+    let action_id: Int?
+    let status: String?
+    let message: String?
+}
+
 // WebSocket envelope: { session_id, event, data }
-// Events: "step_started", "step_executed", "workflow_complete"
+// Events: "step_started", "step_executed", "workflow_complete", "action_undone"
 struct WSEnvelope: Codable {
     let session_id: String?
     let event: String?
     let data: WSData?
 }
 
-// Flexible payload covering both per-step events and workflow_complete.
+// Flexible payload covering per-step, workflow_complete, and task_* events.
 struct WSData: Codable {
     let index: Int?
     let total: Int?
@@ -44,4 +68,22 @@ struct WSData: Codable {
     let detail: String?
     let url: String?
     let steps: [StepResult]?   // present on workflow_complete
+    let task_id: String?       // present on task_started/task_progress/task_complete
+    let progress_pct: Int?     // present on task_progress/task_complete
+    let instruction: String?   // present on task_started
+}
+
+// POST /task response: { task_id, status }
+struct TaskCreateResponse: Codable {
+    let task_id: String?
+    let status: String?
+}
+
+// Live state of a background autonomous task (Phase 5), driven by WS events.
+struct TaskState: Identifiable {
+    let id: String          // task_id
+    var instruction: String
+    var status: String      // queued | running | done | failed
+    var progressPct: Int
+    var active: Bool { status == "queued" || status == "running" }
 }

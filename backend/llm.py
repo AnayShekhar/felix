@@ -13,6 +13,8 @@ import re
 
 from dotenv import load_dotenv
 
+import memory
+
 load_dotenv()
 
 logger = logging.getLogger("felix.llm")
@@ -104,6 +106,12 @@ SYSTEM_INSTRUCTION = (
     "Note: Apple Numbers files are local and have NO url, so never reference "
     "{{N.url}} for a numbers step."
 )
+
+
+def _system_instruction() -> str:
+    """Base instruction plus any learned user memory (Phase 3)."""
+    block = memory.as_prompt_block()
+    return SYSTEM_INSTRUCTION + block if block else SYSTEM_INSTRUCTION
 
 
 def _mock_plan(voice_text: str, image: str) -> dict:
@@ -326,7 +334,7 @@ def _call_gemini(voice_text: str, image: str) -> dict:
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel(
         model_name=GEMINI_MODEL,
-        system_instruction=SYSTEM_INSTRUCTION,
+        system_instruction=_system_instruction(),
     )
 
     contents = [f"User voice command: {voice_text}"]
@@ -377,7 +385,7 @@ def _call_groq(voice_text: str, image: str) -> dict:
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "system", "content": _system_instruction()},
             {"role": "user", "content": user_content},
         ],
         temperature=0,

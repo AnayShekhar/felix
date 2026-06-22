@@ -5,3 +5,9 @@
 venv/
 __pycache__/
 *.pyc
+
+# action history database
+actions.db
+
+# learned user preferences
+memory.json

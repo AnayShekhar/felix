@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var sending = false
     @State private var flash = 0.0
     @State private var typedPrompt = ""
+    @State private var showHistory = false
+    @State private var longTask = false
     @FocusState private var promptFocused: Bool
 
     private let sessionID = "ios-\(UUID().uuidString.prefix(6))"
@@ -50,11 +52,15 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 topBar
                 Spacer()
-                if let result = ws.latest {
+                if let task = ws.activeTask, task.active {
+                    TaskProgressToast(task: task).padding(.horizontal, 20).padding(.bottom, 14)
+                } else if let result = ws.latest {
                     ResultToast(result: result).padding(.horizontal, 20).padding(.bottom, 14)
                 }
                 statusChip
                     .padding(.bottom, 12)
+                longTaskToggle
+                    .padding(.bottom, 10)
                 promptBar
                     .padding(.horizontal, 20)
                     .padding(.bottom, 16)
@@ -64,6 +70,9 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
+        .sheet(isPresented: $showHistory) {
+            HistoryView(baseURL: discovery.baseURL, ws: ws)
+        }
         .onAppear(perform: setup)
         .onChange(of: discovery.baseURL) { _, base in
             guard let base else {
@@ -99,6 +108,18 @@ struct ContentView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(.ultraThinMaterial, in: Capsule())
+
+            Button {
+                showHistory = true
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Action history")
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
@@ -149,6 +170,31 @@ struct ContentView: View {
         case .idle:
             return "Starting…"
         }
+    }
+
+    private var longTaskToggle: some View {
+        Button {
+            longTask.toggle()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: longTask ? "bolt.fill" : "bolt")
+                    .font(.system(size: 12, weight: .bold))
+                Text(longTask ? "Long task: on" : "Long task")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundStyle(longTask ? Color.black : Color.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                longTask ? AnyShapeStyle(Color(red: 1.0, green: 0.72, blue: 0.30))
+                         : AnyShapeStyle(.ultraThinMaterial),
+                in: Capsule()
+            )
+            .overlay(Capsule().strokeBorder(.white.opacity(longTask ? 0 : 0.15), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(longTask ? "Long task mode on" : "Long task mode off")
     }
 
     private var promptBar: some View {
@@ -240,12 +286,21 @@ struct ContentView: View {
 
             sending = true
             defer { sending = false }
-            try? await APIClient.ingest(
-                image: image,
-                voiceText: trimmed,
-                sessionID: sessionID,
-                baseURL: baseURL
-            )
+            if longTask {
+                // Long task mode: queue a background autonomous task (Phase 5).
+                _ = try? await APIClient.createTask(
+                    instruction: trimmed,
+                    sessionID: sessionID,
+                    baseURL: baseURL
+                )
+            } else {
+                _ = try? await APIClient.ingest(
+                    image: image,
+                    voiceText: trimmed,
+                    sessionID: sessionID,
+                    baseURL: baseURL
+                )
+            }
             // Sent — clear voice + typed prompt for the next capture.
             speech.reset()
             typedPrompt = ""
@@ -312,7 +367,51 @@ private struct ResultToast: View {
     }
 }
 
-private func toolMeta(_ tool: String?) -> (label: String, symbol: String) {
+// MARK: - Task progress toast (Phase 5)
+
+private struct TaskProgressToast: View {
+    let task: TaskState
+    private let accent = Color(red: 1.0, green: 0.72, blue: 0.30)
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(accent)
+                    .frame(width: 42, height: 42)
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.black)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Text("WORKING IN BACKGROUND")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.6))
+                Text(task.instruction)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                ProgressView(value: Double(task.progressPct), total: 100)
+                    .tint(accent)
+                    .scaleEffect(x: 1, y: 0.8, anchor: .center)
+            }
+            Text("\(task.progressPct)%")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.8))
+                .monospacedDigit()
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+        )
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: task.progressPct)
+    }
+}
+
+func toolMeta(_ tool: String?) -> (label: String, symbol: String) {
     switch tool {
     case "notes.create_from_image": return ("Apple Notes", "note.text")
     case "numbers.create_spreadsheet", "numbers.add_expense": return ("Apple Numbers", "tablecells")
