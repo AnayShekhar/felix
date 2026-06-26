@@ -19,7 +19,7 @@ enum FelixBrand {
     static let error = Color(red: 0.95, green: 0.36, blue: 0.33)
 
     /// Persistence + networking defaults (matches CLAUDE.md API contract).
-    static let defaultBackendURL = "https://felix-production-38e6.up.railway.app"
+    static let defaultBackendURL = "https://felix-production-a0f5.up.railway.app"
     static let backendURLKey = "felix.backendURL"
     static let notifyCompletionKey = "felix.notify.completion"
     static let notifyErrorsKey = "felix.notify.errors"

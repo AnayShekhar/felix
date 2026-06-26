@@ -46,7 +46,7 @@ final class AppSettings: ObservableObject {
     }
 
     /// Used when no Mac is discovered and no manual URL is set.
-    let fallbackURL = "https://felix-production-38e6.up.railway.app"
+    let fallbackURL = "https://felix-production-a0f5.up.railway.app"
 
     init() {
         let d = UserDefaults.standard
