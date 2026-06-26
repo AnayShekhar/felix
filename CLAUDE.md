@@ -1,7 +1,8 @@
 # Felix – CLAUDE.md
 
 ## Stack
-- Backend: Python + FastAPI + uvicorn, SQLite for persistence, deployed on Cloud Run
+- Backend: Python + FastAPI + uvicorn, SQLite for persistence, deployed on Railway
+  (permanent public URL; ngrok only for local dev)
 - iOS: Swift + SwiftUI, iOS 17+, AVFoundation, Speech framework, no third-party deps
 - Mac: SwiftUI menu bar app, LSUIElement = YES
 - AI: Groq llama-4-scout ONLY (multimodal — text + vision)
@@ -23,6 +24,12 @@ web-client/     Single-file HTML/JS fallback frontend
 - All API errors must surface in UI, no silent console-only failures
 - Dark mode only across all frontends
 - SF Pro font, single brand accent color (not blue, not purple)
+- Backend deployed on Railway with a permanent public URL; ngrok is for local
+  development only
+- "ios_action" is a valid result status: the tool returns a phone-side URL
+  scheme in the `url` field (with optional `fallback_url`), and the iOS client
+  opens it directly with UIApplication.shared.open
+- All irreversible tools require confirmation (see IRREVERSIBLE_TOOLS)
 
 ## API contracts
 POST /ingest        { session_id, image (base64), voice_text, timestamp }
@@ -43,9 +50,11 @@ Two optional fields are also returned and broadcast over WebSocket:
   the Mac dashboard expandable card.
 The LLM (backend/llm.py) routes intent to one of these tools.
 - content: notes.create_from_image, slides.create_presentation, numbers.create_spreadsheet, numbers.add_expense
-- media: spotify.play_song
-- comms: gmail.draft_email
-- browser: browser.open_url
+- media: media.play_pause, media.next_track, media.previous_track, media.open_spotify, media.open_apple_music
+- comms: gmail.draft_email, gmail.read_inbox, gmail.read_email, gmail.reply_draft
+- browser: browser.open_url, browser.read_page, browser.fill_form
+- notes: notes.create_from_image, notes.append_to_note, notes.list_notes
+- numbers: numbers.create_spreadsheet, numbers.add_expense, numbers.read_sheet, numbers.edit_cell
 - system: system.set_volume, system.set_brightness, system.open_focus_settings, system.lock_screen, system.empty_trash, system.get_battery
 - finder: finder.open_file, finder.find_file, finder.move_file, finder.create_folder, finder.rename_file, finder.show_in_finder
 - clipboard: clipboard.copy_text
@@ -54,6 +63,7 @@ The LLM (backend/llm.py) routes intent to one of these tools.
 - contacts: contacts.find
 - screen: screen.capture_and_describe, screen.capture_and_act (Groq vision)
 - web: web.search, web.fetch_page, web.research (research agent — searches, fetches, synthesizes with Groq, saves a Note)
+- ios (native, returns "ios_action" + url for the phone to open): ios.create_reminder, ios.create_note, ios.open_maps, ios.send_message_draft
 
 ## Memory (backend/memory.py)
 Learns deterministic prefs from successful actions: expense_file, music_service,

@@ -137,7 +137,7 @@ def _decode_list(value) -> list:
 
 # Friendly names for tool prefixes when summarizing command_patterns.
 _CATEGORY_NAMES = {
-    "spotify": "music",
+    "media": "music",
     "gmail": "email",
     "numbers": "spreadsheets",
     "slides": "presentations",
@@ -194,8 +194,11 @@ def learn_from_action(tool: str, args: dict, result: dict) -> None:
         if data.get("file"):
             set_pref("expense_file", data["file"])
 
-    elif tool == "spotify.play_song":
+    elif tool == "media.open_spotify":
         set_pref("music_service", "Spotify")
+
+    elif tool == "media.open_apple_music":
+        set_pref("music_service", "Apple Music")
 
     elif tool == "gmail.draft_email":
         to = str(data.get("to") or args.get("to") or "").strip()

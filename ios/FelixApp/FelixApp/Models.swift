@@ -69,6 +69,7 @@ struct WSData: Codable {
     let title: String?
     let detail: String?
     let url: String?
+    let fallback_url: String?  // ios_action: alternate scheme if `url` won't open (Phase 5)
     let speak: String?         // short spoken summary (Fix 7)
     let summary: String?       // longer formatted display text (Fix 8)
     let steps: [StepResult]?   // present on workflow_complete

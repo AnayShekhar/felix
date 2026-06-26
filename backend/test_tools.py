@@ -33,7 +33,11 @@ SAMPLES: dict[str, dict] = {
         "title": "Felix Test Note",
         "content": "This note was created by test_tools.py.",
     },
-    "spotify.play_song": {"query": "Bohemian Rhapsody"},
+    "media.open_spotify": {"query": "Bohemian Rhapsody"},
+    "media.open_apple_music": {"query": "Bohemian Rhapsody"},
+    "media.play_pause": {},
+    "media.next_track": {},
+    "media.previous_track": {},
     "gmail.draft_email": {
         "to": "test@example.com",
         "subject": "Felix test draft",

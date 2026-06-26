@@ -27,13 +27,12 @@ enum FelixBrand {
     static let appVersion = "1.1"
 }
 
-/// Maps backend tool names (e.g. "spotify.play_song") to an SF Symbol + tint so
+/// Maps backend tool names (e.g. "media.open_spotify") to an SF Symbol + tint so
 /// every surface renders the same tool identically.
 enum ToolStyle {
     static func icon(for tool: String?) -> String {
         switch tool ?? "" {
         case "notes.create_from_image":     return "note.text"
-        case "spotify.play_song":           return "music.note"
         case "gmail.draft_email":           return "envelope.fill"
         case "browser.open_url":            return "safari.fill"
         case "slides.create_presentation":  return "rectangle.on.rectangle.angled"
@@ -47,11 +46,12 @@ enum ToolStyle {
     static func tint(for tool: String?) -> Color {
         switch (tool ?? "").split(separator: ".").first.map(String.init) ?? "" {
         case "notes":   return Color(red: 0.98, green: 0.78, blue: 0.20)
-        case "spotify": return Color(red: 0.34, green: 0.82, blue: 0.46)
+        case "media":   return Color(red: 0.34, green: 0.82, blue: 0.46)
         case "gmail":   return Color(red: 0.94, green: 0.40, blue: 0.36)
         case "browser": return Color(red: 0.36, green: 0.66, blue: 0.96)
         case "slides":  return Color(red: 0.96, green: 0.58, blue: 0.26)
         case "numbers": return Color(red: 0.40, green: 0.80, blue: 0.70)
+        case "ios":     return Color(red: 0.58, green: 0.56, blue: 0.98)
         default:        return FelixBrand.accent
         }
     }
@@ -60,11 +60,15 @@ enum ToolStyle {
         let prefix = (tool ?? "").split(separator: ".").first.map(String.init) ?? ""
         switch prefix {
         case "notes":   return "note.text"
-        case "spotify": return "music.note"
+        case "media":   return "music.note"
         case "gmail":   return "envelope.fill"
         case "browser": return "safari.fill"
         case "slides":  return "rectangle.on.rectangle.angled"
         case "numbers": return "tablecells.fill"
+        case "calendar": return "calendar"
+        case "reminders": return "checklist"
+        case "contacts": return "person.crop.circle"
+        case "ios":     return "iphone"
         default:        return "sparkles"
         }
     }
@@ -80,7 +84,7 @@ enum ToolSummary {
         return "Action"
     }
 
-    /// "spotify.play_song" -> "Spotify · Play Song"
+    /// "media.open_spotify" -> "Media · Open Spotify"
     static func prettyToolName(_ tool: String) -> String {
         let parts = tool.split(separator: ".")
         return parts.map { seg in

@@ -114,12 +114,34 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"
 
 VALID_TOOLS = (
     "notes.create_from_image",
-    "spotify.play_song",
     "gmail.draft_email",
     "browser.open_url",
     "slides.create_presentation",
     "numbers.create_spreadsheet",
     "numbers.add_expense",
+    # Email reading (Phase 2)
+    "gmail.read_inbox",
+    "gmail.read_email",
+    "gmail.reply_draft",
+    # Browser reading/automation (Phase 3)
+    "browser.read_page",
+    "browser.fill_form",
+    # Document editing (Phase 4)
+    "notes.append_to_note",
+    "notes.list_notes",
+    "numbers.read_sheet",
+    "numbers.edit_cell",
+    # iOS native actions (Phase 5)
+    "ios.create_reminder",
+    "ios.create_note",
+    "ios.open_maps",
+    "ios.send_message_draft",
+    # Media controls (Phase 6)
+    "media.play_pause",
+    "media.next_track",
+    "media.previous_track",
+    "media.open_spotify",
+    "media.open_apple_music",
     # System control (Phase 1b)
     "system.set_volume",
     "system.set_brightness",
@@ -206,8 +228,13 @@ SYSTEM_INSTRUCTION = (
     'args: {"rows": [[date, merchant, category, amount, notes], ...]}\n'
     "3. notes.create_from_image — Apple Notes note from extracted image text. "
     'args: {"title": str, "content": str}\n'
-    "4. spotify.play_song — Open Spotify, search and play. "
-    'args: {"query": str}\n'
+    "4. media.open_spotify — Open Spotify and start playback, optionally for a "
+    'search query ("play X on Spotify"). args: {"query"?: str}\n'
+    "4b. media.open_apple_music — Open Apple Music and play, optionally a query. "
+    'args: {"query"?: str}\n'
+    "4c. media.play_pause — Toggle play/pause of whatever is playing. args: {}\n"
+    "4d. media.next_track — Skip to the next track. args: {}\n"
+    "4e. media.previous_track — Go to the previous track. args: {}\n"
     "5. gmail.draft_email — Open a Gmail compose window in Chrome (do NOT send). "
     'args: {"to": str, "subject": str, "body": str}\n'
     "6. browser.open_url — Open Chrome at a URL. "
@@ -255,7 +282,8 @@ SYSTEM_INSTRUCTION = (
     "28. screen.capture_and_describe — Screenshot the Mac and describe what is on "
     'screen (use for "what am I looking at", "summarize this page"). args: {}\n'
     "29. screen.capture_and_act — Screenshot the Mac and act on what is visible "
-    '(use for "fix this error", "fill in this form"). args: {"instruction": str}\n'
+    '(use for "fix this error", "what should I do here"). For filling a web form '
+    "with known field selectors, prefer browser.fill_form. args: {\"instruction\": str}\n"
     "30. web.search — Search the web and return the top 5 results. "
     'args: {"query": str}\n'
     "31. web.fetch_page — Fetch a URL and return its clean text (truncated). "
@@ -263,14 +291,53 @@ SYSTEM_INSTRUCTION = (
     "32. web.research — Research a topic end-to-end (multiple searches + page "
     "fetches), synthesize with citations, and save the result as a Note. Use for "
     '"research X", "find out about X", "look up X", "what is X", "summarize X", '
-    '"learn about X". args: {"topic": str, "output_format": "note"|"document"|"summary"}\n\n'
+    '"learn about X". args: {"topic": str, "output_format": "note"|"document"|"summary"}\n'
+    "33. gmail.read_inbox — Read recent inbox emails (sender, subject, preview). "
+    'args: {"count"?: int}\n'
+    "34. gmail.read_email — Read the full email whose subject contains the query. "
+    'args: {"subject_query": str}\n'
+    "35. gmail.reply_draft — Open a pre-filled reply in Mail (do NOT send, "
+    'irreversible). args: {"subject_query": str, "reply_body": str}\n'
+    "36. browser.read_page — Read the current Chrome tab's title/URL/text (use "
+    "for 'what's on this page', 'summarize this site'). args: {}\n"
+    "37. browser.fill_form — Fill fields in the current Chrome tab and dispatch "
+    'input/change events (do NOT submit, irreversible). args: {"fields": [{"selector": str, "value": str}, ...]}\n'
+    "38. notes.append_to_note — Append content to a Notes note whose name matches "
+    'the title; creates it if none exists. args: {"title": str, "content": str}\n'
+    "39. notes.list_notes — List recent Apple Notes with dates. args: {\"count\"?: int}\n"
+    "40. numbers.read_sheet — Read the frontmost (or a given) Numbers spreadsheet. "
+    'args: {"file_path"?: str}\n'
+    "41. numbers.edit_cell — Set one cell in the frontmost Numbers spreadsheet. "
+    'args: {"row": int, "column": int, "value": str}\n'
+    "42. ios.create_reminder — Create a reminder natively on the user's iPHONE "
+    '(only when they say "on my phone"). args: {"title": str, "due_date"?: str}\n'
+    "43. ios.create_note — Create a note on the user's iPHONE. "
+    'args: {"title": str, "content": str}\n'
+    "44. ios.open_maps — Open Apple Maps on the iPHONE for a search/directions. "
+    'args: {"query": str}\n'
+    "45. ios.send_message_draft — Open a Messages draft on the iPHONE (do NOT "
+    'send, irreversible). args: {"contact": str, "message": str}\n\n'
     "Routing hints: 'turn up/down the volume' -> system.set_volume; 'brighter/"
     "dimmer' -> system.set_brightness; 'lock my mac' -> system.lock_screen; "
     "'how much battery' -> system.get_battery; 'find/open my X file' -> "
     "finder.open_file; 'schedule/add to my calendar' -> calendar.create_event; "
     "'remind me to' -> reminders.add_item; 'am I free' -> calendar.find_free_time; "
     "'what's on my screen' -> screen.capture_and_describe; 'research/look up/find "
-    "out about/what is/summarize/learn about X' -> web.research.\n\n"
+    "out about/what is/summarize/learn about X' -> web.research.\n"
+    "More routing: 'read my email/check inbox/any new emails' -> gmail.read_inbox; "
+    "'read the email about X/email from X' -> gmail.read_email; 'reply to/respond "
+    "to the email about X' -> gmail.reply_draft; 'what's on this page/read this "
+    "page/summarize this site' -> browser.read_page; 'fill in/fill out this form' "
+    "-> browser.fill_form; 'add to/append to/update my note' -> notes.append_to_note; "
+    "'list my notes/what notes do I have' -> notes.list_notes; 'what's in my "
+    "spreadsheet/read my sheet' -> numbers.read_sheet; 'edit cell/change row X "
+    "column Y' -> numbers.edit_cell; 'play/pause/resume' -> media.play_pause; "
+    "'next/skip' -> media.next_track; 'previous/go back' -> media.previous_track; "
+    "'open Spotify/play X on Spotify' -> media.open_spotify; 'open Apple Music/play "
+    "X on Apple Music' -> media.open_apple_music. iOS NATIVE (only when the user "
+    "says 'on my phone'): 'remind me on my phone' -> ios.create_reminder; 'note on "
+    "my phone' -> ios.create_note; 'directions to/navigate to/open maps' -> "
+    "ios.open_maps; 'text/message X' -> ios.send_message_draft.\n\n"
     "Examples:\n"
     'User (whiteboard image): "turn this into notes" -> '
     '{"steps": [{"tool": "notes.create_from_image", "args": {"title": "...", "content": "<all text from the whiteboard>"}}]}\n'
@@ -278,7 +345,9 @@ SYSTEM_INSTRUCTION = (
     '{"steps": [{"tool": "numbers.add_expense", "args": {"rows": [["2026-06-13", "Whole Foods", "Groceries", "$42.10", "milk, eggs"]]}}]}\n'
     'User (handwritten note image): "draft an email from this" -> '
     '{"steps": [{"tool": "gmail.draft_email", "args": {"to": "", "subject": "<subject from note>", "body": "<email body from the handwriting>"}}]}\n'
-    'User: "play bohemian rhapsody" -> {"steps": [{"tool": "spotify.play_song", "args": {"query": "bohemian rhapsody"}}]}\n'
+    'User: "play bohemian rhapsody on spotify" -> {"steps": [{"tool": "media.open_spotify", "args": {"query": "bohemian rhapsody"}}]}\n'
+    'User: "skip this song" -> {"steps": [{"tool": "media.next_track", "args": {}}]}\n'
+    'User: "remind me on my phone to call mom tomorrow" -> {"steps": [{"tool": "ios.create_reminder", "args": {"title": "Call mom", "due_date": "tomorrow"}}]}\n'
     'User (image of notes): "turn this into a 3 slide presentation" -> '
     '{"steps": [{"tool": "slides.create_presentation", "args": {"title": "...", "slides": [{"title": "...", "bullets": ["...", "..."]}]}}]}\n'
     'User (image of notes): "make a deck from this and email the link to sam" -> '
@@ -363,6 +432,69 @@ def _mock_plan(voice_text: str, image: str) -> dict:
             return one("screen.capture_and_act", {"instruction": text})
         return one("screen.capture_and_describe", {})
 
+    # --- Expansion tool categories (Phases 2-6), before legacy branches. ---
+    on_phone = "my phone" in lower or "on phone" in lower
+
+    # Browser read/fill (before web.research + default browser).
+    if "fill" in lower and ("form" in lower or "field" in lower):
+        return one("browser.fill_form", {"fields": []})
+    if any(k in lower for k in ("this page", "this site", "this website",
+                                "current tab", "current page")):
+        return one("browser.read_page", {})
+
+    # iOS native — reminder/note require "on my phone"; maps/messages are inherent.
+    if on_phone and ("remind" in lower or "reminder" in lower):
+        return one("ios.create_reminder", {"title": text})
+    if on_phone and ("note" in lower or "write down" in lower):
+        return one("ios.create_note", {"title": "Note", "content": text})
+    if any(k in lower for k in ("directions to", "navigate to", "open maps", "open map")):
+        q = text
+        for verb in ("directions to", "navigate to", "open maps to", "open maps", "open map"):
+            if verb in lower:
+                q = lower.split(verb, 1)[1].strip(" .'\"") or text
+                break
+        return one("ios.open_maps", {"query": q})
+    if any(k in lower for k in ("send a text", "text my", "message my", "imessage",
+                                "send a message to")):
+        contact, message = "", ""
+        for verb in ("send a text to", "send a message to", "text my", "message my", "imessage"):
+            if verb in lower:
+                rest = lower.split(verb, 1)[1].strip()
+                parts = re.split(r"\b(?:that|saying|to say)\b", rest, maxsplit=1)
+                contact = parts[0].strip(" .'\"")
+                message = parts[1].strip() if len(parts) > 1 else ""
+                break
+        return one("ios.send_message_draft", {"contact": contact, "message": message})
+
+    # Email reading / reply (before the generic gmail draft branch).
+    if ("reply" in lower or "respond" in lower) and ("email" in lower or "mail" in lower):
+        return one("gmail.reply_draft", {"subject_query": "", "reply_body": ""})
+    if ("read" in lower or "open" in lower) and ("email" in lower or "mail" in lower) \
+            and ("about" in lower or "from" in lower):
+        q = text
+        for verb in ("read the email about", "the email about", "email about", "email from"):
+            if verb in lower:
+                q = lower.split(verb, 1)[1].strip(" .'\"") or text
+                break
+        return one("gmail.read_email", {"subject_query": q})
+    if any(k in lower for k in ("read my email", "check my inbox", "check inbox",
+                                "any new email", "new emails", "any emails", "read my inbox")):
+        return one("gmail.read_inbox", {})
+
+    # Notes append / list (before the generic notes branch).
+    if ("list" in lower and "note" in lower) or "what notes" in lower:
+        return one("notes.list_notes", {})
+    if any(k in lower for k in ("add to my note", "append to", "add to the note",
+                                "update my note", "update the note")):
+        return one("notes.append_to_note", {"title": "", "content": text})
+
+    # Spreadsheet read / edit (before the generic numbers branches).
+    if any(k in lower for k in ("edit cell", "change cell", "set cell", "update cell")):
+        return one("numbers.edit_cell", {"row": 1, "column": 1, "value": text})
+    if ("read" in lower or "what's in" in lower or "what is in" in lower) \
+            and ("spreadsheet" in lower or "sheet" in lower):
+        return one("numbers.read_sheet", {})
+
     # System control.
     if "lock" in lower and ("screen" in lower or "mac" in lower or "computer" in lower):
         return one("system.lock_screen", {})
@@ -434,7 +566,23 @@ def _mock_plan(voice_text: str, image: str) -> dict:
             "rows": [],
         })
 
-    # Spotify.
+    # Media controls (Phase 6).
+    if any(k in lower for k in ("next track", "next song", "skip song", "skip track",
+                                "skip this")):
+        return one("media.next_track", {})
+    if any(k in lower for k in ("previous track", "previous song", "last song",
+                                "go back a song")):
+        return one("media.previous_track", {})
+    if any(k in lower for k in ("pause", "resume")) and "play " not in lower:
+        return one("media.play_pause", {})
+    if "apple music" in lower:
+        query = lower
+        for verb in ("play the song", "play song", "play me", "play "):
+            if verb in query:
+                query = query.split(verb, 1)[1]
+                break
+        query = query.replace("on apple music", "").strip(" .'\"")
+        return one("media.open_apple_music", {"query": query if query != lower else ""})
     if any(k in lower for k in ("play ", "spotify", "song", "music", "track")):
         query = lower
         for verb in ("play the song", "play song", "play me", "play "):
@@ -442,7 +590,7 @@ def _mock_plan(voice_text: str, image: str) -> dict:
                 query = query.split(verb, 1)[1]
                 break
         query = query.replace("on spotify", "").strip(" .'\"") or text
-        return one("spotify.play_song", {"query": query})
+        return one("media.open_spotify", {"query": query})
 
     # Gmail.
     if any(k in lower for k in ("email", "gmail", "draft", "compose", "send a mail")):
@@ -518,8 +666,15 @@ _CONJUNCTIONS = (" and ", " then ", " also ", " after ", " plus ", "&", ", then"
 
 # Ordered (specific -> general) keyword groups mapping intent to a tool.
 _INTENT_KEYWORDS = [
-    ("screen.capture_and_act", ("fix this error", "fill in this", "act on my screen")),
+    ("screen.capture_and_act", ("fix this error", "act on my screen", "what's wrong on screen")),
     ("screen.capture_and_describe", ("on my screen", "what am i looking", "on screen")),
+    # Browser reading/automation (Phase 3) — before web.research so "summarize
+    # this site/page" stays on the current tab, and before browser.open_url.
+    ("browser.fill_form", ("fill in this form", "fill out the form", "fill the form",
+                           "fill in the form")),
+    ("browser.read_page", ("this page", "this site", "this website", "current tab",
+                           "read this page", "summarize this site",
+                           "summarize this page", "what's on this page")),
     ("system.lock_screen", ("lock my mac", "lock the screen", "lock screen")),
     ("system.get_battery", ("battery",)),
     ("system.empty_trash", ("empty trash", "empty the trash")),
@@ -527,22 +682,51 @@ _INTENT_KEYWORDS = [
                                     "quiet mode", "silence notifications", "dnd")),
     ("system.set_volume", ("volume", "louder", "quieter", "mute")),
     ("system.set_brightness", ("brightness", "brighter", "dimmer")),
+    # iOS native actions (Phase 5) — before the Mac calendar/reminders/notes
+    # equivalents. Reminder/note routes require "on my phone".
+    ("ios.create_reminder", ("remind me on my phone", "reminder on my phone")),
+    ("ios.create_note", ("note on my phone", "save this to my phone")),
+    ("ios.open_maps", ("directions to", "navigate to", "open maps", "open map")),
+    ("ios.send_message_draft", ("send a text", "text my", "message my", "imessage",
+                                "send a message to", "send a message")),
     ("calendar.find_free_time", ("free time", "am i free", "free slot")),
     ("calendar.read_today", ("my agenda", "schedule today", "what's on today")),
     ("calendar.create_event", ("schedule", "calendar event", "book ")),
     ("reminders.complete_item", ("mark done", "complete the reminder", "check off")),
     ("reminders.add_item", ("remind me", "reminder")),
     ("contacts.find", ("phone number", "email address of", "contact info")),
+    # Email reading/reply (Phase 2) — before the generic gmail.draft_email.
+    ("gmail.reply_draft", ("reply to the email", "respond to the email", "reply to that email")),
+    ("gmail.read_email", ("read the email", "email from", "email about", "open the email")),
+    ("gmail.read_inbox", ("read my email", "check my inbox", "check inbox",
+                          "any new email", "new emails", "read my inbox", "any emails")),
     ("web.research", ("research", "find out about", "look up", "what is", "what are",
                       "summarize", "learn about", "tell me about")),
     ("finder.find_file", ("find my", "find the file")),
     ("finder.open_file", ("open my", "open the file")),
     ("clipboard.copy_text", ("copy to clipboard",)),
     ("gmail.draft_email", ("email", "gmail", "draft", "compose", "send a mail")),
+    # Spreadsheet read/edit (Phase 4) — before add_expense/create_spreadsheet.
+    ("numbers.edit_cell", ("edit cell", "change cell", "set cell", "edit the cell",
+                           "update cell")),
+    ("numbers.read_sheet", ("read my sheet", "read my spreadsheet", "what's in my spreadsheet",
+                            "what's in my sheet", "open my spreadsheet")),
     ("numbers.add_expense", ("expense", "receipt")),
     ("numbers.create_spreadsheet", ("spreadsheet", "sheet", "numbers", "excel", "table")),
     ("slides.create_presentation", ("slide", "presentation", "deck", "powerpoint", "pitch")),
-    ("spotify.play_song", ("play ", "spotify", "song", "music", "track")),
+    # Media controls (Phase 6) — replaces spotify.play_song.
+    ("media.next_track", ("next track", "next song", "skip song", "skip track",
+                          "skip this song")),
+    ("media.previous_track", ("previous track", "previous song", "last song",
+                              "go back a song")),
+    ("media.play_pause", ("pause music", "pause the music", "resume music",
+                          "play pause", "toggle playback")),
+    ("media.open_apple_music", ("apple music",)),
+    ("media.open_spotify", ("spotify", "play ", "song", "music", "track")),
+    # Notes append/list (Phase 4) — before the generic notes.create_from_image.
+    ("notes.list_notes", ("list my notes", "what notes", "show my notes")),
+    ("notes.append_to_note", ("add to my note", "append to", "add to the note",
+                              "update my note", "update the note")),
     ("notes.create_from_image", ("note", "notes", "write down", "save this", "jot", "transcribe")),
     ("browser.open_url", ("open website", "go to", ".com", ".org", ".io", "website", "url", "browser")),
 ]

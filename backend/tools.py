@@ -196,46 +196,119 @@ _SPOTIFY_GENERIC = {
 }
 
 
-def spotify_play_song(args: dict) -> dict:
-    """Open Spotify and start playback via the media-key, no UI scripting.
+def media_play_pause(args: dict) -> dict:
+    """Toggle play/pause for whatever is playing (system media key, Phase 6).
 
-    Flow (per pre-launch spec):
-      1. ``open "spotify:"`` to launch/focus the app.
-      2. Wait 1.5s for it to come up.
-      3. For a SPECIFIC query, ``open "spotify:search:{query}"`` then wait 1.5s
-         so the top result is focused.
-      4. Send the play/pause media key (AppleScript ``key code 100``) so the
-         focused track starts — never UI scripting, never polling for buttons.
+    Requires macOS Accessibility permission to send media keys.
+    """
+    # key code 100 = F8 = system play/pause media key.
+    _osascript('tell application "System Events" to key code 100')
+    return {
+        "tool": "media.play_pause",
+        "status": "success",
+        "message": "Toggled play/pause.",
+        "title": "Playback",
+        "speak": "Toggled playback.",
+        "data": {},
+    }
 
-    Requires macOS Accessibility permission for the app running this process
-    (System Settings -> Privacy & Security -> Accessibility) to send the key.
+
+def media_next_track(args: dict) -> dict:
+    """Skip to the next track (system media key, Phase 6)."""
+    # key code 101 = F9 = system next-track media key.
+    _osascript('tell application "System Events" to key code 101')
+    return {
+        "tool": "media.next_track",
+        "status": "success",
+        "message": "Skipped to the next track.",
+        "title": "Next Track",
+        "speak": "Skipping to next track.",
+        "data": {},
+    }
+
+
+def media_previous_track(args: dict) -> dict:
+    """Go back to the previous track (system media key, Phase 6)."""
+    # key code 98 = F7 = system previous-track media key.
+    _osascript('tell application "System Events" to key code 98')
+    return {
+        "tool": "media.previous_track",
+        "status": "success",
+        "message": "Went back to the previous track.",
+        "title": "Previous Track",
+        "speak": "Going back.",
+        "data": {},
+    }
+
+
+def media_open_spotify(args: dict) -> dict:
+    """Open Spotify (optionally to a search) and start playback (Phase 6).
+
+    Flow: ``open spotify:`` (or ``spotify:search:{query}``), wait 1.5s for the
+    UI, then send the play media key. Never UI-scripts or polls for buttons.
+    Requires Accessibility permission to send the media key.
     """
     query = str(args.get("query") or args.get("song") or "").strip()
     specific = query.lower() not in _SPOTIFY_GENERIC
 
-    subprocess.run(["open", "spotify:"], check=True)
-    time.sleep(1.5)
-
-    search_uri = None
     if specific:
-        search_uri = "spotify:search:" + urllib.parse.quote(query)
-        subprocess.run(["open", search_uri], check=True)
-        time.sleep(1.5)
-
-    # key code 100 = F8 = the system play/pause media key.
+        uri = "spotify:search:" + urllib.parse.quote(query)
+    else:
+        uri = "spotify:"
+    subprocess.run(["open", uri], check=True)
+    time.sleep(1.5)
+    # key code 100 = play/pause media key — starts the focused track.
     _osascript('tell application "System Events" to key code 100')
 
-    msg = (
-        f'Searched "{query}" and started playback in Spotify.'
-        if specific else "Resumed playback in Spotify."
-    )
+    speak = f"Opening Spotify and playing {query}." if specific else "Opening Spotify."
     return {
-        "tool": "spotify.play_song",
+        "tool": "media.open_spotify",
         "status": "success",
-        "message": msg,
+        "message": (
+            f'Opened Spotify to "{query}" and started playback.'
+            if specific else "Opened Spotify and resumed playback."
+        ),
         "title": query or "Spotify",
-        "detail": search_uri or "spotify:",
-        "data": {"query": query, "search_uri": search_uri, "specific": specific},
+        "detail": uri,
+        "speak": speak,
+        "data": {"query": query, "uri": uri, "specific": specific},
+    }
+
+
+def media_open_apple_music(args: dict) -> dict:
+    """Open Apple Music and optionally search for a query (Phase 6).
+
+    Uses AppleScript to activate Music; if a query is given it plays the first
+    matching track in the local library, otherwise just brings Music forward.
+    """
+    query = str(args.get("query") or args.get("song") or "").strip()
+    if query:
+        q = _as_escape(query)
+        script = (
+            'tell application "Music"\n'
+            "    activate\n"
+            "    try\n"
+            f'        set results to (every track whose name contains "{q}")\n'
+            "        if (count of results) > 0 then play (item 1 of results)\n"
+            "    end try\n"
+            "end tell"
+        )
+    else:
+        script = 'tell application "Music" to activate'
+    _osascript(script)
+    return {
+        "tool": "media.open_apple_music",
+        "status": "success",
+        "message": (
+            f'Opened Apple Music and tried to play "{query}".'
+            if query else "Opened Apple Music."
+        ),
+        "title": query or "Apple Music",
+        "speak": (
+            f"Opening Apple Music and playing {query}." if query
+            else "Opening Apple Music."
+        ),
+        "data": {"query": query},
     }
 
 
@@ -2495,7 +2568,7 @@ def build_undo(tool: str, args: dict, result: dict) -> tuple[bool, str | None]:
             return False, None
         return True, _close_chrome_tab_script(url)
 
-    if tool == "spotify.play_song":
+    if tool == "media.open_spotify":
         return True, 'tell application "Spotify" to pause'
 
     if tool == "finder.move_file":
@@ -2571,12 +2644,105 @@ def run_undo(undo_script: str) -> dict:
 
 
 # ----------------------------------------------------------------------------
+# iOS native actions (Phase 5)
+#
+# These tools don't run anything on the Mac — they return a special
+# "ios_action" result carrying a URL scheme. The iOS client (WebSocketClient)
+# opens that URL with UIApplication.shared.open so the action happens natively
+# on the phone (Reminders, Notes, Maps, Messages).
+# ----------------------------------------------------------------------------
+
+def _ios_action(tool: str, title: str, message: str, speak: str, url: str,
+                fallback_url: str = "") -> dict:
+    """Build the ios_action contract for a phone-side URL-scheme action."""
+    return {
+        "status": "ios_action",
+        "tool": tool,
+        "title": title,
+        "message": message,
+        "speak": speak,
+        "url": url,
+        "fallback_url": fallback_url,
+        "elapsed_ms": 0,
+        "data": {"url": url, "fallback_url": fallback_url},
+    }
+
+
+def ios_create_reminder(args: dict) -> dict:
+    """Create a reminder natively on the iPhone via a URL scheme (Phase 5)."""
+    title = str(args.get("title") or "").strip()
+    if not title:
+        raise ToolError("ios.create_reminder requires a 'title'.")
+    due = str(args.get("due_date") or "").strip()
+    q = urllib.parse.urlencode({"title": title})
+    # Primary: Reminders' own scheme; fallback: Shortcuts (user "Add Reminder").
+    url = f"x-apple-reminderkit://create?{q}"
+    sc = {"name": "Add Reminder", "input": title}
+    fallback = "shortcuts://run-shortcut?" + urllib.parse.urlencode(sc)
+    msg = f'Adding a reminder "{title}"' + (f" due {due}." if due else ".")
+    return _ios_action(
+        "ios.create_reminder", "New Reminder", msg,
+        f"Adding the reminder {title}.", url, fallback,
+    )
+
+
+def ios_create_note(args: dict) -> dict:
+    """Create a note natively on the iPhone via the Notes URL scheme (Phase 5)."""
+    title = str(args.get("title") or "").strip()
+    content = str(args.get("content") or "").strip()
+    if not title and not content:
+        raise ToolError("ios.create_note requires a 'title' or 'content'.")
+    body = "\n".join(p for p in (title, content) if p)
+    url = "mobilenotes://new?" + urllib.parse.urlencode({"body": body})
+    return _ios_action(
+        "ios.create_note", title or "New Note",
+        f'Creating a note "{title or content[:30]}" on your phone.',
+        "Creating a note on your phone.", url,
+    )
+
+
+def ios_open_maps(args: dict) -> dict:
+    """Open Apple Maps on the iPhone for a search query (Phase 5)."""
+    query = str(args.get("query") or "").strip()
+    if not query:
+        raise ToolError("ios.open_maps requires a 'query'.")
+    url = "maps://?" + urllib.parse.urlencode({"q": query})
+    return _ios_action(
+        "ios.open_maps", "Maps", f"Opening Maps for {query}.",
+        f"Opening Maps for {query}.", url,
+    )
+
+
+def ios_send_message_draft(args: dict) -> dict:
+    """Open a pre-filled Messages draft on the iPhone (Phase 5).
+
+    IRREVERSIBLE — opens a draft addressed to the contact; the user sends it.
+    """
+    contact = str(args.get("contact") or "").strip()
+    message = str(args.get("message") or "").strip()
+    if not contact:
+        raise ToolError("ios.send_message_draft requires a 'contact'.")
+    # sms:{recipient}&body={text} — recipient resolves if it's a number; a name
+    # opens the compose sheet for the user to pick the matching contact.
+    url = f"sms:{urllib.parse.quote(contact)}&body={urllib.parse.quote(message)}"
+    return _ios_action(
+        "ios.send_message_draft", "New Message",
+        f"Opening a message draft to {contact}.",
+        f"Opening a message draft to {contact}.", url,
+    )
+
+
+# ----------------------------------------------------------------------------
 # Tool router
 # ----------------------------------------------------------------------------
 
 TOOL_REGISTRY = {
     "notes.create_from_image": notes_create_from_image,
-    "spotify.play_song": spotify_play_song,
+    "media.play_pause": media_play_pause,
+    "media.next_track": media_next_track,
+    "media.previous_track": media_previous_track,
+    "media.open_spotify": media_open_spotify,
+    "media.open_apple_music": media_open_apple_music,
     "gmail.draft_email": gmail_draft_email,
     "gmail.read_inbox": gmail_read_inbox,
     "gmail.read_email": gmail_read_email,
@@ -2588,6 +2754,10 @@ TOOL_REGISTRY = {
     "notes.list_notes": notes_list_notes,
     "numbers.read_sheet": numbers_read_sheet,
     "numbers.edit_cell": numbers_edit_cell,
+    "ios.create_reminder": ios_create_reminder,
+    "ios.create_note": ios_create_note,
+    "ios.open_maps": ios_open_maps,
+    "ios.send_message_draft": ios_send_message_draft,
     "slides.create_presentation": slides_create_presentation,
     "numbers.create_spreadsheet": numbers_create_spreadsheet,
     "numbers.add_expense": numbers_add_expense,
@@ -2638,6 +2808,7 @@ IRREVERSIBLE_TOOLS = {
     "gmail.draft_email",
     "gmail.reply_draft",
     "browser.fill_form",
+    "ios.send_message_draft",
 }
 
 
