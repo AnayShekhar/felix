@@ -9,7 +9,7 @@ struct IngestPayload: Codable {
 }
 
 // A single tool-execution result from the backend.
-// Backend step result: { tool, status, message, title, detail, url? }
+// Backend step result: { tool, status, message, title, detail, url?, speak?, summary? }
 struct StepResult: Codable, Identifiable {
     var id: String { (tool ?? "") + (title ?? "") + (message ?? "") }
     let tool: String?
@@ -18,6 +18,8 @@ struct StepResult: Codable, Identifiable {
     let title: String?
     let detail: String?
     let url: String?
+    let speak: String?       // short spoken summary (Fix 7); empty for action-only tools
+    let summary: String?     // longer formatted display text (Fix 8); content tools only
 }
 
 // /ingest response: { "steps": [StepResult] }
@@ -67,6 +69,8 @@ struct WSData: Codable {
     let title: String?
     let detail: String?
     let url: String?
+    let speak: String?         // short spoken summary (Fix 7)
+    let summary: String?       // longer formatted display text (Fix 8)
     let steps: [StepResult]?   // present on workflow_complete
     let task_id: String?       // present on task_started/task_progress/task_complete
     let progress_pct: Int?     // present on task_progress/task_complete

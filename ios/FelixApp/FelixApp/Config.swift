@@ -1,5 +1,6 @@
 import Foundation
 
+
 enum Config {
     static func ingestURL(base: String) -> URL {
         URL(string: "\(base)/ingest")!

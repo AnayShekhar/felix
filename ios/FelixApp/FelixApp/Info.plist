@@ -15,5 +15,18 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Felix finds your Mac on the local network to send commands.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.felix.deeplink</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>felix</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

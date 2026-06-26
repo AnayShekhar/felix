@@ -1,12 +1,19 @@
 fastapi
 uvicorn[standard]
+# Groq is the ONLY AI provider (Fix 6/9) — no google-generativeai/Gemini.
 groq
-google-generativeai
+# google-api-python-client/-auth power Google Slides + Drive (not AI).
 google-api-python-client
 google-auth
 google-auth-oauthlib
 python-dotenv
 websockets
+# Natural-language date parsing for calendar/reminder tools ("tomorrow at 3pm"
+# -> ISO8601), used by llm.py before calling calendar/reminders tools.
+dateparser
+# Web research agent (Phase 6): fetch + clean HTML pages.
+requests
+beautifulsoup4
 # Pinned: newer cryptography has no prebuilt wheel for Python 3.9 / x86_64 macOS
 # and tries to build from source (needs Rust + OpenSSL). 42.0.8 ships a wheel.
 cryptography==42.0.8

@@ -1,5 +1,6 @@
 """Felix backend entrypoint."""
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -21,6 +22,9 @@ db.init_db()
 async def lifespan(app: FastAPI):
     # Start the background task worker inside the running event loop (Phase 5).
     tasks.start_worker()
+    logging.getLogger("felix.main").info(
+        "Felix backend listening on 0.0.0.0:%s", os.getenv("PORT", "8000")
+    )
     yield
 
 
@@ -50,3 +54,14 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
     except Exception:  # noqa: BLE001
         manager.disconnect(websocket)
+
+
+if __name__ == "__main__":
+    # Local / container run: bind 0.0.0.0 and honor the platform-provided PORT
+    # (Railway sets $PORT). The Procfile/railway.toml use the uvicorn CLI; this
+    # block makes `python main.py` behave identically.
+    import uvicorn
+
+    port = int(os.getenv("PORT", "8000"))
+    logging.getLogger("felix.main").info("Starting uvicorn on 0.0.0.0:%s", port)
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

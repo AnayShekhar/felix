@@ -1,198 +1,164 @@
-// HistoryView.swift
-// The action-history feed (Phase 2). Shows everything Felix has done across
-// devices via GET /history, and lets the user undo any reversible action via
-// POST /undo/{id}. Presented as a sheet over the camera so the live capture
-// flow is never disturbed. Dark mode, SF Pro, single accent — matches the app.
 import SwiftUI
 
-struct HistoryView: View {
-    let baseURL: String?
+/// Tab 2 — History. Full-screen list of everything Felix has done (GET /history)
+/// with pull-to-refresh, swipe-to-undo, and a readable detail sheet. Undo posts
+/// to /undo/{id}. Presentation only; networking is in APIClient.
+struct HistoryTab: View {
     @ObservedObject var ws: WebSocketClient
+    @ObservedObject var settings: AppSettings
+    @ObservedObject var discovery: MacDiscovery
 
-    @Environment(\.dismiss) private var dismiss
     @State private var items: [ActionHistoryItem] = []
-    @State private var loading = false
+    @State private var loading = true
     @State private var loadError: String?
     @State private var undoing: Set<Int> = []
+    @State private var detail: ActionHistoryItem?
     @State private var toast: String?
 
-    // Single brand accent (warm amber — not blue, not purple).
-    private let accent = Color(red: 1.0, green: 0.72, blue: 0.30)
+    private var baseURL: String { settings.resolvedBaseURL(discovery: discovery) }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
                 content
-                if let toast {
-                    VStack {
-                        Spacer()
-                        ToastView(text: toast)
-                            .padding(.bottom, 28)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+                if let toast { toastOverlay(toast) }
             }
             .navigationTitle("History")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") { dismiss() }.tint(accent)
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { Task { await load() } } label: {
                         Image(systemName: "arrow.clockwise")
-                    }.tint(accent)
+                    }
                 }
             }
-            .toolbarBackground(.black, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
         }
+        .tint(.felix)
         .preferredColorScheme(.dark)
         .task { await load() }
+        .sheet(item: $detail) { item in
+            HistoryDetailSheet(item: item)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
+        }
     }
 
     @ViewBuilder
     private var content: some View {
         if loading && items.isEmpty {
-            ProgressView().tint(.white)
-        } else if let loadError {
-            emptyState(symbol: "wifi.exclamationmark",
-                       title: "Couldn’t load history",
-                       subtitle: loadError)
-        } else if items.isEmpty {
-            emptyState(symbol: "clock.arrow.circlepath",
-                       title: "Nothing yet",
-                       subtitle: "Actions Felix takes will show up here.")
-        } else {
             ScrollView {
-                LazyVStack(spacing: 10) {
-                    if let task = ws.activeTask, task.active {
-                        activeTaskRow(task)
-                    }
-                    ForEach(items) { item in
-                        row(item)
+                LazyVStack(spacing: 0) {
+                    ForEach(0..<7, id: \.self) { _ in
+                        SkeletonRow().padding(.horizontal, 16)
                     }
                 }
-                .padding(16)
+                .padding(.vertical, 8)
             }
+        } else if let loadError, items.isEmpty {
+            FelixEmptyState(symbol: "wifi.exclamationmark",
+                            title: "Couldn’t load history",
+                            subtitle: loadError)
+        } else if items.isEmpty {
+            FelixEmptyState(symbol: "camera.metering.center.weighted",
+                            title: "Nothing yet",
+                            subtitle: "Point your camera at something.")
+        } else {
+            List {
+                if let task = ws.activeTask, task.active {
+                    activeTaskRow(task)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+                ForEach(items) { item in
+                    Button { detail = item } label: { row(item) }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if item.undo_available {
+                                Button(role: .destructive) {
+                                    Task { await undo(item) }
+                                } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
+                            }
+                        }
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .refreshable { await load() }
         }
     }
 
-    private func activeTaskRow(_ task: TaskState) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(accent)
-                    .frame(width: 40, height: 40)
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.black)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.instruction)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                ProgressView(value: Double(task.progressPct), total: 100)
-                    .tint(accent)
-                    .scaleEffect(x: 1, y: 0.8, anchor: .center)
-            }
-            Text("\(task.progressPct)%")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.8))
-                .monospacedDigit()
-        }
-        .padding(12)
-        .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(accent.opacity(0.4), lineWidth: 1)
-        )
-    }
-
     private func row(_ item: ActionHistoryItem) -> some View {
-        let meta = toolMeta(item.tool_name)
         let failed = item.status == "error"
         return HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(failed ? Color.red.opacity(0.9) : accent)
-                    .frame(width: 40, height: 40)
-                Image(systemName: failed ? "exclamationmark.triangle.fill" : meta.symbol)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.black)
-            }
-
+            ToolBadge(tool: item.tool_name, failed: failed)
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.title?.isEmpty == false ? item.title! : meta.label)
-                    .font(.system(size: 15, weight: .semibold))
+                Text(item.title?.isEmpty == false ? item.title! : toolMeta(item.tool_name).label)
+                    .font(.system(size: 16, weight: .heavy))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text(item.message ?? meta.label)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.7))
+                Text(item.message ?? toolMeta(item.tool_name).label)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
-                Text(relativeTime(item.timestamp))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.45))
             }
-
             Spacer(minLength: 0)
-
-            if item.undo_available {
-                Button {
-                    Task { await undo(item) }
-                } label: {
-                    if undoing.contains(item.id) {
-                        ProgressView().tint(.white).scaleEffect(0.7)
-                            .frame(width: 64, height: 30)
-                    } else {
-                        Text("Undo")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 64, height: 30)
-                            .background(Color.white.opacity(0.12), in: Capsule())
-                            .overlay(Capsule().strokeBorder(.white.opacity(0.2), lineWidth: 1))
-                    }
+            VStack(alignment: .trailing, spacing: 4) {
+                if undoing.contains(item.id) {
+                    ProgressView().tint(.white).scaleEffect(0.7)
                 }
-                .buttonStyle(.plain)
-                .disabled(undoing.contains(item.id))
+                Text(RelativeTime.string(fromUnix: item.timestamp))
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.4))
             }
         }
         .padding(12)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
-        )
+        .frostedCard(cornerRadius: 16)
     }
 
-    private func emptyState(symbol: String, title: String, subtitle: String) -> some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.white.opacity(0.5))
-            Text(title)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-            Text(subtitle)
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.6))
-                .multilineTextAlignment(.center)
+    private func activeTaskRow(_ task: TaskState) -> some View {
+        HStack(spacing: 12) {
+            ToolBadge(tool: nil)
+                .overlay(Image(systemName: "bolt.fill").font(.system(size: 17, weight: .heavy)).foregroundStyle(.black))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(task.instruction)
+                    .font(.system(size: 15, weight: .heavy)).foregroundStyle(.white).lineLimit(1)
+                ProgressView(value: Double(task.progressPct), total: 100)
+                    .tint(.felix).scaleEffect(x: 1, y: 0.8, anchor: .center)
+            }
+            Text("\(task.progressPct)%")
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white.opacity(0.8)).monospacedDigit()
         }
-        .padding(40)
+        .padding(12)
+        .background(Color.felix.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.felix.opacity(0.4), lineWidth: 1))
+        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+    }
+
+    private func toastOverlay(_ text: String) -> some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.white)
+                Text(text).font(.system(size: 14, weight: .heavy)).foregroundStyle(.white)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 11)
+            .frostedCard(cornerRadius: 30)
+            .padding(.bottom, 28)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - Actions
 
     private func load() async {
-        guard let baseURL else {
-            loadError = "Not connected to a Felix backend."
-            return
-        }
-        loading = true
+        loading = items.isEmpty
         defer { loading = false }
         do {
             items = try await APIClient.history(baseURL: baseURL)
@@ -203,16 +169,14 @@ struct HistoryView: View {
     }
 
     private func undo(_ item: ActionHistoryItem) async {
-        guard let baseURL else { return }
         undoing.insert(item.id)
         defer { undoing.remove(item.id) }
         do {
             let resp = try await APIClient.undo(actionID: item.id, baseURL: baseURL)
-            let ok = resp.status == "success"
-            showToast(ok ? "Undone" : (resp.message ?? "Couldn’t undo"))
+            showToast(resp.status == "success" ? "Undone" : (resp.message ?? "Couldn’t undo"))
             await load()
         } catch {
-            showToast("Couldn’t undo: \(error.localizedDescription)")
+            showToast("Couldn’t undo")
         }
     }
 
@@ -223,29 +187,62 @@ struct HistoryView: View {
             withAnimation(.easeOut(duration: 0.3)) { toast = nil }
         }
     }
-
-    private func relativeTime(_ ts: Double?) -> String {
-        guard let ts else { return "" }
-        let date = Date(timeIntervalSince1970: ts)
-        let fmt = RelativeDateTimeFormatter()
-        fmt.unitsStyle = .abbreviated
-        return fmt.localizedString(for: date, relativeTo: Date())
-    }
 }
 
-private struct ToastView: View {
-    let text: String
+/// Tapping a history row opens this readable detail sheet (no raw JSON).
+private struct HistoryDetailSheet: View {
+    let item: ActionHistoryItem
+    @Environment(\.dismiss) private var dismiss
+
+    private var failed: Bool { item.status == "error" }
+
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.white)
-            Text(text)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white)
+        VStack(spacing: 0) {
+            VStack(spacing: 14) {
+                ToolBadge(tool: item.tool_name, size: 70, failed: failed)
+                Text(item.title?.isEmpty == false ? item.title! : toolMeta(item.tool_name).label)
+                    .font(.system(size: 22, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 28).padding(.horizontal, 24)
+
+            VStack(spacing: 0) {
+                detailRow("Tool", toolMeta(item.tool_name).label)
+                detailRow("Status", (item.status ?? "—").capitalized,
+                          tint: failed ? .red : .felix)
+                if let message = item.message, !message.isEmpty {
+                    detailRow("Result", message)
+                }
+                detailRow("When", RelativeTime.string(fromUnix: item.timestamp))
+                if item.undo_available {
+                    detailRow("Reversible", "Yes — swipe to undo")
+                }
+            }
+            .padding(16)
+            .frostedCard()
+            .padding(20)
+
+            Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 11)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .preferredColorScheme(.dark)
+    }
+
+    private func detailRow(_ label: String, _ value: String, tint: Color = .white) -> some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .top) {
+                Text(label.uppercased())
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundStyle(.white.opacity(0.5))
+                Spacer()
+                Text(value)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(tint == .white ? .white : tint)
+                    .multilineTextAlignment(.trailing)
+            }
+            Divider().overlay(.white.opacity(0.08))
+        }
+        .padding(.vertical, 6)
     }
 }

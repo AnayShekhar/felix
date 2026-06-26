@@ -55,6 +55,15 @@ SAMPLES: dict[str, dict] = {
              "category": "Food", "amount": "12.50", "notes": "harness"}
         ]
     },
+    # Web research agent (Phase 6). Network-dependent; web.research also needs a
+    # Groq key for synthesis and creates a real Apple Note.
+    "web.search": {"query": "anthropic claude"},
+    "web.fetch_page": {"url": "https://example.com"},
+    "web.research": {"topic": "the Felix project", "output_format": "summary"},
+    # Screen awareness (Fix 6) — Groq vision. capture_and_describe just reads the
+    # screen; capture_and_act executes a plan, so give it a read-only instruction.
+    "screen.capture_and_describe": {},
+    "screen.capture_and_act": {"instruction": "Describe the focused window."},
 }
 
 

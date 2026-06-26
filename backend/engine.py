@@ -11,6 +11,7 @@ import re
 from typing import Awaitable, Callable, List
 
 import db
+import llm
 import memory
 import tools
 
@@ -89,6 +90,18 @@ async def run_workflow(
         }
         set_latest(event)
         await broadcast(event)
+
+    # Record a one-sentence outcome as a "felix" turn so follow-up commands in
+    # this session ("do that again", "change the time") have context (Phase 3).
+    try:
+        done = [
+            r.get("message") for r in results
+            if r.get("status") == "success" and r.get("message")
+        ]
+        if done:
+            llm.record_outcome(session_id, " ".join(done))
+    except Exception:  # noqa: BLE001 - history is best-effort, never block the flow
+        logger.warning("Failed to record session outcome.", exc_info=True)
 
     final = {
         "session_id": session_id,

@@ -17,11 +17,23 @@ final class SpeechRecognizer: ObservableObject {
     @Published var phase: Phase = .idle
     @Published var command = ""          // command text spoken after the wake word
     @Published var authorized = false
+    /// Which engine produced the current `command` — "Whisper", "Apple", or ""
+    /// (nothing captured yet). Drives the small badge in the transcription card.
+    @Published var transcriptionEngine = ""
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private let engine = AVAudioEngine()
+
+    // Groq Whisper command recording (Hotfix 1). While awake, the audio that
+    // feeds Apple Speech is mirrored into `commandFile`; on silence it is sent to
+    // Whisper to refine the command text (Apple stays as the live preview and the
+    // silent fallback). Guarded by `recordLock` since the tap runs off-main.
+    private var commandFile: AVAudioFile?
+    private let recordLock = NSLock()
+    private var tapFormat: AVAudioFormat?
+    private var whisperGeneration = 0
 
     private var silenceTimer: Timer?
     private var restartTimer: Timer?
@@ -57,8 +69,14 @@ final class SpeechRecognizer: ObservableObject {
             // Install the tap once; it feeds whatever request is current.
             let input = engine.inputNode
             let format = input.outputFormat(forBus: 0)
+            tapFormat = format
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-                self?.request?.append(buffer)
+                guard let self else { return }
+                self.request?.append(buffer)
+                // Mirror the same audio into the Whisper recording while awake.
+                self.recordLock.lock()
+                try? self.commandFile?.write(from: buffer)
+                self.recordLock.unlock()
             }
             engine.prepare()
             try engine.start()
@@ -84,6 +102,9 @@ final class SpeechRecognizer: ObservableObject {
         awake = false
         phase = .idle
         command = ""
+        transcriptionEngine = ""
+        whisperGeneration &+= 1
+        discardCommandRecording()
     }
 
     /// Called after a command is captured/sent: clear it and listen for the next
@@ -93,8 +114,20 @@ final class SpeechRecognizer: ObservableObject {
         silenceTimer?.invalidate()
         awake = false
         command = ""
+        transcriptionEngine = ""
+        whisperGeneration &+= 1  // invalidate any in-flight Whisper result
+        discardCommandRecording()
         if phase != .idle { phase = .waiting }
         restartTask()
+    }
+
+    /// Drop any in-progress command recording and delete its temp file.
+    private func discardCommandRecording() {
+        recordLock.lock()
+        let url = commandFile?.url
+        commandFile = nil
+        recordLock.unlock()
+        if let url { try? FileManager.default.removeItem(at: url) }
     }
 
     // MARK: - Recognition session
@@ -147,6 +180,8 @@ final class SpeechRecognizer: ObservableObject {
             awake = true
             phase = .hearing
             command = after
+            transcriptionEngine = ""
+            startCommandRecording()
             armSilenceTimer()
         } else {
             // Re-extract after the wake word so we only ever show the command.
@@ -173,6 +208,63 @@ final class SpeechRecognizer: ObservableObject {
     /// in `reset()` after a capture, and by the idle recycle timer.
     private func holdForCapture() {
         awake = false  // command stays published for the user to capture
+        transcribeCommandWithWhisper()
+    }
+
+    // MARK: - Groq Whisper command capture (Hotfix 1)
+
+    /// Begin mirroring the post-wake audio to a fresh temp wav file. No-op if the
+    /// user hasn't configured a Groq key — we just keep Apple Speech.
+    private func startCommandRecording() {
+        guard WhisperTranscriber.isConfigured, let format = tapFormat else { return }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("felix-command-\(UUID().uuidString).wav")
+        recordLock.lock()
+        defer { recordLock.unlock() }
+        commandFile = try? AVAudioFile(forWriting: url, settings: format.settings)
+    }
+
+    /// Close the recording and, if we captured anything, send it to Groq Whisper.
+    /// On success replace `command` with the Whisper text; on any failure keep the
+    /// Apple Speech transcript silently.
+    private func transcribeCommandWithWhisper() {
+        recordLock.lock()
+        let file = commandFile
+        commandFile = nil
+        recordLock.unlock()
+        guard let url = file?.url else { return }  // not recording (no key)
+
+        whisperGeneration &+= 1
+        let gen = whisperGeneration
+        Task { [weak self] in
+            defer { try? FileManager.default.removeItem(at: url) }
+            do {
+                let text = try await WhisperTranscriber.transcribe(fileURL: url)
+                await MainActor.run { [weak self] in
+                    guard let self, gen == self.whisperGeneration, !self.awake else { return }
+                    // Strip any leaked wake phrase, then prefer the Whisper text.
+                    let cleaned = self.stripWakePhrase(from: text)
+                    if !cleaned.isEmpty {
+                        self.command = cleaned
+                        self.transcriptionEngine = "Whisper"
+                    }
+                }
+            } catch {
+                // Silent fallback: Apple Speech transcript already in `command`.
+                await MainActor.run { [weak self] in
+                    guard let self, gen == self.whisperGeneration else { return }
+                    if !self.command.isEmpty { self.transcriptionEngine = "Apple" }
+                }
+            }
+        }
+    }
+
+    /// Whisper transcribes the whole utterance including "Hey Felix"; drop a
+    /// leading wake phrase if present so only the command remains.
+    private func stripWakePhrase(from text: String) -> String {
+        let norm = normalize(text)
+        if let after = commandAfterWake(in: norm), !after.isEmpty { return after }
+        return text.trimmingCharacters(in: .whitespaces)
     }
 
     // MARK: - Helpers

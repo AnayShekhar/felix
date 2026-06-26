@@ -22,6 +22,12 @@ DB_PATH = os.path.expanduser(
     os.getenv("FELIX_DB_PATH", os.path.join(os.path.dirname(__file__), "actions.db"))
 )
 
+# On hosted deploys (Railway) FELIX_DB_PATH points at a mounted volume like
+# /app/data/actions.db whose parent may not exist yet — create it up front.
+_db_dir = os.path.dirname(DB_PATH)
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS actions (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,6 +110,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
         "status": (result or {}).get("status", "pending"),
         "message": (result or {}).get("message", ""),
         "title": (result or {}).get("title", ""),
+        "summary": (result or {}).get("summary", ""),
         "undo_available": bool(row["undo_available"]),
     }
 

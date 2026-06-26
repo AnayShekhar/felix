@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AVFoundation
 
 @MainActor
 final class WebSocketClient: ObservableObject {
@@ -8,6 +9,13 @@ final class WebSocketClient: ObservableObject {
     @Published var working = false
     @Published var activeTask: TaskState?   // live background task (Phase 5)
 
+    // Felix speaks results aloud when enabled (Fix 7). Default on; persisted.
+    @Published var voiceEnabled: Bool =
+        UserDefaults.standard.object(forKey: "felix.voiceEnabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(voiceEnabled, forKey: "felix.voiceEnabled") }
+    }
+
+    private let synthesizer = AVSpeechSynthesizer()
     private var task: URLSessionWebSocketTask?
     private var wantConnection = false
     private var currentURL: URL?
@@ -61,7 +69,9 @@ final class WebSocketClient: ObservableObject {
         case "step_executed":
             if let d = env.data {
                 latest = StepResult(tool: d.tool, status: d.status, message: d.message,
-                                    title: d.title, detail: d.detail, url: d.url)
+                                    title: d.title, detail: d.detail, url: d.url,
+                                    speak: d.speak, summary: d.summary)
+                speakIfEnabled(d.speak)
             }
         case "workflow_complete":
             working = false
@@ -96,6 +106,17 @@ final class WebSocketClient: ObservableObject {
         default:
             break
         }
+    }
+
+    /// Speak a result aloud via AVSpeechSynthesizer when voice is enabled (Fix 7).
+    private func speakIfEnabled(_ speak: String?) {
+        guard voiceEnabled, let speak, !speak.isEmpty else { return }
+        let utterance = AVSpeechUtterance(string: speak)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.52
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 1.0
+        synthesizer.speak(utterance)
     }
 
     private func handleDisconnect() {

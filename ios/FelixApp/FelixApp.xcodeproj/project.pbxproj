@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C0FFEE000000000000000001 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000002 /* Constants.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		9035ED9D2FDDBE2D005BA1F5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		9035ED8F2FDDBE2C005BA1F5 /* FelixApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FelixApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9035ED9C2FDDBE2D005BA1F5 /* FelixAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FelixAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9035EDA62FDDBE2D005BA1F5 /* FelixAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FelixAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0FFEE000000000000000002 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -89,6 +94,7 @@
 			isa = PBXGroup;
 			children = (
 				9035ED912FDDBE2C005BA1F5 /* FelixApp */,
+				C0FFEE000000000000000003 /* Shared */,
 				9035ED9F2FDDBE2D005BA1F5 /* FelixAppTests */,
 				9035EDA92FDDBE2D005BA1F5 /* FelixAppUITests */,
 				9035ED902FDDBE2C005BA1F5 /* Products */,
@@ -103,6 +109,15 @@
 				9035EDA62FDDBE2D005BA1F5 /* FelixAppUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C0FFEE000000000000000003 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				C0FFEE000000000000000002 /* Constants.swift */,
+			);
+			name = Shared;
+			path = ../../shared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -250,6 +265,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0FFEE000000000000000001 /* Constants.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -412,7 +428,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = S4B33K9ZHH;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FelixApp/Info.plist;
@@ -450,7 +466,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = S4B33K9ZHH;
+				DEVELOPMENT_TEAM = CSRVPSV3Y4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = FelixApp/Info.plist;

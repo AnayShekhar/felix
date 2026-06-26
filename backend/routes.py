@@ -34,7 +34,7 @@ def _set_latest(event: dict) -> None:
 async def ingest(payload: IngestPayload):
     # 1. LLM planner: intent -> ordered workflow of tool calls.
     logger.info("Ingest voice_text=%r (image=%s)", payload.voice_text, bool(payload.image))
-    plan = parse_plan(payload.voice_text, payload.image)
+    plan = parse_plan(payload.voice_text, payload.image, payload.session_id)
     steps = plan.get("steps") or [
         {"tool": "browser.open_url", "args": {"url": "https://google.com"}}
     ]

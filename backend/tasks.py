@@ -71,7 +71,9 @@ async def _run_task(task_id: str) -> None:
 
     # Plan the instruction into steps via the LLM (blocking -> executor).
     try:
-        plan = await loop.run_in_executor(None, parse_plan, task["instruction"], "")
+        plan = await loop.run_in_executor(
+            None, parse_plan, task["instruction"], "", task["session_id"]
+        )
     except Exception as exc:  # noqa: BLE001
         logger.error("Task %s planning failed: %s", task_id, exc)
         task["status"] = "failed"
