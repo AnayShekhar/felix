@@ -815,6 +815,210 @@ def numbers_add_expense(args: dict) -> dict:
     }
 
 
+def _notes_html(text: str) -> str:
+    """Escape user text for an Apple Notes HTML body (newlines -> <br>)."""
+    html = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return html.replace("\n", "<br>")
+
+
+def notes_append_to_note(args: dict) -> dict:
+    """Append content to the first Notes.app note whose name matches, else create.
+
+    Requires Automation permission to control Notes (Phase 4).
+    """
+    title = str(args.get("title") or "").strip()
+    content = str(args.get("content") or "").strip()
+    if not title:
+        raise ToolError("notes.append_to_note requires a 'title'.")
+    if not content:
+        raise ToolError("notes.append_to_note requires 'content' to append.")
+
+    content_html = _as_escape(_notes_html(content))
+    new_body = f'<div><b>{_as_escape(_notes_html(title))}</b></div><div>{content_html}</div>'
+    script = (
+        'tell application "Notes"\n'
+        "    activate\n"
+        f'    set matchNotes to (notes whose name contains "{_as_escape(title)}")\n'
+        "    if (count of matchNotes) is 0 then\n"
+        f'        set theNote to make new note with properties {{body:"{new_body}"}}\n'
+        '        return "CREATED" & (character id 9) & (id of theNote)\n'
+        "    else\n"
+        "        set theNote to item 1 of matchNotes\n"
+        f'        set body of theNote to (body of theNote) & "<div>{content_html}</div>"\n'
+        '        return "APPENDED" & (character id 9) & (id of theNote)\n'
+        "    end if\n"
+        "end tell"
+    )
+    raw = _osascript(script)
+    parts = raw.split("\t")
+    action = parts[0].strip() if parts else "APPENDED"
+    note_id = parts[1].strip() if len(parts) > 1 else None
+    created = action == "CREATED"
+    return {
+        "tool": "notes.append_to_note",
+        "status": "success",
+        "message": (
+            f'Created a new note "{title}".' if created
+            else f'Appended to note "{title}".'
+        ),
+        "title": title,
+        "detail": content,
+        "speak": (
+            f"Created a new note called {title}." if created
+            else f"Added that to your note {title}."
+        ),
+        "data": {"title": title, "note_id": note_id, "created": created},
+    }
+
+
+def notes_list_notes(args: dict) -> dict:
+    """List recent Notes.app notes with name and modification date (Phase 4)."""
+    count = _clamp(args.get("count") or 10, 1, 50)
+    script = (
+        'set output to ""\n'
+        'tell application "Notes"\n'
+        "    set theNotes to notes\n"
+        "    set n to count of theNotes\n"
+        f"    if n > {count} then set n to {count}\n"
+        "    repeat with i from 1 to n\n"
+        "        set nt to item i of theNotes\n"
+        "        set output to output & (name of nt) & (character id 9) & "
+        "((modification date of nt) as string) & (character id 10)\n"
+        "    end repeat\n"
+        "end tell\n"
+        "return output"
+    )
+    raw = _osascript(script, timeout=30.0)
+    notes = []
+    for line in raw.split("\n"):
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        parts += [""] * (2 - len(parts))
+        notes.append({"name": parts[0].strip(), "modified": parts[1].strip()})
+
+    if notes:
+        speak = (
+            f"You have {len(notes)} note{'s' if len(notes) != 1 else ''}. "
+            f"The most recent is {notes[0]['name']}."
+        )
+        summary = (
+            f"Notes — {len(notes)}\n\n"
+            + "\n".join(f"• {n['name']}  ({n['modified']})" for n in notes)
+        )
+    else:
+        speak = "You don't have any notes."
+        summary = "No notes found."
+    return {
+        "tool": "notes.list_notes",
+        "status": "success",
+        "message": f"Listed {len(notes)} note(s) from Apple Notes.",
+        "title": "Notes",
+        "detail": "\n".join(n["name"] for n in notes),
+        "speak": speak,
+        "summary": summary,
+        "data": {"notes": notes},
+    }
+
+
+def numbers_read_sheet(args: dict) -> dict:
+    """Read up to 20 rows of the first table of the frontmost Numbers document.
+
+    If `file_path` is given it is expanded and opened first. Requires Automation
+    permission to control Numbers (Phase 4).
+    """
+    file_path = str(args.get("file_path") or "").strip()
+    open_line = ""
+    if file_path:
+        resolved = os.path.abspath(os.path.expanduser(file_path))
+        open_line = f'    set doc to open POSIX file "{_as_escape(resolved)}"\n'
+    else:
+        open_line = "    set doc to front document\n"
+
+    script = (
+        'set output to ""\n'
+        'tell application "Numbers"\n'
+        "    activate\n"
+        + open_line
+        + "    tell table 1 of sheet 1 of doc\n"
+        "        set totalRows to row count\n"
+        "        set cc to column count\n"
+        "        set rc to totalRows\n"
+        "        if rc > 20 then set rc to 20\n"
+        "        set output to (totalRows as string) & (character id 10)\n"
+        "        repeat with r from 1 to rc\n"
+        '            set rowText to ""\n'
+        "            repeat with c from 1 to cc\n"
+        '                set cv to ""\n'
+        "                try\n"
+        "                    set cv to (value of cell c of row r) as string\n"
+        "                end try\n"
+        "                if c is 1 then\n"
+        "                    set rowText to cv\n"
+        "                else\n"
+        "                    set rowText to rowText & (character id 9) & cv\n"
+        "                end if\n"
+        "            end repeat\n"
+        "            set output to output & rowText & (character id 10)\n"
+        "        end repeat\n"
+        "    end tell\n"
+        "end tell\n"
+        "return output"
+    )
+    raw = _osascript(script, timeout=45.0)
+    lines = [ln for ln in raw.split("\n") if ln != ""]
+    if not lines:
+        raise ToolError("Could not read a Numbers spreadsheet. Is one open?")
+    try:
+        total_rows = int(lines[0].strip())
+    except (ValueError, IndexError):
+        total_rows = len(lines) - 1
+    rows = [ln.split("\t") for ln in lines[1:]]
+
+    table_text = "\n".join(" | ".join(cell for cell in row) for row in rows)
+    speak = (
+        f"Your spreadsheet has {total_rows} row{'s' if total_rows != 1 else ''}."
+    )
+    summary = f"Spreadsheet — {total_rows} rows\n\n{table_text}"
+    return {
+        "tool": "numbers.read_sheet",
+        "status": "success",
+        "message": f"Read {len(rows)} of {total_rows} row(s) from the spreadsheet.",
+        "title": "Spreadsheet",
+        "detail": table_text,
+        "speak": speak,
+        "summary": summary,
+        "data": {"total_rows": total_rows, "rows": rows},
+    }
+
+
+def numbers_edit_cell(args: dict) -> dict:
+    """Set one cell in the frontmost Numbers document's first table (Phase 4)."""
+    row = _clamp(args.get("row") or 0, 1, 100000)
+    column = _clamp(args.get("column") or 0, 1, 1000)
+    value = str(args.get("value") or "")
+    script = (
+        'tell application "Numbers"\n'
+        "    activate\n"
+        "    set doc to front document\n"
+        "    tell table 1 of sheet 1 of doc\n"
+        f'        set value of cell {column} of row {row} to "{_as_escape(value)}"\n'
+        "    end tell\n"
+        "    save doc\n"
+        "end tell"
+    )
+    _osascript(script, timeout=30.0)
+    return {
+        "tool": "numbers.edit_cell",
+        "status": "success",
+        "message": f'Set row {row}, column {column} to "{value}".',
+        "title": "Cell Updated",
+        "detail": f"row {row}, column {column} = {value}",
+        "speak": f"Updated row {row}, column {column} to {value}.",
+        "data": {"row": row, "column": column, "value": value},
+    }
+
+
 # ----------------------------------------------------------------------------
 # System control tools (Phase 1b)
 #
@@ -2380,6 +2584,10 @@ TOOL_REGISTRY = {
     "browser.open_url": browser_open_url,
     "browser.read_page": browser_read_page,
     "browser.fill_form": browser_fill_form,
+    "notes.append_to_note": notes_append_to_note,
+    "notes.list_notes": notes_list_notes,
+    "numbers.read_sheet": numbers_read_sheet,
+    "numbers.edit_cell": numbers_edit_cell,
     "slides.create_presentation": slides_create_presentation,
     "numbers.create_spreadsheet": numbers_create_spreadsheet,
     "numbers.add_expense": numbers_add_expense,
