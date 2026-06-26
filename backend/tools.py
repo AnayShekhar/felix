@@ -12,6 +12,7 @@ silently. Legacy display keys (``tool``, ``title``, ``detail``, ``url``)
 are preserved so existing WebSocket consumers keep working unchanged.
 """
 import base64
+import json
 import logging
 import os
 import re
@@ -488,6 +489,101 @@ def browser_open_url(args: dict) -> dict:
         "detail": url,
         "url": url,
         "data": {"url": url},
+    }
+
+
+def browser_read_page(args: dict) -> dict:
+    """Read the frontmost Chrome tab: its URL/title (AppleScript) + clean text.
+
+    Gets the active tab's URL via AppleScript, then re-fetches it with
+    requests/BeautifulSoup (reusing web.fetch_page) to extract clean body text.
+    Requires Automation permission to control Chrome (Phase 3).
+    """
+    script = (
+        'tell application "Google Chrome"\n'
+        "    set theURL to URL of active tab of front window\n"
+        "    set theTitle to title of active tab of front window\n"
+        "    return theURL & (character id 9) & theTitle\n"
+        "end tell"
+    )
+    raw = _osascript(script, timeout=20.0)
+    parts = raw.split("\t")
+    url = parts[0].strip()
+    page_title = parts[1].strip() if len(parts) > 1 else ""
+    if not url:
+        raise ToolError("Could not read the active Chrome tab. Is Chrome open?")
+
+    try:
+        fetched = web_fetch_page({"url": url})
+        text = fetched["data"].get("text", "")
+        page_title = page_title or fetched.get("title") or url
+    except Exception as exc:  # noqa: BLE001 - login/JS-gated pages still report URL
+        text = f"(Could not fetch page text: {exc})"
+
+    summary = f"{page_title}\n{url}\n\n{text}"
+    return {
+        "tool": "browser.read_page",
+        "status": "success",
+        "message": f"Read the current Chrome tab: {page_title or url}.",
+        "title": page_title or "Current Page",
+        "detail": text[:3000],
+        "speak": f"You're on {page_title or url}.",
+        "summary": summary,
+        "data": {"url": url, "title": page_title, "text": text},
+    }
+
+
+def browser_fill_form(args: dict) -> dict:
+    """Fill fields in the frontmost Chrome tab via injected JavaScript.
+
+    Sets each field's value by CSS selector and dispatches input + change events
+    so the page's reactive framework registers the change. Does NOT submit.
+    IRREVERSIBLE (mutates page state). Requires Chrome's "Allow JavaScript from
+    Apple Events" (View > Developer) and Automation permission (Phase 3).
+    """
+    fields = args.get("fields") or []
+    if not isinstance(fields, list) or not fields:
+        raise ToolError("browser.fill_form requires a non-empty 'fields' list.")
+    clean = [
+        {"selector": str(f["selector"]), "value": str(f.get("value", ""))}
+        for f in fields
+        if isinstance(f, dict) and f.get("selector")
+    ]
+    if not clean:
+        raise ToolError("browser.fill_form requires fields with a 'selector'.")
+
+    js = (
+        "(function(){var fields=" + json.dumps(clean) + ";var n=0;"
+        "fields.forEach(function(f){var el=document.querySelector(f.selector);"
+        "if(el){el.value=f.value;"
+        "el.dispatchEvent(new Event('input',{bubbles:true}));"
+        "el.dispatchEvent(new Event('change',{bubbles:true}));n++;}});"
+        "return n;})();"
+    )
+    script = (
+        'tell application "Google Chrome"\n'
+        f'    set n to execute active tab of front window javascript "{_as_escape(js)}"\n'
+        "    return n as string\n"
+        "end tell"
+    )
+    raw = _osascript(script, timeout=20.0)
+    try:
+        filled = int(float(raw.strip()))
+    except (ValueError, TypeError):
+        filled = 0
+
+    summary = "Filled fields:\n" + "\n".join(
+        f"• {f['selector']} = {f['value']}" for f in clean
+    )
+    return {
+        "tool": "browser.fill_form",
+        "status": "success",
+        "message": f"Filled {filled} of {len(clean)} field(s) in the current Chrome tab.",
+        "title": "Form Filled",
+        "detail": summary,
+        "speak": f"I filled {filled} field{'s' if filled != 1 else ''}. Review before submitting.",
+        "summary": summary,
+        "data": {"filled": filled, "requested": len(clean), "fields": clean},
     }
 
 
@@ -2282,6 +2378,8 @@ TOOL_REGISTRY = {
     "gmail.read_email": gmail_read_email,
     "gmail.reply_draft": gmail_reply_draft,
     "browser.open_url": browser_open_url,
+    "browser.read_page": browser_read_page,
+    "browser.fill_form": browser_fill_form,
     "slides.create_presentation": slides_create_presentation,
     "numbers.create_spreadsheet": numbers_create_spreadsheet,
     "numbers.add_expense": numbers_add_expense,
@@ -2331,6 +2429,7 @@ IRREVERSIBLE_TOOLS = {
     "reminders.add_item",
     "gmail.draft_email",
     "gmail.reply_draft",
+    "browser.fill_form",
 }
 
 
