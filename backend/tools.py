@@ -265,6 +265,208 @@ def gmail_draft_email(args: dict) -> dict:
     }
 
 
+# Control-character delimiters for parsing Mail.app AppleScript output. Email
+# bodies are full of tabs/newlines, so we separate fields with ASCII RS (30) and
+# records with ASCII GS (29), which never appear in message text (Phase 2).
+_MAIL_FIELD = chr(30)
+_MAIL_RECORD = chr(29)
+_MAIL_NOTFOUND = "<<FELIX_NOTFOUND>>"
+
+
+def _parse_mail_records(raw: str) -> list:
+    """Parse RS/GS-delimited Mail output into [{sender, subject, date, content}]."""
+    messages = []
+    for rec in raw.split(_MAIL_RECORD):
+        if not rec.strip():
+            continue
+        fields = rec.split(_MAIL_FIELD)
+        fields += [""] * (4 - len(fields))
+        sender, subject, date, content = (f.strip() for f in fields[:4])
+        messages.append({
+            "sender": sender,
+            "subject": subject,
+            "date": date,
+            "content": content,
+            "preview": " ".join(content.split())[:200],
+        })
+    return messages
+
+
+def gmail_read_inbox(args: dict) -> dict:
+    """Read the most recent inbox messages from Mail.app.
+
+    Requires Mail.app to be configured and Automation permission to control it.
+    Returns sender, subject, date, and a 200-char preview per message.
+    """
+    count = _clamp(args.get("count") or 10, 1, 50)
+    script = (
+        "set fieldD to (character id 30)\n"
+        "set recD to (character id 29)\n"
+        'set output to ""\n'
+        'tell application "Mail"\n'
+        "    set theMessages to messages of inbox\n"
+        "    set n to count of theMessages\n"
+        f"    if n > {count} then set n to {count}\n"
+        "    repeat with i from 1 to n\n"
+        "        set m to item i of theMessages\n"
+        '        set theSender to ""\n        set theSubject to ""\n'
+        '        set theDate to ""\n        set theContent to ""\n'
+        "        try\n            set theSender to sender of m\n        end try\n"
+        "        try\n            set theSubject to subject of m\n        end try\n"
+        "        try\n            set theDate to (date received of m) as string\n        end try\n"
+        "        try\n            set theContent to content of m\n        end try\n"
+        "        set output to output & theSender & fieldD & theSubject & fieldD "
+        "& theDate & fieldD & theContent & recD\n"
+        "    end repeat\n"
+        "end tell\n"
+        "return output"
+    )
+    messages = _parse_mail_records(_osascript(script, timeout=45.0))
+
+    if messages:
+        latest = messages[0]
+        speak = (
+            f"You have {len(messages)} email{'s' if len(messages) != 1 else ''} "
+            f"in your inbox. The latest is from {latest['sender']} about "
+            f"{latest['subject']}."
+        )
+        blocks = [
+            f"From: {m['sender']}\n{m['subject']}  ({m['date']})\n{m['preview']}"
+            for m in messages
+        ]
+        summary = (
+            f"Inbox — {len(messages)} email{'s' if len(messages) != 1 else ''}\n\n"
+            + f"\n{'—' * 24}\n".join(blocks)
+        )
+    else:
+        speak = "Your inbox is empty."
+        summary = "No messages in your inbox."
+
+    return {
+        "tool": "gmail.read_inbox",
+        "status": "success",
+        "message": f"Read {len(messages)} inbox message(s) from Mail.",
+        "title": "Inbox",
+        "detail": "\n".join(f"{m['sender']} — {m['subject']}" for m in messages),
+        "speak": speak,
+        "summary": summary,
+        "data": {"messages": messages},
+    }
+
+
+def gmail_read_email(args: dict) -> dict:
+    """Read the full content of the first inbox message whose subject matches.
+
+    Requires Mail.app and Automation permission.
+    """
+    query = str(args.get("subject_query") or args.get("query") or "").strip()
+    if not query:
+        raise ToolError("gmail.read_email requires a 'subject_query'.")
+    script = (
+        "set fieldD to (character id 30)\n"
+        'set output to ""\n'
+        'tell application "Mail"\n'
+        f'    set matchMsgs to (messages of inbox whose subject contains "{_as_escape(query)}")\n'
+        "    if (count of matchMsgs) is 0 then\n"
+        f'        return "{_MAIL_NOTFOUND}"\n'
+        "    end if\n"
+        "    set m to item 1 of matchMsgs\n"
+        '    set theSender to ""\n    set theSubject to ""\n'
+        '    set theDate to ""\n    set theContent to ""\n'
+        "    try\n        set theSender to sender of m\n    end try\n"
+        "    try\n        set theSubject to subject of m\n    end try\n"
+        "    try\n        set theDate to (date received of m) as string\n    end try\n"
+        "    try\n        set theContent to content of m\n    end try\n"
+        "    set output to theSender & fieldD & theSubject & fieldD & theDate "
+        "& fieldD & theContent\n"
+        "end tell\n"
+        "return output"
+    )
+    raw = _osascript(script, timeout=45.0)
+    if raw.strip() == _MAIL_NOTFOUND:
+        return {
+            "tool": "gmail.read_email",
+            "status": "error",
+            "message": f'No inbox email found with a subject containing "{query}".',
+            "title": "Email Not Found",
+            "speak": f"I couldn't find an email about {query} in your inbox.",
+            "data": {"subject_query": query},
+        }
+    msg = _parse_mail_records(raw + _MAIL_RECORD)[0]
+    speak = f"This email is from {msg['sender']} about {msg['subject']}."
+    summary = (
+        f"From: {msg['sender']}\nSubject: {msg['subject']}\nDate: {msg['date']}\n\n"
+        f"{msg['content']}"
+    )
+    return {
+        "tool": "gmail.read_email",
+        "status": "success",
+        "message": f'Opened email "{msg["subject"]}" from {msg["sender"]}.',
+        "title": msg["subject"] or "Email",
+        "detail": summary,
+        "speak": speak,
+        "summary": summary,
+        "data": {"message": msg},
+    }
+
+
+def gmail_reply_draft(args: dict) -> dict:
+    """Open a pre-filled reply window in Mail.app for the first matching email.
+
+    Does NOT send — the user reviews and sends. IRREVERSIBLE (creates a draft).
+    Requires Mail.app and Automation permission.
+    """
+    query = str(args.get("subject_query") or args.get("query") or "").strip()
+    reply_body = str(args.get("reply_body") or "").strip()
+    if not query:
+        raise ToolError("gmail.reply_draft requires a 'subject_query'.")
+    if not reply_body:
+        raise ToolError("gmail.reply_draft requires a 'reply_body'.")
+    script = (
+        "set fieldD to (character id 30)\n"
+        'set output to ""\n'
+        'tell application "Mail"\n'
+        f'    set matchMsgs to (messages of inbox whose subject contains "{_as_escape(query)}")\n'
+        "    if (count of matchMsgs) is 0 then\n"
+        f'        return "{_MAIL_NOTFOUND}"\n'
+        "    end if\n"
+        "    set m to item 1 of matchMsgs\n"
+        '    set theSender to ""\n    set theSubject to ""\n'
+        "    try\n        set theSender to sender of m\n    end try\n"
+        "    try\n        set theSubject to subject of m\n    end try\n"
+        "    set theReply to reply m opening window true\n"
+        "    delay 0.3\n"
+        f'    set content of theReply to "{_as_escape(reply_body)}" & return & return & (content of theReply)\n'
+        "    activate\n"
+        "    set output to theSender & fieldD & theSubject\n"
+        "end tell\n"
+        "return output"
+    )
+    raw = _osascript(script, timeout=45.0)
+    if raw.strip() == _MAIL_NOTFOUND:
+        return {
+            "tool": "gmail.reply_draft",
+            "status": "error",
+            "message": f'No inbox email found with a subject containing "{query}".',
+            "title": "Email Not Found",
+            "speak": f"I couldn't find an email about {query} to reply to.",
+            "data": {"subject_query": query},
+        }
+    parts = raw.split(_MAIL_FIELD)
+    parts += [""] * (2 - len(parts))
+    sender, subject = parts[0].strip(), parts[1].strip()
+    return {
+        "tool": "gmail.reply_draft",
+        "status": "success",
+        "message": f'Drafted a reply to {sender or "the sender"}. Review before sending.',
+        "title": "Reply Drafted",
+        "detail": f"To: {sender}\nSubject: {subject}\n\n{reply_body}",
+        "speak": "I've drafted a reply. Review it before sending.",
+        "summary": f"To: {sender}\nSubject: {subject}\n\n{reply_body}",
+        "data": {"sender": sender, "subject": subject, "reply_body": reply_body},
+    }
+
+
 def browser_open_url(args: dict) -> dict:
     """Open Chrome and navigate to the given URL."""
     url = str(args.get("url") or "").strip()
@@ -2076,6 +2278,9 @@ TOOL_REGISTRY = {
     "notes.create_from_image": notes_create_from_image,
     "spotify.play_song": spotify_play_song,
     "gmail.draft_email": gmail_draft_email,
+    "gmail.read_inbox": gmail_read_inbox,
+    "gmail.read_email": gmail_read_email,
+    "gmail.reply_draft": gmail_reply_draft,
     "browser.open_url": browser_open_url,
     "slides.create_presentation": slides_create_presentation,
     "numbers.create_spreadsheet": numbers_create_spreadsheet,
@@ -2125,6 +2330,7 @@ IRREVERSIBLE_TOOLS = {
     "calendar.create_event",
     "reminders.add_item",
     "gmail.draft_email",
+    "gmail.reply_draft",
 }
 
 
