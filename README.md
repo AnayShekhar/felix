@@ -48,18 +48,30 @@ Here is literally everything Felix can do right now.
   new slideshow).
 
 ### What Felix can actually DO (the tools)
-The backend can do 7 real actions. These aren't pretend, they actually control your
-Mac:
+The backend has **50 real tools** now. These aren't pretend — they actually control
+your Mac (and your phone). They're grouped into families:
 
-| Tool | What it does |
+| Family | Tools |
 |---|---|
-| **Apple Notes** | Reads text from your image and makes a new note. |
-| **Apple Numbers (new sheet)** | Makes a brand new spreadsheet from your stuff. |
-| **Apple Numbers (expenses)** | Adds a receipt to ONE expense file that keeps growing every time. |
-| **Gmail draft** | Opens Gmail in Chrome with the email already written (it does NOT send it, just writes it). |
-| **Google Slides** | Makes a REAL Google Slides presentation with title + bullet points, and opens it. |
-| **Spotify** | Searches a song and plays it. |
-| **Chrome** | Opens any website. |
+| **Notes** | Make a note from an image, append to an existing note, list your notes. |
+| **Numbers** | Make a new spreadsheet, add a receipt to your running expense file, read a sheet, edit a single cell. |
+| **Slides** | Make a REAL Google Slides deck with titles + bullets and open it. |
+| **Gmail** | Draft an email, read your inbox, read a specific email, open a pre-filled reply. |
+| **Browser (Chrome)** | Open a URL, read the current page's text, fill in a form. |
+| **Media** | Play/pause, next/previous track, open Spotify (and play), open Apple Music. |
+| **Calendar** | Create an event, read today / this week, find free time. |
+| **Reminders** | Add, read, and complete reminders. |
+| **Contacts** | Look up someone's name / email / phone. |
+| **System** | Volume, brightness, lock screen, empty trash, battery, open Focus settings. |
+| **Finder** | Find / open / move / rename files, create folders, reveal in Finder. |
+| **Clipboard** | Copy text to the clipboard. |
+| **Screen** | Screenshot the Mac and describe it, or act on what it sees (Groq vision). |
+| **Web** | Search, fetch a page, or run a full research agent that searches + synthesizes + saves a note. |
+| **iPhone (native)** | Create a reminder/note on the phone, open Maps, or draft a Message — the backend hands the phone a URL scheme to open. |
+
+Anything that can't be undone (sending a reply, filling a form, moving a file,
+drafting a message, creating an event) is marked **irreversible** so it can be gated
+behind a confirmation.
 
 ### Smart stuff happening behind the scenes
 - **Chaining steps** — Felix can do more than one thing in a row. Like "make a
@@ -71,6 +83,14 @@ Mac:
 - *Intent locking** — the AI sometimes gets confused and wants to make a note for
   everything. So if you clearly say "email" or "spreadsheet," the backend forces it
   to do that thing instead of being lazy and making a note.
+- **Persistent memory** — Felix learns durable preferences from what you do (your
+  expense file, your music service, who you email most, your preferred calendar) and
+  quietly fills those in as defaults next time.
+- **Conversation memory** — it remembers the last few turns in a session, so
+  follow-ups like "do that again" or "change the time to 3pm" actually work.
+- **Talks back** — Felix reads results aloud on the phone (text-to-speech), and your
+  commands are transcribed with **Groq Whisper** so names and tricky words come
+  through right (it falls back to Apple's on-device speech if Whisper isn't set up).
 
 ---
 
@@ -98,7 +118,7 @@ Felix has **3 layers.** Think of it like a sandwich.
                          │  (asks for a plan)
                          ▼
 ┌─────────────────────────────────────────────────┐
-│  LAYER 3: The AI (Gemini or Groq) 🤖              │
+│  LAYER 3: The AI (Groq llama-4-scout) 🤖         │
 │  - looks at the picture                           │
 │  - reads your command                             │
 │  - writes a step-by-step plan in JSON             │
@@ -120,13 +140,15 @@ screens). Here are the important files and what they do:
 | `Models.swift` | The shapes of the data going in and out. |
 
 **How the voice part works (this part is tricky):** The mic stays on the whole time.
-Apple's speech recognizer turns your audio into text constantly. The code looks for
-the words "hey felix" inside that text, and grabs whatever you say *after* it as your
-command. When you stop talking for about 1.3 seconds, it "settles" — it keeps your
-words on screen and waits for you to tap capture. There's a little number called a
-**generation counter** that makes sure old, cancelled listening sessions don't mess
-up the new ones (this was a real bug we had to squash — without it, it only worked
-the first time!).
+Apple's on-device speech recognizer listens for the wake words **"hey felix"** (it
+only has to nail two words, so it's reliable). Once it's awake, the audio of your
+actual command is recorded and sent to **Groq Whisper**, which transcribes it far
+more accurately — important for names like "Anay Shekhar" that Apple's recognizer
+mangles. If Whisper isn't configured or fails, it silently falls back to Apple's
+transcription. When you stop talking for about 1.3 seconds it "settles" — your words
+stay on screen and wait for you to tap capture. A little **generation counter** makes
+sure old, cancelled listening sessions don't clobber new ones (a real bug we had to
+squash — without it, it only worked the first time!).
 
 ### Layer 2: The Backend (the brain)
 This is written in **Python** using **FastAPI** (a fast web server) and runs with
@@ -138,9 +160,12 @@ This is written in **Python** using **FastAPI** (a fast web server) and runs wit
 | `routes.py` | The `/ingest` door where the phone drops off its image + voice. |
 | `llm.py` | The planner. Sends your stuff to the AI and gets back a plan. |
 | `engine.py` | The worker. Runs each step of the plan in order. |
-| `tools.py` | The actual real-life actions (Notes, Numbers, Gmail, etc). |
+| `tools.py` | The actual real-life actions (Notes, Numbers, Gmail, media, browser, iOS, etc). |
 | `websocket.py` | Keeps track of everybody connected and tells them all the news. |
 | `google_svc.py` | Logs into Google so it can make real Slides. |
+| `memory.py` | Learns durable preferences (expense file, music service, …) and injects them into every plan. |
+| `db.py` | SQLite action history so you can see and undo what Felix did. |
+| `tasks.py` | Background worker for long-running jobs. |
 
 **The pipeline (step by step):**
 1. The phone POSTs to `/ingest` with the image and voice text.
@@ -157,14 +182,13 @@ literally tells the Notes app "hey, make a note with this text" the same way a h
 would, just automatic.
 
 ### Layer 3: The AI (the planner's brain)
-The backend doesn't decide things by itself, it asks an AI model. It tries them in
-this order:
-1. **Google Gemini** (if there's a `GEMINI_API_KEY`) — it's really good at reading
-   images.
-2. **Groq** running `llama-4-scout` — this is the one we use right now. It can see
-   images too and it's super fast.
-3. **Keyword fallback** — if the AI is totally down, the backend just looks for
-   words like "email" or "spreadsheet" and guesses. Not as smart but it still works.
+The backend doesn't decide things by itself, it asks an AI model. Felix uses **one
+provider only: Groq**, running `llama-4-scout` (it's multimodal — text *and* vision —
+and super fast). `GROQ_API_KEY` is the only key you need. No Gemini, no OpenAI.
+
+If Groq is totally unreachable, there's a **keyword fallback**: the backend just
+looks for words like "email" or "spreadsheet" or "play X on spotify" and routes to
+the right tool. Not as smart, but it still works offline-ish.
 
 The AI is given a big set of instructions (called the **system prompt**) that tells
 it: only output JSON, never write a paragraph, read images word-for-word, and don't
@@ -199,66 +223,78 @@ make stuff up. The JSON it sends back looks like this:
   "event": "step_executed",
   "data": {
     "tool": "gmail.draft_email",
-    "status": "executed",
+    "status": "success",
     "title": "New Draft",
     "message": "Opened a Gmail draft in Chrome.",
-    "url": "https://mail.google.com/..."
+    "url": "https://mail.google.com/...",
+    "speak": "Opened a draft for you."
   }
 }
 ```
+
+`status` is usually `"success"` or `"error"`. There's also a special
+`"ios_action"` status: the tool returns a phone-side URL scheme in `url` (with an
+optional `fallback_url`), and the iOS app opens it directly with
+`UIApplication.shared.open` — that's how "remind me on my phone" or "text Sarah"
+happen natively on the iPhone. Content tools also include a longer `summary` field
+for the on-screen sheet.
 
 ---
 
 ## The tech stack (all the tools we used)
 
-- **Swift + SwiftUI** — the iPhone app
+- **Swift + SwiftUI** — the iPhone app (+ a SwiftUI menu-bar app for the Mac)
 - **AVFoundation** — the camera
-- **Speech framework** — turning your voice into text
+- **Speech framework** — wake-word ("Hey Felix") detection on-device
+- **Groq Whisper** — transcribes your actual command for accuracy on names
 - **Python + FastAPI + uvicorn** — the backend server
 - **WebSockets** — live updates so results pop up instantly
-- **Groq (llama-4-scout)** / **Google Gemini** — the AI brains
+- **Groq (llama-4-scout)** — the one and only AI brain (text + vision)
 - **Google Slides API** — for making real presentations
 - **AppleScript (`osascript`)** — for controlling Mac apps
-- **ngrok** — a tunnel that gives the local backend a public web address so the phone
-  can reach it from anywhere
+- **Railway** — hosts the backend at a permanent public URL (no tunnel needed);
+  ngrok is just for local development
 
 ---
 
 ## How to run the whole thing
 
-You need 3 things running at once.
+### The easy way (production): Railway
+The backend is deployed on **Railway**, so it already has a permanent public URL —
+no tunnel, no same-WiFi requirement. The iOS and Mac apps point at it by default.
+Full steps are in [`DEPLOY.md`](DEPLOY.md); the short version:
 
+1. Push the repo to GitHub → new Railway project → deploy from repo, root dir `backend`.
+2. Set env vars: `GROQ_API_KEY` and `GROQ_MODEL`.
+3. Copy the generated URL and drop it into the apps (see DEPLOY.md).
+4. Verify: `curl https://<your-url>/health` → `{"status":"ok"}`.
+
+Then just open the Xcode project in `ios/FelixApp/`, plug in your iPhone, and Run.
+(Use a real phone, not the simulator, so the camera and mic actually work.)
+
+### The local-dev way
 **1. Start the backend** (the brain):
 ```bash
 cd backend
 ./venv/bin/uvicorn main:app --reload --reload-dir . --reload-exclude 'venv' --port 8000
 ```
 
-**2. Start the tunnel** (so the phone can reach your Mac from the internet):
+**2. (Optional) Expose it** so the phone can reach your Mac during development:
 ```bash
 ngrok http 8000
 ```
-Ngrok prints a public URL like `https://something.ngrok-free.dev`. Copy it into
-`ios/FelixApp/FelixApp/Config.swift` (`baseURL`). If you have a reserved domain on
-your ngrok account, use `ngrok http 8000 --url=your-domain.ngrok-free.dev` instead.
+Ngrok prints a public URL like `https://something.ngrok-free.dev`. Put it in the
+app's Settings tab (or onboarding screen). The iOS app can also auto-discover a Mac
+running the backend on the same WiFi. Check `https://<url>/health` → `{"status":"ok"}`.
 
-Check it's alive by going to `https://<your-ngrok-url>/health` — it should say
-`{"status":"ok"}`.
-
-**3. Run the iOS app:**
-- Open the Xcode project in `ios/FelixApp/`.
-- Make sure `ios/FelixApp/FelixApp/Config.swift` has the ngrok URL from step 2.
-- Plug in your iPhone and hit Run. (Use a real phone, not the simulator, so the
-  camera and mic actually work.)
-
-### Setting up the AI keys
-In `backend/.env` you put your secret keys:
+### Setting up the AI key
+In `backend/.env` (see `backend/.env.example`) you put your one secret key:
 ```
 GROQ_API_KEY=your_key_here
 GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 ```
-If you have a Gemini key, add `GEMINI_API_KEY=your_key` and Felix will use that
-instead because it reads images even better.
+Groq is the only provider — `GROQ_API_KEY` is all you need. The same key powers both
+the planner (llama-4-scout) and voice transcription (Whisper).
 
 ---
 
