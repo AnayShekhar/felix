@@ -46,7 +46,7 @@ final class AppSettings: ObservableObject {
     }
 
     /// Used when no Mac is discovered and no manual URL is set.
-    let fallbackURL = "RAILWAY_URL_HERE"  // Replace after Railway deploy
+    let fallbackURL = "https://felix-production-38e6.up.railway.app"
 
     init() {
         let d = UserDefaults.standard
