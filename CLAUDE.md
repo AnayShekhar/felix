@@ -7,6 +7,9 @@
 - Mac: SwiftUI menu bar app, LSUIElement = YES
 - AI: Groq llama-4-scout ONLY (multimodal — text + vision)
 - Realtime: WebSocket for live event broadcasting
+- Mac agent: backend/mac_agent.py runs locally (Railway = brain, mac_agent = hands,
+  iOS = eyes/ears). Railway (Linux) can't run osascript/pmset, so macOS-local tools
+  are dispatched to the Mac agent over /ws. See "Mac agent split" below.
 
 ## Repo layout
 backend/        FastAPI server — all AI logic lives here
@@ -64,6 +67,18 @@ The LLM (backend/llm.py) routes intent to one of these tools.
 - screen: screen.capture_and_describe, screen.capture_and_act (Groq vision)
 - web: web.search, web.fetch_page, web.research (research agent — searches, fetches, synthesizes with Groq, saves a Note)
 - ios (native, returns "ios_action" + url for the phone to open): ios.create_reminder, ios.create_note, ios.open_maps, ios.send_message_draft
+
+## Mac agent split (backend/mac_agent.py, engine.py, websocket.py)
+Railway can't run osascript/pmset/local-file tools. engine._dispatch routes each
+step: CLOUD_TOOLS (ios.*, web.search, web.fetch_page) run on Railway; everything
+else is sent to the Mac agent. Flow: engine broadcasts `execute_on_mac`
+{action_id, tool, args} and awaits a Future (30s timeout); the Mac agent (a "mac"
+WS client that sent {event:"register", role:"mac"}) runs tools.execute() locally
+and replies `mac_result` {action_id, result}, which resolves the Future. If no
+agent is connected, the step returns "Mac agent not connected. Run mac_agent.py
+on your Mac." GET /mac/status reports connection. Run the agent with
+run_mac_agent.sh (or the Mac app auto-starts it via MacAgentController and shows
+"Mac Agent: Connected/Offline" in the popover). Agent backend URL: $FELIX_BACKEND_URL.
 
 ## Memory (backend/memory.py)
 Learns deterministic prefs from successful actions: expense_file, music_service,

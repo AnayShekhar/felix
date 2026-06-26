@@ -49,7 +49,10 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_json(ws_module.latest_result)
     try:
         while True:
-            await websocket.receive_text()
+            raw = await websocket.receive_text()
+            # Inbound frames are control messages from the Mac agent
+            # (register / mac_result); input clients only ever receive.
+            await manager.handle_message(websocket, raw)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
     except Exception:  # noqa: BLE001

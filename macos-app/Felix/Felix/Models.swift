@@ -44,6 +44,12 @@ struct UndoResponse: Codable {
     let message: String?
 }
 
+/// GET /mac/status -> { connected, agents }
+struct MacStatusResponse: Codable {
+    let connected: Bool?
+    let agents: Int?
+}
+
 /// WebSocket envelope: { session_id, event, data }
 struct WSEnvelope: Codable {
     let session_id: String?

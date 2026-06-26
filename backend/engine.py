@@ -8,17 +8,95 @@ event loop responsive for WebSocket clients.
 import asyncio
 import logging
 import re
+import time
 from typing import Awaitable, Callable, List
 
 import db
 import llm
 import memory
 import tools
+import websocket as ws_module
 
 logger = logging.getLogger("felix.engine")
 
 _TOKEN = re.compile(r"\{\{\s*(\d+|last)\.(\w+)\s*\}\}")
 _ANY_TOKEN = re.compile(r"\{\{[^}]*\}\}")
+
+# Tools that run entirely in the cloud (no osascript / pmset / local files):
+# they execute directly on Railway. Everything else is a macOS-local action and
+# is dispatched to the Mac agent (backend/mac_agent.py) over the WebSocket.
+#   - ios.*  return a phone-side URL scheme (no Mac involvement)
+#   - web.search / web.fetch_page  use plain HTTP (requests/bs4)
+CLOUD_TOOLS = {
+    "ios.create_reminder",
+    "ios.create_note",
+    "ios.open_maps",
+    "ios.send_message_draft",
+    "web.search",
+    "web.fetch_page",
+}
+
+# How long to wait for the Mac agent to return a result before giving up.
+MAC_RESULT_TIMEOUT_S = 30.0
+
+
+def _mac_offline_result(tool: str) -> dict:
+    """Structured error contract when no Mac agent is available to run a tool."""
+    return {
+        "tool": tool,
+        "status": "error",
+        "message": "Mac agent not connected. Run mac_agent.py on your Mac.",
+        "title": tool,
+        "speak": "The Mac agent isn't connected. Start it on your Mac and try again.",
+        "data": {"error": "mac_agent_offline"},
+        "elapsed_ms": 0,
+    }
+
+
+def _mac_timeout_result(tool: str, elapsed_ms: float) -> dict:
+    return {
+        "tool": tool,
+        "status": "error",
+        "message": "Mac agent did not respond in time.",
+        "title": tool,
+        "speak": "The Mac agent didn't respond. Make sure it's running and try again.",
+        "data": {"error": "mac_agent_timeout"},
+        "elapsed_ms": elapsed_ms,
+    }
+
+
+async def _dispatch(
+    tool: str,
+    args: dict,
+    action_id: int,
+    session_id: str,
+    broadcast: Callable[[dict], Awaitable[None]],
+    loop: asyncio.AbstractEventLoop,
+) -> dict:
+    """Run a tool: cloud tools locally on Railway, macOS tools on the Mac agent."""
+    if tool in CLOUD_TOOLS:
+        return await loop.run_in_executor(None, tools.execute, tool, args)
+
+    manager = ws_module.manager
+    if not manager.mac_connected():
+        return _mac_offline_result(tool)
+
+    key = str(action_id)
+    future = manager.create_pending(key)
+    await broadcast({
+        "session_id": session_id,
+        "event": "execute_on_mac",
+        "data": {"action_id": action_id, "tool": tool, "args": args},
+    })
+
+    start = time.monotonic()
+    try:
+        return await asyncio.wait_for(future, timeout=MAC_RESULT_TIMEOUT_S)
+    except asyncio.TimeoutError:
+        manager.cancel_pending(key)
+        elapsed_ms = round((time.monotonic() - start) * 1000, 1)
+        logger.warning("Mac agent timed out running %s (action %s).", tool, action_id)
+        return _mac_timeout_result(tool, elapsed_ms)
 
 
 def _substitute(value, results: List[dict]):
@@ -71,7 +149,7 @@ async def run_workflow(
                      "action_id": action_id},
         })
 
-        result = await loop.run_in_executor(None, tools.execute, tool, args)
+        result = await _dispatch(tool, args, action_id, session_id, broadcast, loop)
         results.append(result)
 
         # Persist the result + undo info so it shows up in /history.

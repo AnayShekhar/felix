@@ -32,8 +32,16 @@ final class AppEnvironment: ObservableObject {
 
     let feed = EventFeed()
 
+    /// Supervises the local Mac agent process (the "hands" of the system).
+    let macAgent = MacAgentController()
+
     /// Last few actions, kept fresh for the menu-bar popover.
     @Published var recentActions: [ActionHistoryItem] = []
+
+    /// Whether the backend currently has a Mac agent connected (GET /mac/status).
+    @Published var macAgentConnected = false
+
+    private var macStatusTimer: Timer?
 
     init() {
         feed.onEvent = { [weak self] event, _ in
@@ -46,7 +54,10 @@ final class AppEnvironment: ObservableObject {
             }
         }
         feed.start()
+        // Start the local Mac agent so macOS-local tools can run.
+        macAgent.start()
         Task { await refreshRecent() }
+        startMacStatusPolling()
     }
 
     func refreshRecent() async {
@@ -55,8 +66,28 @@ final class AppEnvironment: ObservableObject {
         }
     }
 
+    /// Poll GET /mac/status so the popover reflects the agent's real backend state.
+    private func startMacStatusPolling() {
+        Task { await refreshMacStatus() }
+        let timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.refreshMacStatus() }
+        }
+        macStatusTimer = timer
+    }
+
+    func refreshMacStatus() async {
+        if let connected = try? await APIService.macConnected() {
+            macAgentConnected = connected
+        } else {
+            macAgentConnected = false
+        }
+    }
+
     func reconnect() {
         feed.restart()
-        Task { await refreshRecent() }
+        Task {
+            await refreshRecent()
+            await refreshMacStatus()
+        }
     }
 }

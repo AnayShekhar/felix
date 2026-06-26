@@ -144,6 +144,20 @@ async def web_client():
     return FileResponse(_WEB_CLIENT, media_type="text/html")
 
 
+@router.get("/mac/status")
+async def mac_status():
+    """Whether a Mac agent (mac_agent.py) is currently connected.
+
+    The Mac agent executes all osascript/pmset/local-file tools that Railway
+    (Linux) cannot run. When `connected` is false, macOS-local tools fail with
+    a "Mac agent not connected" error.
+    """
+    return {
+        "connected": manager.mac_connected(),
+        "agents": len(manager.mac_clients),
+    }
+
+
 @router.get("/health")
 async def health():
     return {"status": "ok"}

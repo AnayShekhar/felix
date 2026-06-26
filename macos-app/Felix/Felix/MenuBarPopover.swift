@@ -87,6 +87,12 @@ struct MenuBarPopover: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
+                HStack(spacing: 6) {
+                    StatusDot(connected: env.macAgentConnected)
+                    Text(env.macAgentConnected ? "Mac Agent: Connected" : "Mac Agent: Offline")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
             Spacer()
         }

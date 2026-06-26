@@ -85,6 +85,17 @@ enum APIService {
         } catch { throw friendly(error) }
     }
 
+    // MARK: - Mac agent
+
+    /// Whether the Mac agent (mac_agent.py) is currently connected to the backend.
+    static func macConnected() async throws -> Bool {
+        do {
+            let (data, resp) = try await URLSession.shared.data(from: try url("/mac/status"))
+            try check(resp)
+            return (try? JSONDecoder().decode(MacStatusResponse.self, from: data))?.connected ?? false
+        } catch { throw friendly(error) }
+    }
+
     // MARK: - Health
 
     /// Returns measured round-trip latency in milliseconds.
