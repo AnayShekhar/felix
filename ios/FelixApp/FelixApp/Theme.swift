@@ -1,12 +1,13 @@
 import SwiftUI
 import Combine
 
-// iOS presentation helpers. Brand color comes from the SHARED Constants.swift
-// (FelixBrand.accent) so iOS and macOS match exactly.
+// iOS presentation helpers. Phase 3: the iOS accent is now the Moonstone orb
+// primary (#B8D9FF) from the new design system — no amber anywhere. The macOS
+// app still uses FelixBrand.accent from shared Constants.swift (untouched).
 
 extension Color {
-    /// Felix's single brand accent, shared with the Mac app.
-    static let felix = FelixBrand.accent
+    /// Felix's iOS accent — the Moonstone orb blue (see FelixColor).
+    static let felix = FelixColor.orbPrimary
 }
 
 /// Human label + SF Symbol for a backend tool (used by result sheet & history).
@@ -85,15 +86,19 @@ final class AppSettings: ObservableObject {
 extension View {
     func frostedCard(cornerRadius: CGFloat = 20) -> some View {
         self
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .background(
+                DarkBlurView()
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+                    .strokeBorder(FelixColor.cardBorder, lineWidth: 1)
             )
     }
 }
 
-/// Tinted rounded-square tool icon, matching the Mac dashboard badges.
+/// Tinted rounded-square tool icon. Phase 3: a single Moonstone tint (no amber),
+/// matching the Phase 8 result-card icon treatment.
 struct ToolBadge: View {
     let tool: String?
     var size: CGFloat = 44
@@ -101,7 +106,7 @@ struct ToolBadge: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(failed ? Color.red.opacity(0.9) : ToolStyle.tint(for: tool))
+            .fill(failed ? FelixColor.error : FelixColor.orbPrimary)
             .frame(width: size, height: size)
             .overlay(
                 Image(systemName: failed ? "exclamationmark.triangle.fill" : ToolStyle.icon(for: tool))

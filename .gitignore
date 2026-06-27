@@ -1,0 +1,2 @@
+# Felix iOS — holds the hardcoded Groq API key. Never push the real key.
+ios/FelixApp/FelixApp/WhisperTranscriber.swift

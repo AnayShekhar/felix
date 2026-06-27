@@ -16,7 +16,19 @@ final class WebSocketClient: ObservableObject {
         didSet { UserDefaults.standard.set(voiceEnabled, forKey: "felix.voiceEnabled") }
     }
 
+    /// True while Felix is speaking a result aloud — drives the orb SPEAKING
+    /// state (Phase 4). Set by the speech monitor on the main thread.
+    @Published var speaking = false
+    /// Called on each TTS word boundary so the orb can pulse in time (Phase 4).
+    var onWordBoundary: (() -> Void)?
+
     private let synthesizer = AVSpeechSynthesizer()
+    /// Delegate bridge for TTS start/word/end → `speaking` + `onWordBoundary`.
+    private lazy var speechMonitor = SpeechMonitor(
+        onStart: { [weak self] in self?.speaking = true },
+        onWord: { [weak self] in self?.onWordBoundary?() },
+        onEnd: { [weak self] in self?.speaking = false }
+    )
     private var task: URLSessionWebSocketTask?
     private var wantConnection = false
     private var currentURL: URL?
@@ -128,6 +140,7 @@ final class WebSocketClient: ObservableObject {
 
     private func speakIfEnabled(_ speak: String?) {
         guard voiceEnabled, let speak, !speak.isEmpty else { return }
+        synthesizer.delegate = speechMonitor   // idempotent; enables orb pulses
         let utterance = AVSpeechUtterance(string: speak)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = 0.52

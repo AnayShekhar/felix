@@ -20,12 +20,12 @@ struct HistoryTab: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                FelixColor.background.ignoresSafeArea()
                 content
                 if let toast { toastOverlay(toast) }
             }
             .navigationTitle("History")
-            .toolbarBackground(.black, for: .navigationBar)
+            .toolbarBackground(FelixColor.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

@@ -1,683 +1,450 @@
 # Felix UI Rebuild — Moonstone Orb Interface
 
-Complete redesign of the iOS app interface.
-
-Core logic files untouched as always.
-
-DO NOT modify:
-
-```
-CameraManager.swift
-SpeechRecognizer.swift
-```
-
-Only rebuild the presentation layer.
-
----
-
-# PHASE 1: Remove the shutter button
-
-and auto-send on voice completion
-
-In:
-
-```
-CameraTab.swift
-ContentView.swift
-```
-
-Remove the shutter button entirely.
-
-Remove any:
-
-* `canCapture` gate
-* manual send requirement
-* button-dependent camera flow
-
-When SpeechRecognizer settles:
-
-```
-1.3 seconds silence after command
-```
-
-automatically trigger the send flow.
-
-If the command contains visual context:
-
-Examples:
-
-```
-"this"
-"here"
-"what is"
-"read this"
-"scan"
-"look at"
-"show"
-"add this"
-"turn this"
-```
-
-activate camera automatically before sending.
-
-If the command does not need vision:
-
-* send immediately
-* no camera activation
-* no image capture
-
-The user should never press a button to send.
-
----
-
-# PHASE 2: Moonstone Orb as primary UI element
-
-Replace the entire camera viewfinder as the default home screen.
-
-The Felix assistant is represented by a 3D Moonstone Orb.
-
-The model already exists in the codebase.
-
-DO NOT create a new model.
-
-DO NOT import another asset.
-
-Use:
-
-```
-models/
-└── FelixMoonstoneOrb.usdc
-```
-
----
-
-# RealityKit Integration
-
-Create:
-
-```
-FelixOrbView.swift
-FelixOrbManager.swift
-FelixOrbMaterialController.swift
-```
-
-The orb should load using RealityKit.
-
-Expected hierarchy:
-
-```
-FelixMoonstoneOrb
-
-├── Moonstone_OuterShell
-│
-├── Moonstone_Core
-│
-├── Moonstone_ReflectionLayer
-│
-└── Moonstone_InternalLight
-```
-
-Keep the hierarchy intact.
-
-Each part should remain independently controllable.
-
-Swift should control:
-
-* scale
-* rotation
-* opacity
-* glow
-* material intensity
-* listening effects
-* speaking effects
-
-The USD model is only the physical object.
-
-The intelligence comes from animation states.
-
----
-
-# PHASE 3: Felix Visual Design System
-
-The old amber blob palette is replaced.
-
-Felix should feel like:
-
-* Apple hardware
-* moonstone glass
-* intelligent system component
-
-Not a cartoon assistant.
-
-## Design Tokens
-
-Background:
-
-```
-#070B12
-```
-
-Deep blue-black.
-
-Orb primary:
-
-```
-#B8D9FF
-```
-
-Moonstone icy blue.
-
-Orb secondary glow:
-
-```
-#DDF6FF
-```
-
-Soft internal light.
-
-Core metallic:
-
-```
-#9FB3C6
-```
-
-Text:
-
-Primary:
-
-```
-#FFFFFF
-```
-
-Secondary:
-
-```
-#FFFFFF 60%
-```
-
-Glass card:
-
-```
-UIBlurEffect .dark
-```
-
-Border:
-
-```
-FFFFFF 8%
-```
-
-Error:
-
-```
-#FF4444
-```
-
-Success:
-
-```
-#B8D9FF
-```
-
----
-
-# PHASE 4: Orb States and Animations
-
-## IDLE
-
-Default state.
-
-Behavior:
-
-* slow floating movement
-* subtle rotation
-* internal light breathing
-
-Animation:
-
-Scale:
-
-```
-0.97 → 1.03
-```
-
-over:
-
-```
-3 seconds
-```
-
-Control:
-
-```
-Moonstone_Controller
-```
-
-Glow:
-
-soft blue-white pulse.
-
----
-
-# WAKE WORD DETECTED
-
-Trigger:
-
-"Hey Felix"
-
-Effects:
-
-Orb brightens immediately.
-
-Increase:
-
-```
-Moonstone_InternalLight intensity
-```
-
-Increase:
-
-```
-Moonstone_ReflectionLayer opacity
-```
-
-Scale:
-
-```
-1.0 → 1.12 → 1.0
-```
-
-with spring animation.
-
-The orb should feel like it wakes up.
-
----
-
-# LISTENING
-
-User speaking.
-
-Use:
-
-SpeechRecognizer audio level.
-
-Drive:
-
-```
-Moonstone_OuterShell
-```
-
-and:
-
-```
-Moonstone_Core
-```
-
-animation.
-
-Effects:
-
-* glass vibration
-* subtle breathing
-* internal energy movement
-
-Do not deform geometry.
-
-Use:
-
-* material changes
-* transforms
-* shader parameters
-
-The orb should remain clean.
-
----
-
-# THINKING
-
-Request sent.
-
-Waiting for response.
-
-Effects:
-
-Rotate:
-
-```
-Moonstone_Core
-```
-
-independently.
-
-Increase:
-
-```
-Moonstone_InternalLight
-```
-
-slightly.
-
-Add:
-
-slow internal movement.
-
-Caption:
-
-```
-Thinking...
-```
-
-small text below orb.
-
----
-
-# SPEAKING
-
-Felix TTS active.
-
-Drive animation from speech.
-
-Effects:
-
-Internal light pulses.
-
-Reflection layer reacts.
-
-Small scale pulses:
-
-```
-1.0 → 1.02
-```
-
-Each spoken phrase creates a subtle ripple.
-
-The orb should feel alive, not animated like a character.
-
----
-
-# CAMERA ACTIVE
-
-When Felix needs vision:
-
-The orb becomes the camera indicator.
-
-Flow:
-
-1. Orb shrinks
-
-```
-180pt → 56pt
-```
-
-2. Moves top center
-
-3. Camera feed fades behind it
-
-4. Autofocus waits
-
-```
-1.5 seconds
-```
-
-5. Capture silently
-
-6. Camera fades away
-
-7. Orb returns center
-
-8. Enter thinking state
-
-No:
-
-* shutter button
-* brackets
-* camera UI overlays
-
-The orb IS the interface.
-
----
-
-# PHASE 5: Ambient Moonstone Glow
-
-The background should react to Felix.
-
-Implementation:
-
-Radial gradient behind orb.
-
-Gradient:
-
-Center:
-
-```
-#DDF6FF
-20% opacity
-```
-
-Fade:
-
-transparent edges.
-
-States:
-
-Idle:
-
-soft blue glow.
-
-Listening:
-
-wider brighter glow.
-
-Thinking:
-
-slow rotating gradient.
-
-Speaking:
-
-pulse with voice.
-
----
-
-# PHASE 6: Navigation
-
-Remove tab bar completely.
-
-Replace with floating icons.
-
-Bottom:
-
-Left:
-
-SF Symbol:
-
-```
-camera.fill
-```
-
-Action:
-
-manual camera mode.
-
-Right:
-
-SF Symbol:
-
-```
-clock.fill
-```
-
-Action:
-
-history sheet.
-
-Settings:
-
-Long press orb.
-
-Optional small gear appears.
-
-Icons:
-
-White:
-
-60%
-
-Active:
-
-Moonstone blue.
-
-No labels.
-
----
-
-# PHASE 7: Transcription Display
-
-While speaking:
-
-Show live transcription.
-
-Position:
-
-Below orb.
-
-Style:
-
-SF Pro Regular
-
-16pt
-
-Color:
-
-white 80%
-
-Behavior:
-
-* fade in
-* max 2 lines
-* recent words visible
-* fade out 1 second after send
-
----
-
-# PHASE 8: Result Display
-
-When Felix responds:
-
-Show result card.
-
-Style:
-
-* frosted glass
-* rounded 28pt
-* dark blur background
-
-Contains:
-
-* tool icon
-* title
-* description
-* open button if URL exists
-
-Card:
-
-Slides upward.
-
-Auto dismiss:
-
-5 seconds.
-
-Tap dismisses early.
-
-During TTS:
-
-Card stays.
-
-Orb moves above card.
-
-Orb pulses with speech.
-
----
-
-# PHASE 9: File Structure
-
-Expected:
-
-```
-Felix/
-
-├── models/
-│
-│   └── FelixMoonstoneOrb.usdc
-│
-├── RealityKit/
-│
-│   ├── FelixOrbManager.swift
-│   ├── FelixOrbMaterialController.swift
-│   └── FelixOrbAnimations.swift
-│
-├── Views/
-│
-│   ├── FelixOrbView.swift
-│   └── ContentView.swift
-│
-└── Audio/
-    └── VoiceAmplitudeTracker.swift
-```
-
----
-
-# Constraints
+Complete redesign of the iOS app presentation layer.
 
 Never touch:
+- CameraManager.swift
+- SpeechRecognizer.swift
 
-```
-CameraManager.swift
-SpeechRecognizer.swift
-```
-
-No third-party animation libraries.
-
-Use:
-
-* SwiftUI animations
-* RealityKit
-* Metal only if required
-
-Performance target:
-
-```
-60 FPS
-```
-
-Avoid:
-
-* heavy particles
-* expensive shaders
-* recreating entities
-* high-frequency geometry changes
-
-Use:
-
-* materials
-* transforms
-* RealityKit animations
+Only rebuild the presentation layer.
+All existing logic stays intact.
 
 ---
 
-# Final Design Goal
+## PRE-PHASE FIX: Remove Groq API key from Settings
 
-Felix should not feel like a mascot.
+In ios/FelixApp/FelixApp/SettingsTab.swift:
+- Remove the entire TRANSCRIPTION section
+- Remove the Groq API key SecureField
+- Remove the Save Key button
+- Remove all description text about Groq Whisper
+- Remove any reference to felix.groqAPIKey
+  in this file
 
-Felix should feel like an Apple system intelligence.
+In ios/FelixApp/FelixApp/WhisperTranscriber.swift:
+- Remove UserDefaults lookup for felix.groqAPIKey
+- Hardcode the key as a private constant at
+  the top of the file:
+  private let groqAPIKey = "GROQ_KEY_HERE"
+- Add a comment: // Set this before building.
+  Never commit your real key.
+- Add WhisperTranscriber.swift to .gitignore
+  so the key is never pushed to GitHub
 
-The Moonstone Orb is:
+The user never sees or manages this key.
+They just speak and it works.
 
-* the assistant
-* the listening indicator
-* the thinking animation
-* the camera indicator
-* the personality
+---
 
-The model already exists.
+## PHASE 1: Remove shutter button,
+auto-send on voice completion
 
-The job is making the orb feel intelligent.
+In CameraTab.swift and ContentView.swift:
+- Remove the shutter button entirely
+- Remove the canCapture gate
+- Remove any manual send requirement
+
+When SpeechRecognizer settles after 1.3 seconds
+of silence following a command, automatically
+trigger the capture and send flow with no user
+input required.
+
+Visual context trigger words — if any of these
+appear in the settled command string, activate
+the camera automatically before sending:
+"this", "here", "that", "what is", "read this",
+"scan", "look at", "show me", "add this",
+"turn this", "what does this", "how much",
+"who is", "translate this", "summarize this"
+
+If none of these words are present, send
+immediately with no image.
+
+Add a cancel gesture: shake the phone cancels
+a pending auto-send before it fires. Show a
+brief "Cancelled" caption below the orb.
+
+---
+
+## PHASE 2: Moonstone Orb — RealityKit setup
+
+The 3D model already exists at:
+ios/FelixApp/Models/moonstone.usdc
+with textures at:
+ios/FelixApp/Models/textures/
+
+Do not create a new model.
+Do not import any other asset.
+Use only what is already there.
+
+Create these new files inside
+ios/FelixApp/FelixApp/RealityKit/:
+
+### FelixOrbManager.swift
+- Loads moonstone.usdc using RealityKit
+  Entity(named:) or ModelEntity loading
+- Holds a reference to the root entity
+  and all named child entities
+- Exposes the orb to the rest of the app
+- Handles all entity lifecycle
+
+### FelixOrbMaterialController.swift
+- Controls material properties on the orb
+- Exposes functions to change:
+  emissive intensity
+  opacity
+  roughness
+  base color tint
+- Used by animation states to make the orb
+  feel alive through material changes
+  not geometry deformation
+
+### FelixOrbAnimations.swift
+- Contains all animation functions for each
+  orb state (see Phase 4)
+- Uses RealityKit animations and SwiftUI
+  spring animations
+- No third party libraries
+
+### FelixOrbView.swift (in Views/)
+- ARView or RealityView wrapping the orb
+- Full screen, transparent background
+- Orb centered at roughly 40% from top
+- Passes audio level from SpeechRecognizer
+  into the animation system in real time
+- Exposes an OrbState enum to drive
+  which animation is playing
+
+### VoiceAmplitudeTracker.swift (in Audio/)
+- Reads audio level from AVAudioRecorder
+  or from SpeechRecognizer's existing
+  audio session
+- Publishes normalized amplitude 0.0 to 1.0
+- Used to drive orb animation during
+  listening and speaking states
+- Runs on a timer at 30hz — enough for
+  smooth animation without battery drain
+
+---
+
+## PHASE 3: Design system
+
+Replace the old amber palette entirely.
+
+### Color tokens
+Background: #070B12
+Orb primary: #B8D9FF
+Orb glow: #DDF6FF at 20% opacity
+Core metallic: #9FB3C6
+Text primary: #FFFFFF
+Text secondary: #FFFFFF at 60% opacity
+Card background: UIBlurEffect .dark
+Card border: #FFFFFF at 8% opacity
+Error: #FF4444
+Success: #B8D9FF
+
+### Typography
+SF Pro Heavy for any headlines
+SF Pro Regular for body and captions
+SF Pro Mono for any data display
+No custom fonts
+
+### Atmosphere
+The background is #070B12 — deep blue black
+not pure black. It should feel like deep space
+or the inside of a high-end device, not a
+generic dark mode app.
+
+The orb casts a soft radial glow on the
+background that reacts to its current state.
+This is a SwiftUI radial gradient layered
+behind the RealityView, not a RealityKit
+effect. It animates with the orb state.
+
+---
+
+## PHASE 4: Orb animation states
+
+All states are driven by OrbState enum.
+FelixOrbAnimations.swift handles transitions.
+Transitions between states should feel smooth,
+never jarring.
+
+### IDLE
+The orb is alive but waiting.
+- Slow floating: subtle Y-axis translation
+  oscillating ±4pt over 4 seconds
+- Slow rotation: gentle Y-axis spin
+- Breathing: emissive intensity pulses
+  softly between 0.6 and 0.9 over 3 seconds
+- Background glow: soft blue at low opacity
+
+### WAKE WORD DETECTED
+The orb recognizes it's being addressed.
+- Immediate brightness increase
+- Scale spring from 1.0 to 1.12 then settle
+  to 1.05 — feels like it perked up
+- Background glow brightens and spreads
+- Transition should feel instant but smooth
+
+### LISTENING
+The user is speaking.
+- Orb scale pulses with voice amplitude
+  from VoiceAmplitudeTracker
+  Quiet: 1.0, Loud: 1.08 max
+- Emissive intensity increases with amplitude
+- Inner glow becomes more active
+- Background glow widens with amplitude
+- Do not deform the mesh
+  Use scale and material changes only
+
+### THINKING
+Request has been sent, waiting for response.
+- Slow continuous Y-axis rotation
+- Emissive intensity slightly higher than idle
+- Background glow shifts to a slow rotating
+  conic gradient — implies processing
+- Caption below orb: "Thinking..."
+  SF Pro Regular 14pt white 60% opacity
+  fades in after 0.5 seconds
+
+### SPEAKING
+Felix TTS is playing back.
+- Orb pulses with AVSpeechSynthesizer output
+- Use AVSpeechSynthesizerDelegate to get
+  word boundaries for timing
+- Each word boundary: small scale pulse
+  1.0 → 1.03 → 1.0 with spring
+- Emissive intensity pulses with speech rhythm
+- Background glow pulses with speech
+- Result card visible below orb
+
+### CAMERA ACTIVE
+Felix needs visual context.
+- Orb animates from center (180pt) to
+  top center (56pt pill) over 0.4 seconds
+  with spring animation
+- Camera feed fades in behind the orb
+  over 0.3 seconds
+- Wait 1.5 seconds for autofocus
+- Capture silently — no sound, no flash,
+  no UI indicators
+- Camera feed fades out over 0.3 seconds
+- Orb animates back to center over 0.4 seconds
+- Enter THINKING state
+
+### ERROR
+Something went wrong.
+- Orb shifts to #FF4444 tint briefly
+- Single horizontal shake animation
+- Returns to idle color over 1 second
+- Error message appears below orb
+  then fades after 3 seconds
+
+---
+
+## PHASE 5: Ambient background glow
+
+Behind the orb, render a SwiftUI radial
+gradient that reacts to orb state.
+
+Implementation:
+- ZStack with #070B12 background
+- Radial gradient centered at orb position
+- Gradient: orb glow color at varying opacity
+  fading to transparent
+- Animate opacity and radius with orb state
+
+State-specific behavior:
+- IDLE: radius 180pt, opacity 15%
+- WAKE: radius 220pt, opacity 25%
+- LISTENING: radius scales with amplitude
+  200-280pt, opacity 20-35%
+- THINKING: slow animated rotation using
+  Angular gradient, opacity 20%
+- SPEAKING: pulses with speech timing
+- ERROR: shifts to #FF4444 glow briefly
+
+---
+
+## PHASE 6: Navigation
+
+Remove the tab bar entirely.
+
+Replace with two floating icon buttons
+at the bottom of the screen.
+
+Left: camera.fill SF Symbol
+- Tap: manually trigger camera mode
+- Same flow as automatic camera activation
+
+Right: clock.fill SF Symbol  
+- Tap: history sheet slides up from bottom
+
+Settings: long press orb for 0.8 seconds
+- Gear icon fades in above the orb
+- Tap gear to open settings sheet
+
+All icons:
+- White at 60% opacity when inactive
+- #B8D9FF at 100% opacity when active
+- No text labels
+- 44x44pt tap targets
+- Positioned 48pt from bottom safe area
+
+---
+
+## PHASE 7: Transcription display
+
+While the user is speaking show the live
+transcription text below the orb.
+
+Style:
+- SF Pro Regular 16pt
+- White at 80% opacity
+- Maximum 2 lines
+- Truncate from left to show most recent words
+- Centered below orb
+- Fade in as words appear
+- Fade out 1 second after command is sent
+
+Position:
+- 24pt below orb bottom edge
+- Horizontal padding 32pt each side
+
+---
+
+## PHASE 8: Result card
+
+When Felix completes an action show a result
+card sliding up from the bottom.
+
+Style:
+- UIBlurEffect .dark background
+- Corner radius 28pt
+- White border 8% opacity 1pt
+- Horizontal margin 20pt
+
+Content:
+- Tool icon in #B8D9FF tinted circle 44x44pt
+- Tool name in SF Pro Regular 12pt
+  white 60% caps above title
+- Result title SF Pro Heavy 17pt white
+- Result description SF Pro Regular 15pt
+  white 80% opacity max 3 lines
+- Open button in #B8D9FF if URL exists
+  SF Pro Semibold 15pt
+
+For content tools (calendar, email, research,
+contacts, notes, spreadsheet):
+- Show full bottom sheet instead of small card
+- Sheet detents: medium and large
+- Scrollable summary in SF Pro Regular 15pt
+- Copy button and Dismiss button at bottom
+- Monospace for structured data
+
+Behavior:
+- Slides up from bottom with spring animation
+- Auto dismisses after 5 seconds
+- Tap anywhere on card dismisses early
+- During TTS: stays visible until speech ends
+- Orb moves to top area while card is visible
+  and pulses with speech
+
+---
+
+## PHASE 9: Update ContentView
+
+ContentView.swift becomes the root compositor:
+
+Structure:
+ZStack (fills screen):
+  1. Color(#070B12) — background
+  2. Ambient glow layer (Phase 5)
+  3. FelixOrbView — the orb (Phase 2)
+  4. Transcription text (Phase 7)
+  5. Result card or bottom sheet (Phase 8)
+  6. Floating nav buttons (Phase 6)
+  7. Confirmation sheet if needed
+
+State management:
+- OrbState drives all orb animations
+- SpeechRecognizer.phase drives OrbState
+- WebSocketClient.latest drives result card
+- All existing @StateObject instances kept
+
+Remove:
+- CameraPreview as default background
+- Viewfinder brackets
+- Shutter button
+- Long task toggle (fold into settings)
+- Status chip (orb IS the status indicator)
+- Tab bar
+
+Keep:
+- All @StateObject instances
+- All existing logic connections
+- History sheet
+- Settings sheet
+- Confirmation modal
+
+---
+
+## PHASE 10: Update Settings sheet
+
+Since the tab bar is gone settings lives
+in a sheet triggered by long pressing the orb.
+
+In SettingsTab.swift or a new SettingsSheet.swift:
+- Remove TRANSCRIPTION section entirely
+  (done in pre-phase fix)
+- Keep BACKEND section
+- Keep VOICE section (Felix speaks results toggle)
+- Keep NOTIFICATIONS section
+- Add a "What Felix knows" section that shows
+  memory key/value pairs from GET /memory
+  with swipe to delete per row
+  This replaces the old Memory tab
+- App version at bottom
+- Sheet style: matches result card glass style
+
+---
+
+## Constraints
+- Never touch CameraManager.swift or
+  SpeechRecognizer.swift
+- No third party libraries of any kind
+- RealityKit and SwiftUI only
+- 60fps performance target
+- Do not recreate RealityKit entities
+  on state changes — update in place
+- Do not deform orb geometry
+  Use transforms and materials only
+- All color literals use the new design
+  tokens from Phase 3
+- No amber anywhere in the new UI
+- Dark mode only
+- The moonstone.usdc model at
+  ios/FelixApp/Models/moonstone.usdc
+  is the only 3D asset — use it as-is
+
+---
+
+## File structure after rebuild
+
+ios/FelixApp/FelixApp/
+├── RealityKit/
+│   ├── FelixOrbManager.swift
+│   ├── FelixOrbMaterialController.swift
+│   ├── FelixOrbAnimations.swift
+│   └── FelixOrbView.swift
+├── Audio/
+│   └── VoiceAmplitudeTracker.swift
+├── Views/
+│   ├── ContentView.swift (rebuilt)
+│   ├── SettingsSheet.swift
+│   ├── HistoryView.swift (keep, restyle)
+│   └── ResultCard.swift (new)
+└── Models/
+    ├── moonstone.usdc
+    └── textures/
