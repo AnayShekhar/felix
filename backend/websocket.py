@@ -65,6 +65,24 @@ class ConnectionManager:
     def mac_connected(self) -> bool:
         return len(self.mac_clients) > 0
 
+    async def send_to_mac(self, message: dict) -> bool:
+        """Deliver a message to exactly ONE Mac agent.
+
+        Critical: a tool must run on a single Mac, not every connected agent.
+        Stale reconnects can leave several "mac" sockets registered; broadcasting
+        to all of them makes one command execute N times (e.g. opening YouTube 6×).
+        We send to the most-recently-registered live agent, pruning any dead
+        sockets we hit along the way.
+        """
+        while self.mac_clients:
+            ws = self.mac_clients[-1]
+            try:
+                await ws.send_json(message)
+                return True
+            except Exception:  # noqa: BLE001 - dead socket; drop it and try older
+                self.disconnect(ws)
+        return False
+
     # ----- execute_on_mac request/response correlation ------------------------
 
     def create_pending(self, action_id: str) -> asyncio.Future:

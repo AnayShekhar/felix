@@ -80,10 +80,15 @@ async def run_on_mac(
 
     key = str(action_id)
     future = manager.create_pending(key)
-    await broadcast({
+    # Send to ONE Mac agent only (never broadcast — multiple registered agents
+    # would each execute the tool, e.g. opening the same URL several times).
+    delivered = await manager.send_to_mac({
         "event": "execute_on_mac",
         "data": {"action_id": action_id, "tool": tool, "args": args},
     })
+    if not delivered:
+        manager.cancel_pending(key)
+        return offline_result(tool)
 
     start = time.monotonic()
     try:
