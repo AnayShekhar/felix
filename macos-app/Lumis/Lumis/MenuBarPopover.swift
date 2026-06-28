@@ -42,6 +42,8 @@ struct MenuBarPopover: View {
 
             LinkCodeView()
 
+            agentStatusRow
+
             Divider().overlay(LumisBrand.hairline)
 
             Text("RECENT")
@@ -101,6 +103,28 @@ struct MenuBarPopover: View {
             .foregroundStyle(LumisBrand.ink)
         }
         .buttonStyle(.plain)
+    }
+
+    /// Honest agent state: the "hands" must be connected for tasks to run on
+    /// this Mac. (Pairing alone isn't enough.)
+    private var agentStatusRow: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(env.macAgentConnected ? LumisBrand.online : LumisBrand.amber)
+                .frame(width: 7, height: 7)
+            Text(env.macAgentConnected ? "Mac agent connected" : "Mac agent not running")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(LumisBrand.ink.opacity(0.7))
+            Spacer()
+            if !env.macAgentConnected {
+                Button("Start") { env.macAgent.start() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(LumisBrand.ink)
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(LumisBrand.accent, in: Capsule())
+            }
+        }
     }
 
     private var quitRow: some View {

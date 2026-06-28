@@ -39,10 +39,13 @@ final class LinkController: ObservableObject {
         }
         guard let status = try? await APIService.linkStatus() else { return }
         linked = status.linked
+        // `macOnline` reflects the local agent's heartbeat — i.e. whether the
+        // "hands" are actually running and able to execute tasks. We do NOT
+        // heartbeat from the app here, otherwise the link would look online even
+        // when the agent is down (which is exactly when tasks fail).
         macOnline = status.macOnline ?? false
         if status.linked {
             code = nil
-            try? await APIService.heartbeat(macId: macID, macName: macName)
         } else if code == nil {
             await generate()
         }

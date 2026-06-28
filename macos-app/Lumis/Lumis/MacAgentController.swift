@@ -21,21 +21,38 @@ final class MacAgentController: ObservableObject {
     private var restartWorkItem: DispatchWorkItem?
     private var wantRunning = false
 
-    /// Candidate locations for run_mac_agent.sh, in priority order.
+    /// Locate run_mac_agent.sh. The repo may be checked out under any name
+    /// (e.g. "felix" or "lumis") in any of the usual dev folders, so we try the
+    /// common spots and then shallow-scan for the script. `fileExists` (not
+    /// `isExecutableFile`) because we launch it via `/bin/bash <script>`.
     private func resolveScriptPath() -> String? {
         let fm = FileManager.default
         if let custom = UserDefaults.standard.string(forKey: Self.scriptPathKey),
            !custom.trimmingCharacters(in: .whitespaces).isEmpty,
-           fm.isExecutableFile(atPath: custom) {
+           fm.fileExists(atPath: custom) {
             return custom
         }
         let home = fm.homeDirectoryForCurrentUser.path
-        let candidates = [
-            "\(home)/Documents/lumis/run_mac_agent.sh",
-            "\(home)/lumis/run_mac_agent.sh",
-            "\(home)/Developer/lumis/run_mac_agent.sh",
-        ]
-        return candidates.first { fm.isExecutableFile(atPath: $0) }
+        let roots = ["\(home)/Documents", home, "\(home)/Developer",
+                     "\(home)/Desktop", "\(home)/Projects", "\(home)/Code"]
+        let names = ["felix", "lumis", "Felix", "Lumis"]
+
+        // 1. Exact known locations.
+        for root in roots {
+            for name in names {
+                let path = "\(root)/\(name)/run_mac_agent.sh"
+                if fm.fileExists(atPath: path) { return path }
+            }
+        }
+        // 2. Shallow scan: any checkout directly under a dev root.
+        for root in roots {
+            guard let entries = try? fm.contentsOfDirectory(atPath: root) else { continue }
+            for entry in entries {
+                let path = "\(root)/\(entry)/run_mac_agent.sh"
+                if fm.fileExists(atPath: path) { return path }
+            }
+        }
+        return nil
     }
 
     /// Start the agent (idempotent). Call once on app launch.
