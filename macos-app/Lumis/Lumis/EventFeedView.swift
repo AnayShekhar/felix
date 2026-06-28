@@ -37,7 +37,7 @@ struct EventFeedView: View {
                 }
             }
         }
-        .background(.white.opacity(0.02))
+        .background(LumisBrand.surface)
     }
 
     private var header: some View {
@@ -60,7 +60,7 @@ struct EventFeedView: View {
             .help("Hide feed")
         }
         .padding(.horizontal, 14).padding(.vertical, 13)
-        .background(.white.opacity(0.03))
+        .background(LumisBrand.surface)
     }
 }
 

@@ -12,7 +12,6 @@ final class LumisViewModel: ObservableObject {
     @Published var transcript = ""
     @Published var responseText = ""
     @Published var lastResult: ActionResult?
-    @Published var selectedTab: LumisTab = .home
     @Published var isSending = false
     @Published var errorMessage: String?
 
@@ -137,16 +136,6 @@ final class LumisViewModel: ObservableObject {
             }
             isSending = false
         }
-    }
-
-    // MARK: - Camera
-
-    func openCameraManually() {
-        selectedTab = .camera
-    }
-
-    func closeCamera() {
-        if selectedTab == .camera { selectedTab = .home }
     }
 
     // MARK: - Status dot helpers

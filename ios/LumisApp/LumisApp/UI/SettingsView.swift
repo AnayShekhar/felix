@@ -5,6 +5,10 @@ struct SettingsView: View {
     @EnvironmentObject private var macVM: MacConnectionViewModel
     @EnvironmentObject private var lumisVM: LumisViewModel
 
+    /// When presented as the full-screen sheet from the sidebar, this provides
+    /// the leading "X" that returns to the sidebar.
+    var onClose: (() -> Void)?
+
     // Persisted preferences (only ones wired to real behavior).
     @AppStorage("lumis.pref.wakeWord") private var wakeWord = true
 
@@ -23,6 +27,7 @@ struct SettingsView: View {
                         profileCard
                         macSection
                         voiceSection
+                        MemorySection()
                         accountSection
                         aboutSection
                     }
@@ -32,6 +37,18 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { onClose() } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(LumisColors.carbonBlack)
+                        }
+                        .accessibilityLabel("Close settings")
+                    }
+                }
+            }
             .navigationDestination(item: $route) { dest in
                 switch dest {
                 case .macDetail:       MacDetailView()

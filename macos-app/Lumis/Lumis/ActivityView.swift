@@ -156,7 +156,7 @@ private struct ActivityRow: View {
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 8) {
-                    Divider().overlay(.white.opacity(0.08)).padding(.vertical, 10)
+                    Divider().overlay(LumisBrand.hairline).padding(.vertical, 10)
                     if let summary = action.summary, !summary.isEmpty {
                         SummaryCard(summary: summary, tool: action.tool_name)
                     }
@@ -199,7 +199,7 @@ private struct SummaryCard: View {
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(.white.opacity(0.06),
+            .background(LumisBrand.surface,
                         in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }

@@ -5,8 +5,9 @@ import Foundation
 extension APIClient {
     /// GET /memory -> { "memory": { key: value } }
     static func memory(baseURL: String) async throws -> [String: String] {
-        let url = URL(string: "\(baseURL)/memory")!
-        let (data, _) = try await URLSession.shared.data(from: url)
+        var req = URLRequest(url: URL(string: "\(baseURL)/memory")!)
+        authorize(&req)
+        let (data, _) = try await URLSession.shared.data(for: req)
         struct Resp: Codable { let memory: [String: String]? }
         return (try? JSONDecoder().decode(Resp.self, from: data))?.memory ?? [:]
     }
@@ -16,6 +17,7 @@ extension APIClient {
         let encoded = key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? key
         var req = URLRequest(url: URL(string: "\(baseURL)/memory/\(encoded)")!)
         req.httpMethod = "DELETE"
+        authorize(&req)
         let (_, resp) = try await URLSession.shared.data(for: req)
         if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw NSError(domain: "Lumis", code: http.statusCode,

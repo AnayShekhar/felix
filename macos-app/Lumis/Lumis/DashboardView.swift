@@ -9,13 +9,13 @@ struct DashboardView: View {
             sidebar
                 .frame(width: 200)
 
-            Divider().overlay(.white.opacity(0.07))
+            Divider().overlay(LumisBrand.hairline)
 
             mainPanel
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if !env.feedCollapsed {
-                Divider().overlay(.white.opacity(0.07))
+                Divider().overlay(LumisBrand.hairline)
                 EventFeedView()
                     .frame(width: 260)
                     .transition(.move(edge: .trailing))
@@ -23,7 +23,7 @@ struct DashboardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DashboardBackground())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
     }
 
     // MARK: Sidebar
@@ -107,7 +107,7 @@ private struct NavItem: View {
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(selected ? LumisBrand.accent.opacity(0.14)
-                          : (hover ? Color.white.opacity(0.05) : .clear))
+                          : (hover ? LumisBrand.surfaceHover : .clear))
             )
             .padding(.horizontal, 10)
         }
@@ -116,14 +116,14 @@ private struct NavItem: View {
     }
 }
 
-/// Subtle dark gradient backdrop with a faint amber glow at the top-left.
+/// Parchment backdrop with a faint powder-blue glow at the top-left.
 struct DashboardBackground: View {
     var body: some View {
         ZStack {
-            Color(red: 0.06, green: 0.06, blue: 0.07)
+            LumisBrand.parchment
             RadialGradient(
-                colors: [LumisBrand.accent.opacity(0.10), .clear],
-                center: .topLeading, startRadius: 0, endRadius: 520
+                colors: [LumisBrand.accent.opacity(0.18), .clear],
+                center: .topLeading, startRadius: 0, endRadius: 560
             )
         }
         .ignoresSafeArea()

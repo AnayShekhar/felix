@@ -128,8 +128,16 @@ async def run_workflow(
     session_id: str,
     broadcast: Callable[[dict], Awaitable[None]],
     set_latest: Callable[[dict], None],
+    user_id: str = db.GLOBAL_USER,
 ) -> List[dict]:
-    """Execute steps in order, broadcasting progress; return all step results."""
+    """Execute steps in order, broadcasting progress; return all step results.
+
+    `user_id` scopes both the action history and the learned memory to one
+    account, so a user's phone and Mac share the same history + preferences.
+    """
+    # Scope learned memory to this account for the duration of the workflow.
+    memory.set_user(user_id)
+
     results: List[dict] = []
     total = len(steps)
     loop = asyncio.get_event_loop()
@@ -139,7 +147,7 @@ async def run_workflow(
         args = _substitute(step.get("args", {}) or {}, results)
 
         # Log the attempt before executing so even a crash leaves a trail.
-        action_id = db.record_action(session_id, tool, args)
+        action_id = db.record_action(session_id, tool, args, user_id=user_id)
 
         # Announce the step is starting so the UI can show live progress.
         await broadcast({

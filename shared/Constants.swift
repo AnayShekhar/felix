@@ -6,23 +6,46 @@ import SwiftUI
 // across surfaces. Keep it free of platform-specific APIs so it compiles on both.
 
 enum LumisBrand {
-    /// Lumis's single brand accent — a warm, premium amber ("Lumis Amber", #F59E21).
-    /// Deliberately not blue and not purple.
-    static let accent = Color(red: 0.961, green: 0.620, blue: 0.129)
+    // MARK: Palette — the light "Parchment" theme shared with the iOS app.
+    // (Hex values mirror iOS `LumisColors` so both surfaces read identically.)
 
-    /// A lighter amber used for gradients, glows, and hover states.
-    static let accentSoft = Color(red: 0.984, green: 0.745, blue: 0.361)
+    /// Primary background. Parchment, #F8F3EE.
+    static let parchment = Color(red: 0.973, green: 0.953, blue: 0.933)
+
+    /// The single brand accent — Powder Blue, #B0BFD1. Active states + glows.
+    static let accent = Color(red: 0.690, green: 0.749, blue: 0.820)
+
+    /// A softer powder blue used for gradients, glows, and hover states.
+    static let accentSoft = Color(red: 0.792, green: 0.835, blue: 0.882)
+
+    /// Primary text / icon ink. Carbon, #212222.
+    static let ink = Color(red: 0.129, green: 0.133, blue: 0.133)
+    static let inkSecondary = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.5)
+
+    // Card + hairline surfaces tuned for a light background.
+    static let surface = Color.white.opacity(0.62)
+    static let surfaceHover = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.04)
+    static let hairline = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.08)
 
     /// Status colors used for connection + tool result dots.
-    static let online = Color(red: 0.30, green: 0.85, blue: 0.46)
-    static let offline = Color(red: 0.55, green: 0.57, blue: 0.62)
-    static let error = Color(red: 0.95, green: 0.36, blue: 0.33)
+    static let online = Color(red: 0.298, green: 0.686, blue: 0.490)   // #4CAF7D
+    static let offline = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.30)
+    static let error = Color(red: 0.878, green: 0.322, blue: 0.322)    // #E05252
+
+    /// Amber reserved for the "Mac linked but offline" state (matches iOS).
+    static let amber = Color(red: 0.910, green: 0.659, blue: 0.220)    // #E8A838
 
     /// Persistence + networking defaults (matches CLAUDE.md API contract).
     static let defaultBackendURL = "https://lumis-production-b878.up.railway.app"
     static let backendURLKey = "lumis.backendURL"
     static let notifyCompletionKey = "lumis.notify.completion"
     static let notifyErrorsKey = "lumis.notify.errors"
+    /// Bearer token for the signed-in account (shared by AuthStore + APIService).
+    static let authTokenKey = "lumis.auth.token"
+
+    /// Google OAuth client ID (same client the iOS app uses, so Mac sign-in
+    /// lands in the same Lumis account).
+    static let googleClientID = "955535830862-t9jp1lql7ert69up16jr27pj248f58fi.apps.googleusercontent.com"
 
     static let appVersion = "1.1"
 }

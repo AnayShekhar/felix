@@ -24,8 +24,11 @@ macos-app/      SwiftUI menu bar app — dashboard + tray
   providers. GROQ_API_KEY is the only required API key. Never add Gemini
   dependencies.
 - All API errors must surface in UI, no silent console-only failures
-- Dark mode only across all frontends
-- SF Pro font, single brand accent color (not blue, not purple)
+- Light "Parchment" theme across all frontends (background #F8F3EE). iOS uses
+  `LumisColors`; macOS uses `LumisBrand` in shared/Constants.swift — keep the
+  two palettes in sync (same hex values).
+- SF Pro font, single brand accent color: Powder Blue (#B0BFD1) on Carbon
+  (#212222) ink. iOS tab bar is the iOS 26 native Liquid Glass `TabView`.
 - Backend deployed on Railway with a permanent public URL; ngrok is for local
   development only
 - "ios_action" is a valid result status: the tool returns a phone-side URL

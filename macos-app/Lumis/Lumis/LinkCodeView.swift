@@ -58,18 +58,18 @@ struct LinkCodeView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("CONNECT YOUR IPHONE")
                 .font(.system(size: 10, weight: .heavy)).tracking(1.2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LumisBrand.ink.opacity(0.55))
             HStack(spacing: 8) {
                 ForEach(Array(code.enumerated()), id: \.offset) { _, ch in
                     Text(String(ch))
                         .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .frame(width: 30, height: 40)
-                        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                        .background(LumisBrand.surface, in: RoundedRectangle(cornerRadius: 6))
                 }
             }
             Text("Open Lumis on your iPhone → Settings → Connect Mac")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LumisBrand.ink.opacity(0.55))
         }
     }
 
@@ -86,7 +86,7 @@ struct LinkCodeView: View {
             ProgressView().controlSize(.small)
             Text("Starting agent…")
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LumisBrand.ink.opacity(0.55))
         }
     }
 }

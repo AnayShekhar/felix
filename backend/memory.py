@@ -14,9 +14,21 @@ import json
 import logging
 import os
 import time
+from contextvars import ContextVar
 from typing import Optional
 
 logger = logging.getLogger("lumis.memory")
+
+# Memory is scoped per account. The current request/workflow sets the active
+# user; all reads/writes below transparently target that user's sub-store, so
+# the phone and the Mac (signed into the same account) share one memory.
+GLOBAL_USER = "_global"
+_current_user: ContextVar[str] = ContextVar("lumis_memory_user", default=GLOBAL_USER)
+
+
+def set_user(user_id: Optional[str]) -> None:
+    """Set the account whose memory subsequent calls read/write."""
+    _current_user.set(user_id or GLOBAL_USER)
 
 MEMORY_PATH = os.path.expanduser(
     os.getenv("LUMIS_MEMORY_PATH", os.path.join(os.path.dirname(__file__), "memory.json"))
@@ -49,18 +61,36 @@ _LIST_KEYS = ("frequent_contacts", "command_patterns")
 _INTERNAL_PREFIX = "_"
 
 
-def _load() -> dict:
+def _load_all() -> dict:
+    """Load the whole {user_id: {key: entry}} store, migrating legacy files.
+
+    Older deploys stored a single flat {key: entry} map; if we detect that shape
+    we nest it under GLOBAL_USER so existing memory isn't lost.
+    """
     try:
         with open(MEMORY_PATH, "r", encoding="utf-8") as fh:
-            return json.load(fh)
+            data = json.load(fh)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+    if not isinstance(data, dict):
+        return {}
+    # Legacy flat format: top-level values are entry dicts containing "value".
+    if data and any(isinstance(v, dict) and "value" in v for v in data.values()):
+        return {GLOBAL_USER: data}
+    return data
+
+
+def _load() -> dict:
+    """The current account's memory sub-store ({key: entry})."""
+    return _load_all().get(_current_user.get(), {})
 
 
 def _save(data: dict) -> None:
+    store = _load_all()
+    store[_current_user.get()] = data
     tmp = MEMORY_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=2, ensure_ascii=False)
+        json.dump(store, fh, indent=2, ensure_ascii=False)
     os.replace(tmp, MEMORY_PATH)  # atomic write
 
 

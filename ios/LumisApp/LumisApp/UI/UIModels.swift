@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The four primary tabs.
+/// Legacy navigation sections (the tab bar was replaced by the sidebar shell).
 enum LumisTab: Int, CaseIterable {
-    case home, history, camera, settings
+    case home, history, settings
 }
 
 /// Category of an action, used for the icon + accent color on cards.

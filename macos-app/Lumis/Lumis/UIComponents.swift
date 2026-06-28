@@ -119,7 +119,7 @@ struct SkeletonRow: View {
             }
             Spacer()
         }
-        .foregroundStyle(.white.opacity(shimmer ? 0.10 : 0.05))
+        .foregroundStyle(LumisBrand.ink.opacity(shimmer ? 0.12 : 0.05))
         .padding(.vertical, 6)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
@@ -130,14 +130,15 @@ struct SkeletonRow: View {
 }
 
 extension View {
-    /// Standard card surface used across the dashboard.
+    /// Standard card surface used across the dashboard — native Liquid Glass on
+    /// macOS 26+, `.ultraThinMaterial` below.
     func lumisCard(padding: CGFloat = 14) -> some View {
         self
             .padding(padding)
-            .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .lumisGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(.white.opacity(0.07), lineWidth: 1)
+                    .stroke(LumisBrand.hairline, lineWidth: 1)
             )
     }
 }

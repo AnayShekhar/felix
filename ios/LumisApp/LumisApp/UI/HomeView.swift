@@ -4,6 +4,9 @@ struct HomeView: View {
     @EnvironmentObject private var vm: LumisViewModel
     @EnvironmentObject private var macVM: MacConnectionViewModel
 
+    /// Opens the sidebar (replaces the old top-left wordmark).
+    var onMenu: () -> Void = {}
+
     var body: some View {
         ZStack {
             LumisColors.parchment.ignoresSafeArea()
@@ -71,11 +74,20 @@ struct HomeView: View {
 
     private var topBar: some View {
         HStack {
-            LumisWordmark(size: 20)
+            Button { Haptics.light(); onMenu() } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(LumisColors.carbonBlack)
+                    .frame(width: 44, height: 44)
+                    .glassEffect(.regular, in: Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open menu")
             Spacer()
             ConnectionStatusDot()
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 20)
         .padding(.top, 44)
     }
 }

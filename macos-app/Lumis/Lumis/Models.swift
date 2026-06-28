@@ -72,6 +72,29 @@ struct WSData: Codable {
     let instruction: String?
 }
 
+// MARK: - Auth
+
+/// The signed-in account, as returned by /auth/* endpoints.
+struct AuthUser: Codable {
+    let id: String
+    let email: String
+    let name: String?
+    let provider: String?
+}
+
+struct AuthEnvelope: Codable {
+    let token: String
+    let user: AuthUser
+}
+
+struct MeEnvelope: Codable {
+    let user: AuthUser
+}
+
+struct ErrorEnvelope: Codable {
+    let detail: String?
+}
+
 /// A single rendered card in the live event feed (right panel).
 struct FeedEvent: Identifiable {
     let id = UUID()

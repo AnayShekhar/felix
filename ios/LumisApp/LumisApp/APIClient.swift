@@ -2,6 +2,13 @@ import Foundation
 import UIKit
 
 enum APIClient {
+    /// Attaches the signed-in account's bearer token so the backend can scope
+    /// per-account history + memory. No-op if not signed in.
+    static func authorize(_ req: inout URLRequest) {
+        if let token = KeychainManager.token {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+    }
     /// POSTs an image + voice command to the backend's /ingest endpoint.
     @discardableResult
     static func ingest(
@@ -24,17 +31,18 @@ enum APIClient {
         var req = URLRequest(url: Config.ingestURL(base: baseURL))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        authorize(&req)
         req.httpBody = try JSONEncoder().encode(payload)
 
         let (data, _) = try await URLSession.shared.data(for: req)
         return (try? JSONDecoder().decode(IngestResponse.self, from: data))?.steps ?? []
     }
 
-    /// Fetches the last 50 actions from the backend's /history endpoint.
+    /// Fetches the last 50 actions for the signed-in account (GET /history).
     static func history(baseURL: String) async throws -> [ActionHistoryItem] {
-        let (data, _) = try await URLSession.shared.data(
-            from: Config.historyURL(base: baseURL)
-        )
+        var req = URLRequest(url: Config.historyURL(base: baseURL))
+        authorize(&req)
+        let (data, _) = try await URLSession.shared.data(for: req)
         return (try? JSONDecoder().decode(HistoryResponse.self, from: data))?.actions ?? []
     }
 
@@ -48,6 +56,7 @@ enum APIClient {
         var req = URLRequest(url: Config.taskURL(base: baseURL))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        authorize(&req)
         req.httpBody = try JSONSerialization.data(
             withJSONObject: ["instruction": instruction, "session_id": sessionID]
         )

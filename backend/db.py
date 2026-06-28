@@ -31,6 +31,7 @@ if _db_dir:
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS actions (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         TEXT,
     session_id      TEXT,
     timestamp       REAL,
     tool_name       TEXT,
@@ -40,6 +41,10 @@ CREATE TABLE IF NOT EXISTS actions (
     undo_script     TEXT
 );
 """
+
+# History rows with no owner (legacy global rows, or background tasks without an
+# authenticated user) live under this sentinel and are hidden from per-user reads.
+GLOBAL_USER = "_global"
 
 
 def _connect() -> sqlite3.Connection:
@@ -52,19 +57,28 @@ def init_db() -> None:
     """Create the actions table if it does not exist. Safe to call repeatedly."""
     with _connect() as conn:
         conn.executescript(_SCHEMA)
+        # Migrate older databases that predate per-account scoping.
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(actions)")}
+        if "user_id" not in cols:
+            conn.execute("ALTER TABLE actions ADD COLUMN user_id TEXT")
+        conn.commit()
     logger.info("Action history DB ready at %s", DB_PATH)
 
 
-def record_action(session_id: str, tool_name: str, args: dict) -> int:
+def record_action(session_id: str, tool_name: str, args: dict,
+                  user_id: str = GLOBAL_USER) -> int:
     """Insert a pre-execution row and return its id.
 
     Called before the tool runs so the attempt is logged even if it fails.
+    `user_id` scopes the row to an account so each user only sees their own
+    history (and the Mac, signed into the same account, sees it too).
     """
     with _connect() as conn:
         cur = conn.execute(
-            "INSERT INTO actions (session_id, timestamp, tool_name, args_json, "
-            "result_json, undo_available, undo_script) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO actions (user_id, session_id, timestamp, tool_name, args_json, "
+            "result_json, undo_available, undo_script) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
+                user_id,
                 session_id,
                 time.time(),
                 tool_name,
@@ -115,12 +129,21 @@ def _row_to_dict(row: sqlite3.Row) -> dict:
     }
 
 
-def get_history(limit: int = 50) -> list[dict]:
-    """Return the most recent actions, newest first."""
+def get_history(limit: int = 50, user_id: Optional[str] = None) -> list[dict]:
+    """Return the most recent actions, newest first.
+
+    When `user_id` is given, only that account's actions are returned.
+    """
     with _connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM actions ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
+        if user_id is None:
+            rows = conn.execute(
+                "SELECT * FROM actions ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM actions WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
     return [_row_to_dict(r) for r in rows]
 
 

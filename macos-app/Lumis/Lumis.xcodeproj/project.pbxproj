@@ -20,7 +20,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				Lumis.entitlements,
 			);
 			target = FE1100000000000000000003 /* Lumis */;
 		};
@@ -254,20 +253,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		FE110000000000000000000C /* Build configuration list for PBXProject "Lumis" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FE110000000000000000000D /* Debug */,
-				FE110000000000000000000E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		FE1100000000000000000008 /* Build configuration list for PBXNativeTarget "Lumis" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FE110000000000000000000F /* Debug */,
 				FE1100000000000000000010 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE110000000000000000000C /* Build configuration list for PBXProject "Lumis" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE110000000000000000000D /* Debug */,
+				FE110000000000000000000E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

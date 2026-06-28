@@ -16,7 +16,9 @@ import logging
 import uuid
 from typing import Optional
 
+import db
 import engine
+import memory
 from llm import parse_plan
 from websocket import manager
 
@@ -28,12 +30,13 @@ _queue: "asyncio.Queue[str]" = asyncio.Queue()
 _worker_started = False
 
 
-def create_task(instruction: str, session_id: str) -> str:
+def create_task(instruction: str, session_id: str, user_id: str = db.GLOBAL_USER) -> str:
     """Register a task and enqueue it for background execution."""
     task_id = "task-" + uuid.uuid4().hex[:8]
     _tasks[task_id] = {
         "task_id": task_id,
         "session_id": session_id,
+        "user_id": user_id,
         "instruction": instruction,
         "status": "queued",
         "steps": [],
@@ -61,6 +64,9 @@ async def _run_task(task_id: str) -> None:
     task = _tasks[task_id]
     task["status"] = "running"
     loop = asyncio.get_event_loop()
+
+    # Scope planning + memory to this task's account.
+    memory.set_user(task.get("user_id"))
 
     await manager.broadcast({
         "session_id": task["session_id"],
@@ -105,7 +111,8 @@ async def _run_task(task_id: str) -> None:
         await manager.broadcast(evt)  # keep existing step_* events intact
 
     try:
-        await engine.run_workflow(steps, task["session_id"], task_broadcast, lambda e: None)
+        await engine.run_workflow(steps, task["session_id"], task_broadcast,
+                                  lambda e: None, user_id=task.get("user_id", db.GLOBAL_USER))
         task["status"] = "done"
         task["progress_pct"] = 100
     except Exception as exc:  # noqa: BLE001

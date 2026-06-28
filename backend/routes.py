@@ -3,7 +3,7 @@ import asyncio
 import logging
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 import db
@@ -12,6 +12,7 @@ import memory
 import tasks
 import tools
 import websocket as ws_module
+from auth import current_user
 from llm import parse_plan
 from websocket import manager
 
@@ -30,7 +31,11 @@ def _set_latest(event: dict) -> None:
 
 
 @router.post("/ingest")
-async def ingest(payload: IngestPayload):
+async def ingest(payload: IngestPayload, user: dict = Depends(current_user)):
+    # Scope this user's learned memory before planning (it's injected into the
+    # LLM prompt) and before execution (history + new memory are saved per-user).
+    memory.set_user(user["id"])
+
     # 1. LLM planner: intent -> ordered workflow of tool calls.
     logger.info("Ingest voice_text=%r (image=%s)", payload.voice_text, bool(payload.image))
     plan = parse_plan(payload.voice_text, payload.image, payload.session_id)
@@ -40,7 +45,7 @@ async def ingest(payload: IngestPayload):
 
     # 2. Workflow engine: execute each real action in order, broadcasting progress.
     results = await engine.run_workflow(
-        steps, payload.session_id, manager.broadcast, _set_latest
+        steps, payload.session_id, manager.broadcast, _set_latest, user_id=user["id"]
     )
 
     return {"steps": results}
@@ -52,13 +57,14 @@ async def latest():
 
 
 @router.get("/history")
-async def history(limit: int = 50):
-    """Return the last `limit` (default 50) actions Lumis has taken, newest first.
+async def history(limit: int = 50, user: dict = Depends(current_user)):
+    """Return the last `limit` (default 50) actions for the signed-in account,
+    newest first.
 
     Each entry: id, session_id, timestamp, tool_name, args, result, status,
     message, title, and undo_available.
     """
-    return {"actions": db.get_history(limit)}
+    return {"actions": db.get_history(limit, user_id=user["id"])}
 
 
 @router.post("/undo/{action_id}")
@@ -94,14 +100,14 @@ class TaskPayload(BaseModel):
 
 
 @router.post("/task")
-async def create_task(payload: TaskPayload):
+async def create_task(payload: TaskPayload, user: dict = Depends(current_user)):
     """Queue a natural-language instruction for autonomous background execution.
 
     The instruction is planned into a tool workflow by the LLM and run on a
     background worker (does not block /ingest). Poll GET /task/{task_id}/status
     or listen for task_started / task_progress / task_complete WebSocket events.
     """
-    task_id = tasks.create_task(payload.instruction, payload.session_id)
+    task_id = tasks.create_task(payload.instruction, payload.session_id, user_id=user["id"])
     return {"task_id": task_id, "status": "queued"}
 
 
@@ -116,14 +122,16 @@ async def task_status(task_id: str):
 
 
 @router.get("/memory")
-async def get_memory():
-    """Return the preferences Lumis has learned about you as key/value pairs."""
+async def get_memory(user: dict = Depends(current_user)):
+    """Return the preferences Lumis has learned about the signed-in account."""
+    memory.set_user(user["id"])
     return {"memory": memory.get_all()}
 
 
 @router.delete("/memory/{key}")
-async def forget_memory(key: str):
+async def forget_memory(key: str, user: dict = Depends(current_user)):
     """Forget one learned preference by key. 404 if the key is unknown."""
+    memory.set_user(user["id"])
     if not memory.delete(key):
         raise HTTPException(status_code=404, detail="No such memory key.")
     return {"status": "success", "message": f"Forgot '{key}'.", "key": key}

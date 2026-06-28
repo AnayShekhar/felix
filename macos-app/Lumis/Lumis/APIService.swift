@@ -24,6 +24,27 @@ enum APIService {
         return u
     }
 
+    // MARK: - Auth token (shared with AuthStore via UserDefaults)
+
+    static var token: String? {
+        get { UserDefaults.standard.string(forKey: LumisBrand.authTokenKey) }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue, forKey: LumisBrand.authTokenKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: LumisBrand.authTokenKey)
+            }
+        }
+    }
+
+    /// A GET/DELETE request carrying the bearer token (per-account scoping).
+    private static func authed(_ path: String, method: String = "GET") throws -> URLRequest {
+        var req = URLRequest(url: try url(path))
+        req.httpMethod = method
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        return req
+    }
+
     private static func friendly(_ error: Error) -> APIError {
         if let api = error as? APIError { return api }
         let ns = error as NSError
@@ -46,7 +67,7 @@ enum APIService {
 
     static func history() async throws -> [ActionHistoryItem] {
         do {
-            let (data, resp) = try await URLSession.shared.data(from: try url("/history"))
+            let (data, resp) = try await URLSession.shared.data(for: try authed("/history"))
             try check(resp)
             return (try? JSONDecoder().decode(HistoryResponse.self, from: data))?.actions ?? []
         } catch { throw friendly(error) }
@@ -56,7 +77,7 @@ enum APIService {
 
     static func memory() async throws -> [String: String] {
         do {
-            let (data, resp) = try await URLSession.shared.data(from: try url("/memory"))
+            let (data, resp) = try await URLSession.shared.data(for: try authed("/memory"))
             try check(resp)
             return (try? JSONDecoder().decode(MemoryResponse.self, from: data))?.memory ?? [:]
         } catch { throw friendly(error) }
@@ -65,10 +86,55 @@ enum APIService {
     static func forget(key: String) async throws {
         do {
             let encoded = key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? key
-            var req = URLRequest(url: try url("/memory/\(encoded)"))
-            req.httpMethod = "DELETE"
-            let (_, resp) = try await URLSession.shared.data(for: req)
+            let (_, resp) = try await URLSession.shared.data(for: try authed("/memory/\(encoded)", method: "DELETE"))
             try check(resp)
+        } catch { throw friendly(error) }
+    }
+
+    // MARK: - Auth
+
+    static func login(email: String, password: String) async throws -> AuthUser {
+        try await authPost("/auth/login", body: ["email": email, "password": password])
+    }
+
+    static func register(name: String, email: String, password: String) async throws -> AuthUser {
+        try await authPost("/auth/register", body: ["name": name, "email": email, "password": password])
+    }
+
+    /// Sign in with Apple — same endpoint + JWT as iOS.
+    static func apple(identityToken: String, fullName: String) async throws -> AuthUser {
+        try await authPost("/auth/apple", body: ["identityToken": identityToken, "fullName": fullName])
+    }
+
+    /// Sign in with Google — same endpoint + JWT as iOS.
+    static func google(idToken: String) async throws -> AuthUser {
+        try await authPost("/auth/google", body: ["idToken": idToken])
+    }
+
+    /// GET /auth/me — validates the stored token and returns the account.
+    static func me() async throws -> AuthUser {
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: try authed("/auth/me"))
+            try check(resp)
+            return try JSONDecoder().decode(MeEnvelope.self, from: data).user
+        } catch { throw friendly(error) }
+    }
+
+    /// POST an auth credential, store the returned token, return the user.
+    private static func authPost(_ path: String, body: [String: String]) async throws -> AuthUser {
+        do {
+            var req = URLRequest(url: try url(path))
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+                let detail = (try? JSONDecoder().decode(ErrorEnvelope.self, from: data))?.detail
+                throw APIError(message: detail ?? "Sign-in failed (HTTP \(http.statusCode)).")
+            }
+            let envelope = try JSONDecoder().decode(AuthEnvelope.self, from: data)
+            token = envelope.token
+            return envelope.user
         } catch { throw friendly(error) }
     }
 

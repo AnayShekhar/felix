@@ -31,8 +31,8 @@ final class GoogleAuthSession: NSObject, ASWebAuthenticationPresentationContextP
 
         // Google iOS clients use the reversed client id as the redirect scheme.
         let reversed = clientID.split(separator: ".").reversed().joined(separator: ".")
-        let redirectURI = "\(reversed):/oauth2redirect"
-        let callbackScheme = reversed
+        let callbackScheme = "com.googleusercontent.apps.955535830862-t9jp1lql7ert69up16jr27pj248f58fi"
+        let redirectURI = "com.googleusercontent.apps.955535830862-t9jp1lql7ert69up16jr27pj248f58fi:/oauth2redirect"
 
         let verifier = Self.randomURLSafe(64)
         let challenge = Self.s256(verifier)

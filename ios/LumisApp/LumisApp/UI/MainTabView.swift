@@ -1,44 +1,84 @@
 import SwiftUI
 
-/// Authenticated app shell: the four screens behind a custom liquid-glass tab
-/// bar. The Camera tab is full-screen immersive, so the bar hides there.
+/// Authenticated app shell. The tab bar is gone: Home is the single surface,
+/// with a liquid-glass chat bar above the bottom edge, a slide-in sidebar
+/// (recent actions + account) opened from the top-left menu button, and a
+/// full-screen Settings sheet reached from the sidebar's initials button.
 struct MainTabView: View {
     @EnvironmentObject private var vm: LumisViewModel
     @EnvironmentObject private var macVM: MacConnectionViewModel
+    @EnvironmentObject private var authVM: AuthViewModel
+
+    @State private var sidebarOpen = false
+    @State private var showSettings = false
+    @State private var showCamera = false
+    @State private var recent: [ActionHistoryItem] = []
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            LumisColors.parchment.ignoresSafeArea()
-
-            Group {
-                switch vm.selectedTab {
-                case .home:     HomeView()
-                case .history:  HistoryView()
-                case .camera:   CameraView()
-                case .settings: SettingsView()
+        ZStack(alignment: .leading) {
+            HomeView(onMenu: openSidebar)
+                .overlay(alignment: .bottom) {
+                    ChatBarView(onCamera: { showCamera = true })
+                        .padding(.bottom, 12)
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // The main content eases aside as the sidebar comes in, then
+                // slides back — a natural, weighted iOS dismissal.
+                .scaleEffect(sidebarOpen ? 0.92 : 1, anchor: .trailing)
+                .offset(x: sidebarOpen ? 60 : 0)
+                // Tapping back into the home page closes the sidebar.
+                .allowsHitTesting(!sidebarOpen)
 
-            if vm.selectedTab != .camera {
-                LumisTabBar(selected: $vm.selectedTab) { tab in select(tab) }
-                    .transition(.move(edge: .bottom))
+            if sidebarOpen {
+                Color.black.opacity(0.18)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: closeSidebar)
+                    .transition(.opacity)
+
+                SidebarView(
+                    recent: recent,
+                    initials: authVM.currentUser?.initials ?? "?",
+                    onSettings: { showSettings = true }
+                )
+                .transition(.move(edge: .leading))
             }
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            LiveCameraView(
+                onCapture: { image in
+                    vm.send(image: image, text: "")
+                    showCamera = false
+                },
+                onClose: { showCamera = false }
+            )
+            .environmentObject(vm)
+        }
+        .fullScreenCover(isPresented: $showSettings, onDismiss: { Task { await loadRecent() } }) {
+            SettingsView(onClose: { showSettings = false })
+                .environmentObject(authVM)
+                .environmentObject(macVM)
+                .environmentObject(vm)
         }
         .onAppear {
             vm.start()
             macVM.startPolling()
+            Task { await loadRecent() }
         }
-        .onDisappear {
-            macVM.stopPolling()
-        }
+        .onDisappear { macVM.stopPolling() }
     }
 
-    private func select(_ tab: LumisTab) {
-        if tab == .camera {
-            vm.openCameraManually()
-        } else {
-            vm.selectedTab = tab
+    private func openSidebar() {
+        Task { await loadRecent() }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) { sidebarOpen = true }
+    }
+
+    private func closeSidebar() {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) { sidebarOpen = false }
+    }
+
+    private func loadRecent() async {
+        if let fetched = try? await APIClient.history(baseURL: LumisConfig.backendURL) {
+            recent = Array(fetched.prefix(20))
         }
     }
 }

@@ -53,7 +53,7 @@ struct MemoryView: View {
                                 isDeleting: deleting.contains(entry.key),
                                 onDelete: { Task { await forget(entry.key) } }
                             )
-                            Divider().overlay(.white.opacity(0.05))
+                            Divider().overlay(LumisBrand.hairline)
                         }
                     }
                     .lumisCard(padding: 0)
@@ -77,7 +77,7 @@ struct MemoryView: View {
                 .font(.system(size: 13))
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .background(LumisBrand.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 
     private func load() async {
@@ -118,7 +118,7 @@ private struct TableHeaderRow: View {
         .font(.system(size: 10, weight: .heavy))
         .foregroundStyle(.secondary)
         .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(.white.opacity(0.03))
+        .background(LumisBrand.surface)
     }
 }
 
@@ -156,7 +156,7 @@ private struct MemoryRow: View {
             .help("Forget this")
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
-        .background(hover ? Color.white.opacity(0.03) : .clear)
+        .background(hover ? LumisBrand.surfaceHover : .clear)
         .onHover { hover = $0 }
     }
 }
