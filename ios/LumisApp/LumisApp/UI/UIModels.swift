@@ -51,10 +51,10 @@ enum ActionType: String, Codable {
         case .email:       return LumisColors.destructive
         case .calendar:    return LumisColors.amber
         case .file:        return LumisColors.powderBlue
-        case .web:         return Color(hex: "#5B8DEF")
-        case .note:        return Color(hex: "#C7A45B")
-        case .reminder:    return Color(hex: "#7E8CE0")
-        case .media:       return Color(hex: "#C77DCB")
+        case .web:         return LumisColors.categoryWeb
+        case .note:        return LumisColors.categoryNote
+        case .reminder:    return LumisColors.categoryReminder
+        case .media:       return LumisColors.categoryMedia
         case .system:      return LumisColors.textSecondary
         case .other:       return LumisColors.powderBlue
         }

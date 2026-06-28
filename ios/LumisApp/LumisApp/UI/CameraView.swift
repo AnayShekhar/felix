@@ -30,8 +30,12 @@ struct CameraView: View {
                     .overlay(Rectangle().stroke(LumisColors.powderBlue, lineWidth: 3).ignoresSafeArea())
             } else {
                 CameraPreview(session: vm.camera.session).ignoresSafeArea()
-                CornerBrackets().padding(.horizontal, UIScreen.main.bounds.width * 0.15)
-                    .padding(.vertical, UIScreen.main.bounds.height * 0.15)
+                GeometryReader { geo in
+                    CornerBrackets()
+                        .padding(.horizontal, geo.size.width * 0.15)
+                        .padding(.vertical, geo.size.height * 0.15)
+                }
+                .ignoresSafeArea()
             }
 
             if flash { Color.white.opacity(0.8).ignoresSafeArea() }

@@ -76,6 +76,8 @@ struct GoogleLogo: View {
         Text("G")
             .font(.system(size: size, weight: .bold, design: .default))
             .foregroundStyle(
+                // Google's official brand colors — a third-party logo, so these
+                // intentionally live outside the LumisColors app palette.
                 LinearGradient(
                     colors: [Color(hex: "#4285F4"), Color(hex: "#EA4335"),
                              Color(hex: "#FBBC05"), Color(hex: "#34A853")],

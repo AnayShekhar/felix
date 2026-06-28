@@ -21,6 +21,12 @@ struct LumisColors {
 
     /// Amber used for the "Mac linked but offline" state across the app.
     static let amber             = Color(hex: "#E8A838")
+
+    // Action category accents (history + result cards).
+    static let categoryWeb       = Color(hex: "#5B8DEF")
+    static let categoryNote      = Color(hex: "#C7A45B")
+    static let categoryReminder  = Color(hex: "#7E8CE0")
+    static let categoryMedia     = Color(hex: "#C77DCB")
 }
 
 extension Color {
