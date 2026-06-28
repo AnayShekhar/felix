@@ -565,35 +565,92 @@ def browser_open_url(args: dict) -> dict:
     }
 
 
-def browser_read_page(args: dict) -> dict:
-    """Read the frontmost Chrome tab: its URL/title (AppleScript) + clean text.
+def _chrome_js(js: str, timeout: float = 20.0) -> str:
+    """Execute JavaScript in Chrome's active tab and return the result as text.
 
-    Gets the active tab's URL via AppleScript, then re-fetches it with
-    requests/BeautifulSoup (reusing web.fetch_page) to extract clean body text.
-    Requires Automation permission to control Chrome (Phase 3).
+    Requires Chrome's "Allow JavaScript from Apple Events" (View > Developer)
+    plus Automation permission. Used to read the live (JS-rendered) DOM and to
+    click elements — things a plain HTTP re-fetch cannot do.
     """
     script = (
         'tell application "Google Chrome"\n'
-        "    set theURL to URL of active tab of front window\n"
-        "    set theTitle to title of active tab of front window\n"
-        "    return theURL & (character id 9) & theTitle\n"
+        f'    set r to execute active tab of front window javascript "{_as_escape(js)}"\n'
+        "    return r as string\n"
         "end tell"
     )
-    raw = _osascript(script, timeout=20.0)
-    parts = raw.split("\t")
-    url = parts[0].strip()
-    page_title = parts[1].strip() if len(parts) > 1 else ""
-    if not url:
-        raise ToolError("Could not read the active Chrome tab. Is Chrome open?")
+    return _osascript(script, timeout=timeout)
 
+
+# JS that scrapes the live tab: title, url, visible text, and the clickable
+# links (text + href). Lets the agent SEE the rendered page (e.g. the YouTube
+# feed) and choose what to open/click — a plain HTTP fetch returns none of this.
+_READ_PAGE_JS = (
+    "(function(){try{"
+    "var t=(document.body?document.body.innerText:'').replace(/\\s+/g,' ').slice(0,4000);"
+    "var seen={};var links=[];var as=document.querySelectorAll('a[href]');"
+    "for(var i=0;i<as.length&&links.length<40;i++){var a=as[i];"
+    "var txt=(a.innerText||a.textContent||a.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ');"
+    "if(!txt||txt.length>140)continue;var href=a.href;"
+    "if(!href||href.indexOf('javascript:')===0||seen[href])continue;seen[href]=1;"
+    "links.push({text:txt,href:href});}"
+    "return JSON.stringify({title:document.title,url:location.href,text:t,links:links});"
+    "}catch(e){return 'ERR:'+e;}})();"
+)
+
+
+def browser_read_page(args: dict) -> dict:
+    """Read the frontmost Chrome tab from the LIVE DOM: title, URL, visible text,
+    and clickable links (text + href).
+
+    Reads the rendered page via injected JS so JS-heavy sites (YouTube, Twitter,
+    web apps) actually return their content and links — which the agent can then
+    open_url or click. Falls back to an HTTP fetch if JS execution is blocked.
+    Requires Chrome's "Allow JavaScript from Apple Events" + Automation perms.
+    """
+    text = ""
+    links: list = []
+    url = ""
+    page_title = ""
     try:
-        fetched = web_fetch_page({"url": url})
-        text = fetched["data"].get("text", "")
-        page_title = page_title or fetched.get("title") or url
-    except Exception as exc:  # noqa: BLE001 - login/JS-gated pages still report URL
-        text = f"(Could not fetch page text: {exc})"
+        raw = _chrome_js(_READ_PAGE_JS)
+        if raw and not raw.startswith("ERR:"):
+            parsed = json.loads(raw)
+            url = str(parsed.get("url") or "")
+            page_title = str(parsed.get("title") or "")
+            text = str(parsed.get("text") or "")
+            links = parsed.get("links") or []
+    except Exception as exc:  # noqa: BLE001 - fall back to HTTP fetch below
+        logger.info("read_page JS scrape failed (%s); falling back to fetch.", exc)
 
-    summary = f"{page_title}\n{url}\n\n{text}"
+    if not url:
+        # Fallback: AppleScript URL + HTTP fetch (no live DOM / links).
+        script = (
+            'tell application "Google Chrome"\n'
+            "    set theURL to URL of active tab of front window\n"
+            "    set theTitle to title of active tab of front window\n"
+            "    return theURL & (character id 9) & theTitle\n"
+            "end tell"
+        )
+        raw = _osascript(script, timeout=20.0)
+        parts = raw.split("\t")
+        url = parts[0].strip()
+        page_title = parts[1].strip() if len(parts) > 1 else ""
+        if not url:
+            raise ToolError("Could not read the active Chrome tab. Is Chrome open?")
+        try:
+            fetched = web_fetch_page({"url": url})
+            text = fetched["data"].get("text", "")
+            page_title = page_title or fetched.get("title") or url
+        except Exception as exc:  # noqa: BLE001
+            text = f"(Could not fetch page text: {exc})"
+
+    links_block = ""
+    if links:
+        links_block = "\n\nLinks on the page:\n" + "\n".join(
+            f"{i}. {l.get('text', '')} — {l.get('href', '')}"
+            for i, l in enumerate(links[:25])
+        )
+    summary = f"{page_title}\n{url}\n\n{text}{links_block}"
     return {
         "tool": "browser.read_page",
         "status": "success",
@@ -602,7 +659,64 @@ def browser_read_page(args: dict) -> dict:
         "detail": text[:3000],
         "speak": f"You're on {page_title or url}.",
         "summary": summary,
-        "data": {"url": url, "title": page_title, "text": text},
+        "data": {"url": url, "title": page_title, "text": text, "links": links},
+    }
+
+
+def browser_click(args: dict) -> dict:
+    """Click an element in the frontmost Chrome tab — by CSS selector or by its
+    visible text — via injected JavaScript.
+
+    This is how the agent acts INSIDE a page: open the first video, press a
+    button, follow a result. Pass `selector` for precision, or `text` to click
+    the first link/button whose visible text contains it. Requires Chrome's
+    "Allow JavaScript from Apple Events" + Automation permission.
+    """
+    selector = str(args.get("selector") or "").strip()
+    text = str(args.get("text") or "").strip()
+    if not selector and not text:
+        raise ToolError("browser.click requires a 'selector' or 'text'.")
+
+    finder = (
+        "var el=document.querySelector(" + json.dumps(selector) + ");"
+        if selector else
+        "var q=" + json.dumps(text.lower()) + ";var el=null;"
+        "var c=document.querySelectorAll('a,button,[role=\"button\"],[onclick],ytd-rich-item-renderer a#thumbnail');"
+        "for(var i=0;i<c.length;i++){var s=(c[i].innerText||c[i].textContent||c[i].getAttribute('aria-label')||'').trim().toLowerCase();"
+        "if(s&&s.indexOf(q)>-1){el=c[i];break;}}"
+    )
+    js = (
+        "(function(){try{" + finder +
+        "if(!el){return 'NOTFOUND';}"
+        "el.scrollIntoView({block:'center'});"
+        "var label=(el.innerText||el.textContent||el.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,100);"
+        "var href=el.href||'';el.click();"
+        "return 'OK|'+label+'|'+href;"
+        "}catch(e){return 'ERR:'+e;}})();"
+    )
+    raw = (_chrome_js(js) or "").strip()
+    if raw == "NOTFOUND" or not raw:
+        target = selector or f"text '{text}'"
+        return {
+            "tool": "browser.click", "status": "error",
+            "message": f"Couldn't find anything to click for {target} on the page.",
+            "title": "Click failed",
+            "data": {"error": "not_found", "selector": selector, "text": text},
+        }
+    if raw.startswith("ERR:"):
+        raise ToolError(f"browser.click failed: {raw[4:]}")
+
+    _, _, rest = raw.partition("|")
+    label, _, href = rest.partition("|")
+    label = label.strip() or (selector or text)
+    return {
+        "tool": "browser.click",
+        "status": "success",
+        "message": f"Clicked “{label}” in Chrome." + (f" → {href}" if href else ""),
+        "title": "Clicked",
+        "speak": f"Clicked {label}.",
+        "url": href or None,
+        "data": {"clicked": label, "href": href, "selector": selector, "text": text},
     }
 
 
@@ -2700,6 +2814,7 @@ TOOL_REGISTRY = {
     "browser.open_url": browser_open_url,
     "browser.read_page": browser_read_page,
     "browser.fill_form": browser_fill_form,
+    "browser.click": browser_click,
     "notes.append_to_note": notes_append_to_note,
     "notes.list_notes": notes_list_notes,
     "numbers.read_sheet": numbers_read_sheet,

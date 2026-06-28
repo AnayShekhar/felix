@@ -278,7 +278,12 @@ class LumisAgent:
         """Start a fresh ReAct run for a new command."""
         memory.set_user(self.user_id)
 
-        block = _conversation_block(self.session_id)
+        # When a photo is attached the task is grounded in THAT image — do not
+        # inject prior conversation, or the model conflates this with an earlier
+        # task (e.g. turning previous research into the spreadsheet instead of
+        # reading the new photo). Conversation context is only for image-less
+        # follow-ups like "do that again" / "change the time".
+        block = "" if image_b64 else _conversation_block(self.session_id)
         _append_turn(self.session_id, "user", voice_text)
 
         self.context.append({
