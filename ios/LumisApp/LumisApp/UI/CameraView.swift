@@ -1,23 +1,16 @@
 import SwiftUI
 import PhotosUI
 
-/// Full-screen camera. Manual mode (tapped the tab) or auto-triggered (backend
-/// asked to see something). Captures an image + text and sends it to Lumis.
+/// Full-screen manual camera. Frame something, capture, add a spoken/typed
+/// command, and send the image + text to Lumis. Nothing is sent automatically.
 struct CameraView: View {
     @EnvironmentObject private var vm: LumisViewModel
-    let mode: CameraMode
 
     @State private var captured: UIImage?
     @State private var flash = false
     @State private var flashOn = false
     @State private var commandText = ""
-    @State private var autoSendTask: Task<Void, Never>?
     @State private var photoItem: PhotosPickerItem?
-
-    private var reason: String? {
-        if case .autoTriggered(let r) = mode { return r }
-        return nil
-    }
 
     var body: some View {
         ZStack {
@@ -47,10 +40,7 @@ struct CameraView: View {
             }
         }
         .onAppear { vm.camera.start() }
-        .onDisappear { vm.camera.stop(); autoSendTask?.cancel() }
-        .task {
-            if case .autoTriggered = mode { commandText = vm.pendingCommand }
-        }
+        .onDisappear { vm.camera.stop() }
     }
 
     // MARK: - Top bar
@@ -65,17 +55,6 @@ struct CameraView: View {
                     .background(.ultraThinMaterial, in: Circle())
             }
             .accessibilityLabel("Close camera")
-
-            Spacer()
-
-            if let reason {
-                Text(reason)
-                    .font(LumisTypography.bodySmall)
-                    .foregroundStyle(LumisColors.powderBlue)
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .frame(maxWidth: 240)
-            }
 
             Spacer()
 
@@ -135,13 +114,8 @@ struct CameraView: View {
 
                 Spacer()
 
-                // Mic indicator (active in auto-triggered mode).
-                Image(systemName: reason != nil ? "waveform" : "mic")
-                    .font(.system(size: 22))
-                    .foregroundStyle(reason != nil ? LumisColors.powderBlue : .white)
-                    .frame(width: 44, height: 44)
-                    .symbolEffect(.variableColor.iterative, isActive: reason != nil)
-                    .accessibilityHidden(true)
+                // Balance the library button on the left.
+                Color.clear.frame(width: 44, height: 44)
             }
             .padding(.horizontal, 28)
         }
@@ -161,11 +135,6 @@ struct CameraView: View {
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
             }
-            if reason != nil {
-                Button("Cancel auto-send") { autoSendTask?.cancel() }
-                    .font(LumisTypography.caption)
-                    .foregroundStyle(.white.opacity(0.7))
-            }
         }
         .padding(.horizontal, 24)
     }
@@ -180,18 +149,10 @@ struct CameraView: View {
             try? await Task.sleep(nanoseconds: 150_000_000)
             withAnimation { flash = false }
             captured = image
-            // Auto-send the retained command 1.5s after an auto-triggered capture.
-            if reason != nil, !commandText.isEmpty {
-                autoSendTask = Task {
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                    if !Task.isCancelled { send() }
-                }
-            }
         }
     }
 
     private func send() {
-        autoSendTask?.cancel()
         vm.send(image: captured, text: commandText)
         close()
     }

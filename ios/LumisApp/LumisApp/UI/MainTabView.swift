@@ -14,7 +14,7 @@ struct MainTabView: View {
                 switch vm.selectedTab {
                 case .home:     HomeView()
                 case .history:  HistoryView()
-                case .camera:   CameraView(mode: vm.cameraMode ?? .manual)
+                case .camera:   CameraView()
                 case .settings: SettingsView()
                 }
             }
@@ -38,7 +38,6 @@ struct MainTabView: View {
         if tab == .camera {
             vm.openCameraManually()
         } else {
-            vm.cameraMode = nil
             vm.selectedTab = tab
         }
     }

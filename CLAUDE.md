@@ -15,7 +15,6 @@
 backend/        FastAPI server — all AI logic lives here
 ios/            SwiftUI iOS app — input layer only
 macos-app/      SwiftUI menu bar app — dashboard + tray
-web-client/     Single-file HTML/JS fallback frontend
 
 ## Hard constraints
 - NEVER touch CameraManager.swift or SpeechRecognizer.swift

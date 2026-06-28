@@ -4,7 +4,6 @@ import logging
 import os
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import db
@@ -128,20 +127,6 @@ async def forget_memory(key: str):
     if not memory.delete(key):
         raise HTTPException(status_code=404, detail="No such memory key.")
     return {"status": "success", "message": f"Forgot '{key}'.", "key": key}
-
-
-# Path to the self-contained web input client (../web-client/index.html).
-_WEB_CLIENT = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "web-client", "index.html"
-)
-
-
-@router.get("/web", include_in_schema=False)
-async def web_client():
-    """Serve the self-contained web input client (camera + mic + wake word)."""
-    if not os.path.exists(_WEB_CLIENT):
-        raise HTTPException(status_code=404, detail="web-client/index.html not found.")
-    return FileResponse(_WEB_CLIENT, media_type="text/html")
 
 
 @router.get("/mac/status")

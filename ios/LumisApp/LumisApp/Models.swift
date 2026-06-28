@@ -56,8 +56,6 @@ struct UndoResponse: Codable {
 struct WSEnvelope: Codable {
     let session_id: String?
     let event: String?
-    let action: String?       // e.g. "request_camera" (camera auto-trigger, Part 8)
-    let reason: String?       // human reason accompanying `action`
     let data: WSData?
 }
 
@@ -78,7 +76,6 @@ struct WSData: Codable {
     let task_id: String?       // present on task_started/task_progress/task_complete
     let progress_pct: Int?     // present on task_progress/task_complete
     let instruction: String?   // present on task_started
-    let reason: String?        // present on request_camera
 }
 
 // POST /task response: { task_id, status }

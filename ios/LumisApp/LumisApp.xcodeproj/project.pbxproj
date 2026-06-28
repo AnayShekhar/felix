@@ -426,14 +426,16 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LumisApp/LumisApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CSRVPSV3Y4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				CODE_SIGN_ENTITLEMENTS = LumisApp/LumisApp.entitlements;
 				INFOPLIST_FILE = LumisApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Lumis;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Lumis uses the camera to capture visual context.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Lumis finds your Mac on the local network to send commands.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lumis uses the microphone for voice commands.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Lumis transcribes your voice commands.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -446,7 +448,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anay.lumis";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.lumisapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -465,14 +467,16 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LumisApp/LumisApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CSRVPSV3Y4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				CODE_SIGN_ENTITLEMENTS = LumisApp/LumisApp.entitlements;
 				INFOPLIST_FILE = LumisApp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Lumis;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Lumis uses the camera to capture visual context.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Lumis finds your Mac on the local network to send commands.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lumis uses the microphone for voice commands.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Lumis transcribes your voice commands.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -485,7 +489,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anay.lumis";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.lumisapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -507,7 +511,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anay.lumis.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.lumis.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -529,7 +533,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anay.lumis.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.lumis.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -549,7 +553,7 @@
 				DEVELOPMENT_TEAM = S4B33K9ZHH;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anay.lumis.uitests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.lumis.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -569,7 +573,7 @@
 				DEVELOPMENT_TEAM = S4B33K9ZHH;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anay.lumis.uitests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anay.lumis.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

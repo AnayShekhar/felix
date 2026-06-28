@@ -5,12 +5,6 @@ enum LumisTab: Int, CaseIterable {
     case home, history, camera, settings
 }
 
-/// Why the camera screen is open.
-enum CameraMode: Equatable {
-    case manual
-    case autoTriggered(reason: String)
-}
-
 /// Category of an action, used for the icon + accent color on cards.
 enum ActionType: String, Codable {
     case spreadsheet, email, calendar, file, web, note, reminder, media, system, other

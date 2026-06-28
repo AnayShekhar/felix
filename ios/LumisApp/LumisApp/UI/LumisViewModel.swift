@@ -12,14 +12,9 @@ final class LumisViewModel: ObservableObject {
     @Published var transcript = ""
     @Published var responseText = ""
     @Published var lastResult: ActionResult?
-    @Published var cameraMode: CameraMode?
     @Published var selectedTab: LumisTab = .home
     @Published var isSending = false
     @Published var errorMessage: String?
-
-    /// The spoken command retained when the camera is auto-triggered, so it can
-    /// be re-sent together with the captured image.
-    @Published var pendingCommand = ""
 
     let ws = WebSocketClient()
     let speech = SpeechRecognizer()
@@ -33,13 +28,30 @@ final class LumisViewModel: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Connect + start listening. Safe to call repeatedly (idempotent).
+    /// Whether the "Hey Lumis" wake word is enabled (Settings). Default on.
+    static let wakeWordKey = "lumis.pref.wakeWord"
+    var wakeWordEnabled: Bool { UserDefaults.standard.object(forKey: Self.wakeWordKey) as? Bool ?? true }
+
+    /// Connect + (optionally) start listening. Safe to call repeatedly (idempotent).
     func start() {
         guard !started else { return }
         started = true
         if let url = URL(string: LumisConfig.websocketURL) { ws.connect(to: url) }
-        speech.requestPermission()
-        speech.startListening()
+        if wakeWordEnabled {
+            speech.requestPermission()
+            speech.startListening()
+        }
+    }
+
+    /// React to the Settings wake-word toggle immediately.
+    func setWakeWord(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: Self.wakeWordKey)
+        if on {
+            speech.requestPermission()
+            speech.startListening()
+        } else {
+            speech.stopListening()
+        }
     }
 
     func stop() {
@@ -72,12 +84,6 @@ final class LumisViewModel: ObservableObject {
                 self.responseText = step.speak ?? step.message ?? ""
                 if !result.success { Haptics.error() } else { Haptics.success() }
             }
-            .store(in: &cancellables)
-
-        // Camera auto-trigger.
-        ws.$cameraRequest
-            .compactMap { $0 }
-            .sink { [weak self] reason in self?.triggerCamera(reason: reason) }
             .store(in: &cancellables)
     }
 
@@ -135,22 +141,11 @@ final class LumisViewModel: ObservableObject {
 
     // MARK: - Camera
 
-    /// Open the camera tab in auto-trigger mode, retaining the spoken command.
-    func triggerCamera(reason: String) {
-        pendingCommand = transcript
-        cameraMode = .autoTriggered(reason: reason)
-        selectedTab = .camera
-        ws.cameraRequest = nil
-        Haptics.medium()
-    }
-
     func openCameraManually() {
-        cameraMode = .manual
         selectedTab = .camera
     }
 
     func closeCamera() {
-        cameraMode = nil
         if selectedTab == .camera { selectedTab = .home }
     }
 

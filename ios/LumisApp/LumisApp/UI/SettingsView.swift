@@ -3,16 +3,10 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var authVM: AuthViewModel
     @EnvironmentObject private var macVM: MacConnectionViewModel
+    @EnvironmentObject private var lumisVM: LumisViewModel
 
-    // Persisted preferences.
+    // Persisted preferences (only ones wired to real behavior).
     @AppStorage("lumis.pref.wakeWord") private var wakeWord = true
-    @AppStorage("lumis.pref.micSensitivity") private var micSensitivity = 0.5
-    @AppStorage("lumis.pref.verbosity") private var verbosity = 1
-    @AppStorage("lumis.pref.autoCamera") private var autoCamera = true
-    @AppStorage("lumis.pref.cameraHighRes") private var cameraHighRes = false
-    @AppStorage("lumis.pref.notifyCompleted") private var notifyCompleted = true
-    @AppStorage("lumis.pref.notifyOffline") private var notifyOffline = true
-    @AppStorage("lumis.pref.notifyWeekly") private var notifyWeekly = false
 
     @State private var showCodeEntry = false
     @State private var showSignOut = false
@@ -29,8 +23,6 @@ struct SettingsView: View {
                         profileCard
                         macSection
                         voiceSection
-                        cameraSection
-                        notificationsSection
                         accountSection
                         aboutSection
                     }
@@ -132,57 +124,7 @@ struct SettingsView: View {
             }
             .tint(LumisColors.powderBlue)
             .settingsRowPadding()
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Microphone sensitivity").font(LumisTypography.bodyMedium).foregroundStyle(LumisColors.carbonBlack)
-                LumisSlider(value: $micSensitivity)
-                HStack {
-                    Text("Low"); Spacer(); Text("Medium"); Spacer(); Text("High")
-                }
-                .font(LumisTypography.caption).foregroundStyle(LumisColors.textTertiary)
-            }
-            .settingsRowPadding()
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Response verbosity").font(LumisTypography.bodyMedium).foregroundStyle(LumisColors.carbonBlack)
-                Picker("", selection: $verbosity) {
-                    Text("Brief").tag(0); Text("Balanced").tag(1); Text("Detailed").tag(2)
-                }
-                .pickerStyle(.segmented)
-            }
-            .settingsRowPadding()
-        }
-    }
-
-    // MARK: - Camera
-
-    private var cameraSection: some View {
-        SettingsSection("Camera") {
-            Toggle("Auto-open camera for ambiguous commands", isOn: $autoCamera)
-                .font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.carbonBlack)
-                .tint(LumisColors.powderBlue).settingsRowPadding()
-            HStack {
-                Text("Resolution").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.carbonBlack)
-                Spacer()
-                Picker("", selection: $cameraHighRes) {
-                    Text("Standard").tag(false); Text("High").tag(true)
-                }
-                .pickerStyle(.menu).tint(LumisColors.powderBlue)
-            }
-            .settingsRowPadding()
-        }
-    }
-
-    // MARK: - Notifications
-
-    private var notificationsSection: some View {
-        SettingsSection("Notifications") {
-            Toggle("Action completed", isOn: $notifyCompleted)
-                .settingsToggle()
-            Toggle("Mac went offline", isOn: $notifyOffline)
-                .settingsToggle()
-            Toggle("Weekly summary", isOn: $notifyWeekly)
-                .settingsToggle()
+            .onChange(of: wakeWord) { _, on in lumisVM.setWakeWord(on) }
         }
     }
 

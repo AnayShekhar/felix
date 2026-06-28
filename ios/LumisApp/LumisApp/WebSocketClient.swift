@@ -9,9 +9,6 @@ final class WebSocketClient: ObservableObject {
     @Published var connected = false
     @Published var working = false
     @Published var activeTask: TaskState?   // live background task (Phase 5)
-    /// Set when the backend asks the app to open the camera for an ambiguous
-    /// reference ({ action: "request_camera", reason }). Consumed by LumisViewModel.
-    @Published var cameraRequest: String?
 
     // Lumis speaks results aloud when enabled (Fix 7). Default on; persisted.
     @Published var voiceEnabled: Bool =
@@ -79,12 +76,6 @@ final class WebSocketClient: ObservableObject {
     }
 
     private func handle(_ env: WSEnvelope) {
-        // Camera auto-trigger can arrive as an `action` or an `event` (Part 8).
-        if env.action == "request_camera" || env.event == "request_camera" {
-            cameraRequest = env.reason ?? env.data?.reason ?? "I need to see what you're referring to."
-            working = false
-            return
-        }
         switch env.event {
         case "step_started":
             working = true

@@ -43,36 +43,4 @@ struct SettingsRow<Accessory: View>: View {
 
 extension View {
     func settingsRowPadding() -> some View { self.padding(.horizontal, 16).padding(.vertical, 13) }
-    func settingsToggle() -> some View {
-        self.font(LumisTypography.bodyLarge)
-            .foregroundStyle(LumisColors.carbonBlack)
-            .tint(LumisColors.powderBlue)
-            .padding(.horizontal, 16).padding(.vertical, 10)
-    }
-}
-
-/// Custom slider: Powder-Blue fill, white thumb with Powder-Blue border.
-struct LumisSlider: View {
-    @Binding var value: Double
-
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            ZStack(alignment: .leading) {
-                Capsule().fill(LumisColors.carbonBlack.opacity(0.15)).frame(height: 4)
-                Capsule().fill(LumisColors.powderBlue).frame(width: max(0, w * value), height: 4)
-                Circle().fill(.white)
-                    .frame(width: 22, height: 22)
-                    .overlay(Circle().stroke(LumisColors.powderBlue, lineWidth: 1))
-                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
-                    .offset(x: max(0, min(w - 22, w * value - 11)))
-            }
-            .frame(height: 22)
-            .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { g in
-                value = min(1, max(0, g.location.x / w))
-            })
-        }
-        .frame(height: 22)
-    }
 }

@@ -1,8 +1,8 @@
-# Running the Lumis Demo
+# Running Lumis
 
-End-to-end flow: the web dashboard's **Send Test Input** button POSTs to the backend,
-the backend runs Gemini (or a deterministic mock fallback), stores the latest result,
-and broadcasts it over a WebSocket. The dashboard updates instantly.
+Lumis is three pieces: the **backend** (brain, FastAPI on Railway), the **iOS app**
+(eyes/ears), and the **Mac agent** (hands). For local development you run the
+backend and the Mac agent on your Mac; the iOS app talks to the backend.
 
 ## 1. Start the backend (terminal 1)
 
@@ -12,59 +12,34 @@ source venv/bin/activate          # first time: python3 -m venv venv && source v
 uvicorn main:app --port 8000
 ```
 
-The backend serves:
-- `POST /ingest` — accepts `{session_id, image, voice_text}`, returns `{action, title, content, target}`
-- `GET  /latest` — last broadcast event
+Set `GROQ_API_KEY` in `backend/.env` (the only required key — see `.env.example`).
+
+The backend serves, among others:
+- `POST /ingest` — `{session_id, image, voice_text}` → ordered tool results
+- `GET  /history` — last 50 actions
 - `GET  /health` — `{"status":"ok"}`
-- `WS   /ws`     — broadcasts `{session_id, event:"intent_processed", data:{action,title,content,target}}`
+- `WS   /ws` — live event stream
+- `POST /auth/*`, `POST/GET/DELETE /link/*` — accounts + Mac pairing
 
-### Real Gemini vs. mock fallback
-
-By default the backend has **no API key**, so it returns a deterministic **mock**
-result — the full demo pipeline still works end to end without any key.
-
-To use real Gemini, add a key to `backend/.env`:
+## 2. Start the Mac agent (terminal 2)
 
 ```bash
-cd backend
-echo "GEMINI_API_KEY=your_real_key_here" > .env   # see .env.example
+LUMIS_BACKEND_URL=http://localhost:8000 ./run_mac_agent.sh
 ```
 
-Then restart uvicorn. If the key is missing or the Gemini call fails, the backend
-automatically falls back to the mock result (the demo never crashes).
+The agent connects over `/ws`, runs macOS-local tools (osascript / files / apps),
+and prints a 6-character pairing code to link your iPhone.
 
-## 2. Start the frontend (terminal 2)
+## 3. Run the iOS app
 
-```bash
-cd web
-npm install      # first time only
-npm run dev      # serves on http://localhost:3000
-```
-
-The frontend reads its endpoints from `web/lib/config.ts` (overridable via
-`NEXT_PUBLIC_API_BASE_URL` / `NEXT_PUBLIC_WS_URL`). Defaults:
-- Ingest: `http://localhost:8000/ingest`
-- WebSocket: `ws://localhost:8000/ws`
-
-## 3. Run the demo
-
-1. Open <http://localhost:3000> in a browser.
-2. The "Live Output" panel should show **connected** (WebSocket connected to the backend).
-3. Click **Send Test Input**. It POSTs:
-   ```json
-   {"session_id":"test","image":"mock.jpg","voice_text":"turn this into study notes"}
-   ```
-4. The Live Output panel updates instantly with the AI interpretation
-   (title, action, target, content) and the formatted JSON.
-
-> A client that connects *after* an ingest immediately receives the last stored
-> result, so the panel populates on page load too.
+Open `ios/LumisApp/LumisApp.xcodeproj` in Xcode and run on a device or simulator.
+The app points at the deployed Railway backend by default (`LumisConfig`).
 
 ## Quick CLI sanity checks
 
 ```bash
 curl http://localhost:8000/health
 curl -X POST http://localhost:8000/ingest -H 'Content-Type: application/json' \
-  -d '{"session_id":"test","image":"mock.jpg","voice_text":"turn this into study notes"}'
-curl http://localhost:8000/latest
+  -d '{"session_id":"test","image":"","voice_text":"what is on my calendar today"}'
+curl http://localhost:8000/history
 ```
