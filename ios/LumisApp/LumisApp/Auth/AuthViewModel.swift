@@ -119,6 +119,31 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    func changeEmail(newEmail: String, password: String) async -> Bool {
+        guard let token else { return false }
+        var ok = false
+        await run {
+            let resp = try await LumisAPI.request(
+                "/auth/change-email", method: "POST",
+                body: ["newEmail": newEmail, "password": password], token: token, as: AuthResponse.self)
+            self.apply(resp)
+            ok = true
+        }
+        return ok
+    }
+
+    func changePassword(current: String, newPassword: String) async -> Bool {
+        guard let token else { return false }
+        var ok = false
+        await run {
+            _ = try await LumisAPI.requestVoid(
+                "/auth/change-password", method: "POST",
+                body: ["currentPassword": current, "newPassword": newPassword], token: token)
+            ok = true
+        }
+        return ok
+    }
+
     func refreshUser() async {
         guard let token else { return }
         if let me = try? await LumisAPI.request("/auth/me", token: token, as: MeResponse.self) {

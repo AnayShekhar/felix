@@ -264,6 +264,16 @@ class GoogleBody(BaseModel):
     idToken: str
 
 
+class ChangeEmailBody(BaseModel):
+    newEmail: str
+    password: str
+
+
+class ChangePasswordBody(BaseModel):
+    currentPassword: str
+    newPassword: str
+
+
 # --------------------------------------------------------------------------- #
 # Endpoints
 # --------------------------------------------------------------------------- #
@@ -317,3 +327,36 @@ async def delete_account(user: dict = Depends(current_user)):
 @router.get("/me")
 async def me(user: dict = Depends(current_user)):
     return {"user": user}
+
+
+@router.post("/change-email")
+async def change_email(body: ChangeEmailBody, user: dict = Depends(current_user)):
+    row = get_user_by_id(user["id"])
+    if not row or not verify_password(body.password, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    new_email = body.newEmail.strip().lower()
+    if "@" not in new_email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    if get_user_by_email(new_email) and new_email != row["email"]:
+        raise HTTPException(status_code=409, detail="That email is already in use")
+    with _connect() as conn:
+        conn.execute("UPDATE users SET email = ? WHERE id = ?", (new_email, user["id"]))
+        conn.commit()
+    updated = _row_to_user(get_user_by_id(user["id"]))
+    return {"user": updated, "token": issue_token(updated["id"], updated["email"])}
+
+
+@router.post("/change-password")
+async def change_password(body: ChangePasswordBody, user: dict = Depends(current_user)):
+    row = get_user_by_id(user["id"])
+    if not row or not verify_password(body.currentPassword, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if len(body.newPassword) < 6:
+        raise HTTPException(status_code=400, detail="Password too short")
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (hash_password(body.newPassword), user["id"]),
+        )
+        conn.commit()
+    return {"success": True}
