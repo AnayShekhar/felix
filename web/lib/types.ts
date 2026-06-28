@@ -1,4 +1,4 @@
-// Felix data contracts (mirrors backend payloads).
+// Lumis data contracts (mirrors backend payloads).
 
 export interface IngestPayload {
   session_id: string;
@@ -28,7 +28,7 @@ export interface WorkflowComplete {
 
 // Server emits: step_started, step_executed (StepResult) and
 // workflow_complete (WorkflowComplete).
-export interface FelixEvent {
+export interface LumisEvent {
   session_id: string;
   event: "step_started" | "step_executed" | "workflow_complete" | string;
   data: StepResult | WorkflowComplete;

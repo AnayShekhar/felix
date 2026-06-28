@@ -1,4 +1,4 @@
-"""Felix Mac-agent tool test harness (Phase 1).
+"""Lumis Mac-agent tool test harness (Phase 1).
 
 Why this exists: the Mac agent's value is latency + reliability. This script
 runs each tool in tools.py *in isolation* with safe sample inputs, executes the
@@ -30,7 +30,7 @@ SLOW_THRESHOLD_MS = 2000.0
 # Representative, side-effect-light sample inputs for each tool.
 SAMPLES: dict[str, dict] = {
     "notes.create_from_image": {
-        "title": "Felix Test Note",
+        "title": "Lumis Test Note",
         "content": "This note was created by test_tools.py.",
     },
     "media.open_spotify": {"query": "Bohemian Rhapsody"},
@@ -40,16 +40,16 @@ SAMPLES: dict[str, dict] = {
     "media.previous_track": {},
     "gmail.draft_email": {
         "to": "test@example.com",
-        "subject": "Felix test draft",
+        "subject": "Lumis test draft",
         "body": "This is a harness-generated draft. Not sent.",
     },
     "browser.open_url": {"url": "https://example.com"},
     "slides.create_presentation": {
-        "title": "Felix Test Deck",
+        "title": "Lumis Test Deck",
         "slides": [{"title": "Hello", "bullets": ["one", "two"]}],
     },
     "numbers.create_spreadsheet": {
-        "title": "Felix Test Sheet",
+        "title": "Lumis Test Sheet",
         "headers": ["A", "B"],
         "rows": [["1", "2"], ["3", "4"]],
     },
@@ -63,7 +63,7 @@ SAMPLES: dict[str, dict] = {
     # Groq key for synthesis and creates a real Apple Note.
     "web.search": {"query": "anthropic claude"},
     "web.fetch_page": {"url": "https://example.com"},
-    "web.research": {"topic": "the Felix project", "output_format": "summary"},
+    "web.research": {"topic": "the Lumis project", "output_format": "summary"},
     # Screen awareness (Fix 6) — Groq vision. capture_and_describe just reads the
     # screen; capture_and_act executes a plan, so give it a read-only instruction.
     "screen.capture_and_describe": {},
@@ -83,7 +83,7 @@ def run_one(tool: str) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Felix tool test harness.")
+    parser = argparse.ArgumentParser(description="Lumis tool test harness.")
     parser.add_argument("filters", nargs="*",
                         help="Substring filters; run only matching tools.")
     parser.add_argument("--list", action="store_true", help="List tools and exit.")

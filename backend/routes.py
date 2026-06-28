@@ -1,4 +1,4 @@
-"""Felix pipeline: INPUT -> LLM PLANNER -> WORKFLOW ENGINE -> REAL ACTIONS."""
+"""Lumis pipeline: INPUT -> LLM PLANNER -> WORKFLOW ENGINE -> REAL ACTIONS."""
 import asyncio
 import logging
 import os
@@ -16,7 +16,7 @@ import websocket as ws_module
 from llm import parse_plan
 from websocket import manager
 
-logger = logging.getLogger("felix.routes")
+logger = logging.getLogger("lumis.routes")
 router = APIRouter()
 
 
@@ -54,7 +54,7 @@ async def latest():
 
 @router.get("/history")
 async def history(limit: int = 50):
-    """Return the last `limit` (default 50) actions Felix has taken, newest first.
+    """Return the last `limit` (default 50) actions Lumis has taken, newest first.
 
     Each entry: id, session_id, timestamp, tool_name, args, result, status,
     message, title, and undo_available.
@@ -118,7 +118,7 @@ async def task_status(task_id: str):
 
 @router.get("/memory")
 async def get_memory():
-    """Return the preferences Felix has learned about you as key/value pairs."""
+    """Return the preferences Lumis has learned about you as key/value pairs."""
     return {"memory": memory.get_all()}
 
 

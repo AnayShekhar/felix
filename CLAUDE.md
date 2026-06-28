@@ -1,4 +1,4 @@
-# Felix – CLAUDE.md
+# Lumis – CLAUDE.md
 
 ## Stack
 - Backend: Python + FastAPI + uvicorn, SQLite for persistence, deployed on Railway
@@ -78,7 +78,7 @@ and replies `mac_result` {action_id, result}, which resolves the Future. If no
 agent is connected, the step returns "Mac agent not connected. Run mac_agent.py
 on your Mac." GET /mac/status reports connection. Run the agent with
 run_mac_agent.sh (or the Mac app auto-starts it via MacAgentController and shows
-"Mac Agent: Connected/Offline" in the popover). Agent backend URL: $FELIX_BACKEND_URL.
+"Mac Agent: Connected/Offline" in the popover). Agent backend URL: $LUMIS_BACKEND_URL.
 
 ## Memory (backend/memory.py)
 Learns deterministic prefs from successful actions: expense_file, music_service,
@@ -94,5 +94,5 @@ CONVERSATION block) enables follow-ups like "do that again" / "change the time t
 ## Key patterns
 - Backend broadcasts all events over WebSocket — frontends never poll
 - All tools return { status: "success"|"error", message: string, data?: any }
-- Backend URL stored in UserDefaults key: felix.backendURL, defaults to http://localhost:8000
+- Backend URL stored in UserDefaults key: lumis.backendURL, defaults to http://localhost:8000
 - Session IDs prefixed by client type: "ios-", "web-", "mac-"

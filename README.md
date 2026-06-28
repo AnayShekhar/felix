@@ -1,25 +1,25 @@
-# Felix 
+# Lumis 
 
-## What is Felix?
+## What is Lumis?
 
-Okay so basically Felix is like a magic assistant that lives in your phone and your
+Okay so basically Lumis is like a magic assistant that lives in your phone and your
 computer at the same time. You point your phone's camera at something in real life
 (like a whiteboard, a receipt, or some messy notes), you say what you want out loud,
-and Felix actually goes and does it on your Mac. For real. Not fake.
+and Lumis actually goes and does it on your Mac. For real. Not fake.
 
-Here's the big idea: **the brain of Felix is the backend.** The phone app is just
+Here's the big idea: **the brain of Lumis is the backend.** The phone app is just
 the eyes and ears. You could swap the phone for a website or some other device and
-Felix would still work, because all the smart stuff happens in one place. We think
+Lumis would still work, because all the smart stuff happens in one place. We think
 that's pretty cool.
 
-A normal app makes you type and tap. Felix lets you just *show it* something and
+A normal app makes you type and tap. Lumis lets you just *show it* something and
 *tell it* what to do, and then it turns real life into stuff happening on your
 computer.
 
 ### A quick example
 
-1. You open the Felix app and point it at a receipt.
-2. You say: **"Hey Felix, add this to my expense spreadsheet."**
+1. You open the Lumis app and point it at a receipt.
+2. You say: **"Hey Lumis, add this to my expense spreadsheet."**
 3. The phone sends the picture + your words to the backend.
 4. The backend reads the receipt with AI, figures out the store, the date, and the
    price.
@@ -29,13 +29,13 @@ computer.
 
 ## All the features
 
-Here is literally everything Felix can do right now.
+Here is literally everything Lumis can do right now.
 
 ### On the phone (the iOS app)
 -  **Live camera** — there's a real camera viewfinder with little corner brackets
   so it feels like a real camera.
--  **"Hey Felix" wake word** — it's always quietly listening. When you say
-  "Hey Felix" it wakes up. It even understands when your phone mishears you a little
+-  **"Hey Lumis" wake word** — it's always quietly listening. When you say
+  "Hey Lumis" it wakes up. It even understands when your phone mishears you a little
   (like "hey felics" or "hey phoenix") so it still works.
 -  **Live transcription** — once it's awake it shows "Listening…" and writes out
   what you're saying on the screen in real time.
@@ -43,11 +43,11 @@ Here is literally everything Felix can do right now.
   button and THAT'S when it sends everything. Nothing gets sent by accident.
 - **Live / Offline status** — a little dot at the top tells you if the phone is
   connected to the backend.
-- **Result popup** — when Felix finishes a job, a little card slides up telling
+- **Result popup** — when Lumis finishes a job, a little card slides up telling
   you what it did, and sometimes a button to open the result (like a link to your
   new slideshow).
 
-### What Felix can actually DO (the tools)
+### What Lumis can actually DO (the tools)
 The backend has **50 real tools** now. These aren't pretend — they actually control
 your Mac (and your phone). They're grouped into families:
 
@@ -74,7 +74,7 @@ drafting a message, creating an event) is marked **irreversible** so it can be g
 behind a confirmation.
 
 ### Smart stuff happening behind the scenes
-- **Chaining steps** — Felix can do more than one thing in a row. Like "make a
+- **Chaining steps** — Lumis can do more than one thing in a row. Like "make a
   slideshow and then email the link to my friend." The second step can use the
   result of the first step.
 - **Anti-hallucination** — sometimes AI makes stuff up. We told it very firmly to
@@ -83,12 +83,12 @@ behind a confirmation.
 - *Intent locking** — the AI sometimes gets confused and wants to make a note for
   everything. So if you clearly say "email" or "spreadsheet," the backend forces it
   to do that thing instead of being lazy and making a note.
-- **Persistent memory** — Felix learns durable preferences from what you do (your
+- **Persistent memory** — Lumis learns durable preferences from what you do (your
   expense file, your music service, who you email most, your preferred calendar) and
   quietly fills those in as defaults next time.
 - **Conversation memory** — it remembers the last few turns in a session, so
   follow-ups like "do that again" or "change the time to 3pm" actually work.
-- **Talks back** — Felix reads results aloud on the phone (text-to-speech), and your
+- **Talks back** — Lumis reads results aloud on the phone (text-to-speech), and your
   commands are transcribed with **Groq Whisper** so names and tricky words come
   through right (it falls back to Apple's on-device speech if Whisper isn't set up).
 
@@ -96,7 +96,7 @@ behind a confirmation.
 
 ## How it's built (the technical part)
 
-Felix has **3 layers.** Think of it like a sandwich.
+Lumis has **3 layers.** Think of it like a sandwich.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -133,14 +133,14 @@ screens). Here are the important files and what they do:
 |---|---|
 | `ContentView.swift` | The whole screen — camera, the status chip, the shutter button, the result popup. |
 | `CameraManager.swift` | Runs the camera using **AVFoundation** and takes a full-quality photo when you tap capture. |
-| `SpeechRecognizer.swift` | Listens with Apple's **Speech** framework, waits for "Hey Felix," and writes down what you say. |
+| `SpeechRecognizer.swift` | Listens with Apple's **Speech** framework, waits for "Hey Lumis," and writes down what you say. |
 | `APIClient.swift` | Takes the photo, squishes it into a JPEG, turns it into text (base64), and sends it to the backend's `/ingest`. |
 | `WebSocketClient.swift` | Keeps a live connection open to the backend so results show up instantly. If it drops, it reconnects by itself. |
 | `Config.swift` | Where you put the backend's web address. |
 | `Models.swift` | The shapes of the data going in and out. |
 
 **How the voice part works (this part is tricky):** The mic stays on the whole time.
-Apple's on-device speech recognizer listens for the wake words **"hey felix"** (it
+Apple's on-device speech recognizer listens for the wake words **"hey lumis"** (it
 only has to nail two words, so it's reliable). Once it's awake, the audio of your
 actual command is recorded and sent to **Groq Whisper**, which transcribes it far
 more accurately — important for names like "Anay Shekhar" that Apple's recognizer
@@ -164,7 +164,7 @@ This is written in **Python** using **FastAPI** (a fast web server) and runs wit
 | `websocket.py` | Keeps track of everybody connected and tells them all the news. |
 | `google_svc.py` | Logs into Google so it can make real Slides. |
 | `memory.py` | Learns durable preferences (expense file, music service, …) and injects them into every plan. |
-| `db.py` | SQLite action history so you can see and undo what Felix did. |
+| `db.py` | SQLite action history so you can see and undo what Lumis did. |
 | `tasks.py` | Background worker for long-running jobs. |
 
 **The pipeline (step by step):**
@@ -177,12 +177,12 @@ This is written in **Python** using **FastAPI** (a fast web server) and runs wit
    phone/website over the WebSocket. That's why the result shows up live.
 
 **How it controls the Mac:** the tools use a thing called **AppleScript** (with a
-command called `osascript`) and the `open` command. So when Felix "makes a note," it
+command called `osascript`) and the `open` command. So when Lumis "makes a note," it
 literally tells the Notes app "hey, make a note with this text" the same way a human
 would, just automatic.
 
 ### Layer 3: The AI (the planner's brain)
-The backend doesn't decide things by itself, it asks an AI model. Felix uses **one
+The backend doesn't decide things by itself, it asks an AI model. Lumis uses **one
 provider only: Groq**, running `llama-4-scout` (it's multimodal — text *and* vision —
 and super fast). `GROQ_API_KEY` is the only key you need. No Gemini, no OpenAI.
 
@@ -245,7 +245,7 @@ for the on-screen sheet.
 
 - **Swift + SwiftUI** — the iPhone app (+ a SwiftUI menu-bar app for the Mac)
 - **AVFoundation** — the camera
-- **Speech framework** — wake-word ("Hey Felix") detection on-device
+- **Speech framework** — wake-word ("Hey Lumis") detection on-device
 - **Groq Whisper** — transcribes your actual command for accuracy on names
 - **Python + FastAPI + uvicorn** — the backend server
 - **WebSockets** — live updates so results pop up instantly
@@ -269,7 +269,7 @@ Full steps are in [`DEPLOY.md`](DEPLOY.md); the short version:
 3. Copy the generated URL and drop it into the apps (see DEPLOY.md).
 4. Verify: `curl https://<your-url>/health` → `{"status":"ok"}`.
 
-Then just open the Xcode project in `ios/FelixApp/`, plug in your iPhone, and Run.
+Then just open the Xcode project in `ios/LumisApp/`, plug in your iPhone, and Run.
 (Use a real phone, not the simulator, so the camera and mic actually work.)
 
 ### The local-dev way
@@ -301,7 +301,7 @@ the planner (llama-4-scout) and voice transcription (Whisper).
 ## Why this is actually a cool idea
 
 Most apps make you do all the work — type the email, open the spreadsheet, copy the
-numbers. Felix flips it around. You just show it the real world and talk like a
+numbers. Lumis flips it around. You just show it the real world and talk like a
 normal human, and it turns that into real actions across a bunch of different apps.
 The phone, the website, whatever — they're all just different faces for the same
 smart backend. That's the whole point: **reality goes in, finished work comes out.**

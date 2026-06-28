@@ -1,4 +1,4 @@
-"""Background autonomous-task queue for Felix (Phase 5).
+"""Background autonomous-task queue for Lumis (Phase 5).
 
 Why this exists: some commands are multi-step jobs the user shouldn't have to
 wait on synchronously ("research X, make a deck, email it to Sam"). This module
@@ -20,7 +20,7 @@ import engine
 from llm import parse_plan
 from websocket import manager
 
-logger = logging.getLogger("felix.tasks")
+logger = logging.getLogger("lumis.tasks")
 
 # task_id -> task record (in-memory; tasks are ephemeral background jobs).
 _tasks: dict[str, dict] = {}

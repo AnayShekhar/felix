@@ -1,4 +1,4 @@
-# Running the Felix Demo
+# Running the Lumis Demo
 
 End-to-end flow: the web dashboard's **Send Test Input** button POSTs to the backend,
 the backend runs Gemini (or a deterministic mock fallback), stores the latest result,

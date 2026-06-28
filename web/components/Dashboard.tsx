@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { INGEST_URL, WS_URL } from "@/lib/config";
-import type { ConnectionState, FelixEvent, StepResult, WorkflowComplete } from "@/lib/types";
+import type { ConnectionState, LumisEvent, StepResult, WorkflowComplete } from "@/lib/types";
 import {
   ArrowUpIcon,
   CheckIcon,
@@ -92,9 +92,9 @@ export default function Dashboard() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const onMessage = (msg: MessageEvent) => {
-      let evt: FelixEvent;
+      let evt: LumisEvent;
       try {
-        evt = JSON.parse(msg.data as string) as FelixEvent;
+        evt = JSON.parse(msg.data as string) as LumisEvent;
       } catch {
         return;
       }
@@ -234,7 +234,7 @@ function Sidebar({
           <span className="grid h-7 w-7 place-items-center rounded-lg bg-zinc-900 text-[13px] font-bold text-white">
             1
           </span>
-          <span className="text-[15px] font-semibold tracking-tight text-zinc-900">Felix</span>
+          <span className="text-[15px] font-semibold tracking-tight text-zinc-900">Lumis</span>
         </div>
         <span className="lg:hidden">
           <ConnPill status={status} />
@@ -332,7 +332,7 @@ function MainPanel({
           <div>
             <p className="text-lg font-semibold text-zinc-900">No captures yet</p>
             <p className="mt-1 max-w-sm text-sm text-zinc-500">
-              Send a command below (or from the iOS app) and Felix will run a real
+              Send a command below (or from the iOS app) and Lumis will run a real
               action on this Mac.
             </p>
           </div>
@@ -427,10 +427,10 @@ function WorkflowView({ workflow }: { workflow: Workflow }) {
         <ProgressTrack done={workflow.done} running={running} failed={failed} />
       </section>
 
-      {/* What Felix made */}
+      {/* What Lumis made */}
       <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm lg:p-8">
         <p className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-          What Felix made
+          What Lumis made
         </p>
         <div className="flex flex-col gap-4">
           {workflow.steps.map((s, i) => (
@@ -698,7 +698,7 @@ function Composer({ onSent }: { onSent: (p: { voice?: string; imageName?: string
               }
             }}
             rows={1}
-            placeholder="Tell Felix what to do… e.g. “add this to my expense spreadsheet”"
+            placeholder="Tell Lumis what to do… e.g. “add this to my expense spreadsheet”"
             className="max-h-32 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none"
           />
           <input
@@ -720,7 +720,7 @@ function Composer({ onSent }: { onSent: (p: { voice?: string; imageName?: string
             type="button"
             onClick={() => void send()}
             disabled={loading || (!text.trim() && !image)}
-            aria-label="Send to Felix"
+            aria-label="Send to Lumis"
             className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl bg-zinc-900 text-white transition-colors duration-200 hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {loading ? <Spinner /> : <ArrowUpIcon className="h-5 w-5" />}

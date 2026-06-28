@@ -1,15 +1,15 @@
 <!doctype html>
 <!--
-  Felix Web Input Client (Phase 4)
+  Lumis Web Input Client (Phase 4)
   ================================
-  A single, self-contained, build-free input layer for Felix. It is the same
+  A single, self-contained, build-free input layer for Lumis. It is the same
   concept as the iOS app — eyes (webcam) + ears (mic) for the cloud brain —
   delivered through a browser so you can drive your computer without your phone.
 
   Why one file: it must run with zero tooling, opened directly as a local file
   (file://) or served by the backend at GET /web. Everything (HTML/CSS/JS) lives
   here. It uses only browser APIs: getUserMedia (camera/mic), the Web Speech API
-  ("Hey Felix" wake word + transcription), fetch (POST /ingest), and WebSocket
+  ("Hey Lumis" wake word + transcription), fetch (POST /ingest), and WebSocket
   (/ws live results). No frameworks, no dependencies.
 
   Brand: dark mode only, system SF Pro stack, single amber accent.
@@ -18,7 +18,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Felix</title>
+<title>Lumis</title>
 <style>
   :root {
     --bg: #0a0a0b;
@@ -188,7 +188,7 @@
 
   <div class="layer">
     <div class="topbar">
-      <div class="brand"><span class="dot-logo"></span> Felix</div>
+      <div class="brand"><span class="dot-logo"></span> Lumis</div>
       <div class="spacer"></div>
       <div class="chip"><span class="dot" id="wsDot"></span><span id="wsLabel">Offline</span></div>
       <button class="iconbtn" id="gearBtn" title="Settings">⚙</button>
@@ -209,7 +209,7 @@
     <label for="backendInput">Backend URL</label>
     <input id="backendInput" type="text" placeholder="http://localhost:8000" />
     <button class="save" id="saveBackend">Save & reconnect</button>
-    <div class="hint">Where the Felix brain is running. Defaults to this page's
+    <div class="hint">Where the Lumis brain is running. Defaults to this page's
       origin when served, or http://localhost:8000 from a local file.</div>
   </div>
 
@@ -220,7 +220,7 @@
 "use strict";
 (function () {
   // ---- Config / state -----------------------------------------------------
-  const LS_KEY = "felix.backendURL";
+  const LS_KEY = "lumis.backendURL";
   const sessionId = "web-" + Math.random().toString(36).slice(2, 8);
 
   function defaultBackend() {
@@ -272,11 +272,11 @@
 
   function refreshStatus() {
     els.shutter.disabled = busy || !effectiveCommand();
-    if (busy) { els.statusText.textContent = "Felix is working…"; els.micIcon.textContent = "⏳"; return; }
+    if (busy) { els.statusText.textContent = "Lumis is working…"; els.micIcon.textContent = "⏳"; return; }
     const cmd = effectiveCommand();
     if (cmd) { els.statusText.textContent = cmd; els.micIcon.textContent = "✓"; els.statusChip.classList.remove("hearing"); return; }
     if (hearing) { els.statusText.textContent = "Listening…"; els.micIcon.textContent = "🌊"; els.statusChip.classList.add("hearing"); return; }
-    els.statusText.textContent = 'Say “Hey Felix” or type below';
+    els.statusText.textContent = 'Say “Hey Lumis” or type below';
     els.micIcon.textContent = "🎙️";
     els.statusChip.classList.remove("hearing");
   }
@@ -337,8 +337,8 @@
     return dataUrl.split(",", 2)[1] || ""; // strip the data: prefix -> pure base64
   }
 
-  // ---- "Hey Felix" wake word (Web Speech API) -----------------------------
-  const WAKE_VARIANTS = ["hey felix", "hey felics", "hey phoenix", "hey felix", "a felix", "hey felux"];
+  // ---- "Hey Lumis" wake word (Web Speech API) -----------------------------
+  const WAKE_VARIANTS = ["hey lumis", "hey felics", "hey phoenix", "hey lumis", "a lumis", "hey felux"];
 
   function setupSpeech() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -400,7 +400,7 @@
       const data = await res.json();
       if (data.steps && data.steps.length) showResult(data.steps[data.steps.length - 1]);
     } catch (e) {
-      showBanner("Couldn’t reach Felix backend at " + backendURL() + " — " + e.message);
+      showBanner("Couldn’t reach Lumis backend at " + backendURL() + " — " + e.message);
     } finally {
       busy = false;
       voiceCommand = ""; hearing = false; els.prompt.value = "";

@@ -1,12 +1,12 @@
 import SwiftUI
 
-// Shared design + configuration constants for Felix's macOS and iOS frontends.
-// This single file is referenced by BOTH the macOS app (macos-app/Felix) and
-// the iOS app (ios/FelixApp) so the brand color and tool styling stay identical
+// Shared design + configuration constants for Lumis's macOS and iOS frontends.
+// This single file is referenced by BOTH the macOS app (macos-app/Lumis) and
+// the iOS app (ios/LumisApp) so the brand color and tool styling stay identical
 // across surfaces. Keep it free of platform-specific APIs so it compiles on both.
 
-enum FelixBrand {
-    /// Felix's single brand accent — a warm, premium amber ("Felix Amber", #F59E21).
+enum LumisBrand {
+    /// Lumis's single brand accent — a warm, premium amber ("Lumis Amber", #F59E21).
     /// Deliberately not blue and not purple.
     static let accent = Color(red: 0.961, green: 0.620, blue: 0.129)
 
@@ -19,10 +19,10 @@ enum FelixBrand {
     static let error = Color(red: 0.95, green: 0.36, blue: 0.33)
 
     /// Persistence + networking defaults (matches CLAUDE.md API contract).
-    static let defaultBackendURL = "https://felix-production-a0f5.up.railway.app"
-    static let backendURLKey = "felix.backendURL"
-    static let notifyCompletionKey = "felix.notify.completion"
-    static let notifyErrorsKey = "felix.notify.errors"
+    static let defaultBackendURL = "https://lumis-production-a0f5.up.railway.app"
+    static let backendURLKey = "lumis.backendURL"
+    static let notifyCompletionKey = "lumis.notify.completion"
+    static let notifyErrorsKey = "lumis.notify.errors"
 
     static let appVersion = "1.1"
 }
@@ -52,7 +52,7 @@ enum ToolStyle {
         case "slides":  return Color(red: 0.96, green: 0.58, blue: 0.26)
         case "numbers": return Color(red: 0.40, green: 0.80, blue: 0.70)
         case "ios":     return Color(red: 0.58, green: 0.56, blue: 0.98)
-        default:        return FelixBrand.accent
+        default:        return LumisBrand.accent
         }
     }
 

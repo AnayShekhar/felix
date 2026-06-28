@@ -1,6 +1,6 @@
-"""Persistent user-preference memory for Felix (Phase 3).
+"""Persistent user-preference memory for Lumis (Phase 3).
 
-Why this exists: Felix should get smarter the more you use it. After every
+Why this exists: Lumis should get smarter the more you use it. After every
 successful action we extract durable, deterministic preferences (where your
 expense file lives, who you last emailed, that you use Spotify) and persist them
 to a simple key/value JSON file. At planning time these are injected into the
@@ -16,13 +16,13 @@ import os
 import time
 from typing import Optional
 
-logger = logging.getLogger("felix.memory")
+logger = logging.getLogger("lumis.memory")
 
 MEMORY_PATH = os.path.expanduser(
-    os.getenv("FELIX_MEMORY_PATH", os.path.join(os.path.dirname(__file__), "memory.json"))
+    os.getenv("LUMIS_MEMORY_PATH", os.path.join(os.path.dirname(__file__), "memory.json"))
 )
 
-# On hosted deploys (Railway) FELIX_MEMORY_PATH points at a mounted volume like
+# On hosted deploys (Railway) LUMIS_MEMORY_PATH points at a mounted volume like
 # /app/data/memory.json whose parent may not exist yet — create it up front.
 _memory_dir = os.path.dirname(MEMORY_PATH)
 if _memory_dir:

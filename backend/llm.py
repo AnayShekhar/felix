@@ -20,7 +20,7 @@ import memory
 
 load_dotenv()
 
-logger = logging.getLogger("felix.llm")
+logger = logging.getLogger("lumis.llm")
 
 # ----------------------------------------------------------------------------
 # Conversation history within a session (Phase 3)
@@ -30,7 +30,7 @@ logger = logging.getLogger("felix.llm")
 # context. Stored in-memory only (ephemeral); cleared after 2h of inactivity.
 # ----------------------------------------------------------------------------
 
-# session_id -> {"turns": [{"role": "user"|"felix", "content": str}, ...],
+# session_id -> {"turns": [{"role": "user"|"lumis", "content": str}, ...],
 #                "last_activity": float}
 session_history: dict = {}
 _history_lock = threading.Lock()
@@ -68,12 +68,12 @@ def _append_turn(session_id: str, role: str, content: str) -> None:
 
 
 def record_outcome(session_id: str, summary: str) -> None:
-    """Append a one-sentence Felix summary as a 'felix' turn after execution.
+    """Append a one-sentence Lumis summary as a 'lumis' turn after execution.
 
     Called from the engine flow once a plan has run so the next command in the
-    same session can reference what Felix just did.
+    same session can reference what Lumis just did.
     """
-    _append_turn(session_id, "felix", summary)
+    _append_turn(session_id, "lumis", summary)
 
 
 def _conversation_block(session_id: str) -> str:
@@ -89,7 +89,7 @@ def _conversation_block(session_id: str) -> str:
     recent = turns[-_HISTORY_INJECT_TURNS:]
     lines = []
     for t in recent:
-        speaker = "User" if t.get("role") == "user" else "Felix"
+        speaker = "User" if t.get("role") == "user" else "Lumis"
         lines.append(f"{speaker}: {t.get('content', '')}")
     return "RECENT CONVERSATION:\n" + "\n".join(lines) + "\n"
 
@@ -261,7 +261,7 @@ SYSTEM_INSTRUCTION = (
     "18. finder.show_in_finder — Reveal a file/folder in Finder. "
     'args: {"path": str}\n'
     "For all finder tools, pass only relative paths or folder names. Never "
-    "construct absolute paths. Examples: 'Felix Test', '~/Desktop/Felix Test', "
+    "construct absolute paths. Examples: 'Lumis Test', '~/Desktop/Lumis Test', "
     "'Documents/Projects'. The backend will resolve the full path automatically.\n"
     "19. clipboard.copy_text — Copy text to the clipboard. args: {\"text\": str}\n"
     "20. calendar.create_event — Create a Calendar event (irreversible). "
@@ -405,7 +405,7 @@ def _system_instruction() -> str:
     if ctx:
         return (
             base
-            + "\n\nWHAT FELIX KNOWS ABOUT THIS USER (use to fill in defaults the "
+            + "\n\nWHAT LUMIS KNOWS ABOUT THIS USER (use to fill in defaults the "
             "user does not specify; never override what the user explicitly says):\n"
             + ctx
         )
@@ -599,7 +599,7 @@ def _mock_plan(voice_text: str, image: str) -> dict:
     # Apple Notes.
     if image or any(k in lower for k in ("note", "notes", "write down", "save this", "transcribe")):
         return one("notes.create_from_image", {
-            "title": "Felix Note",
+            "title": "Lumis Note",
             "content": "" if image else text,
         })
 
@@ -763,7 +763,7 @@ def _args_for_intent(intent: str, steps: list, voice_text: str) -> dict:
         }
     if intent == "notes.create_from_image":
         return reuse(intent) or {
-            "title": "Felix Note",
+            "title": "Lumis Note",
             "content": field("gmail.draft_email", "body") or "",
         }
     # For the remaining tools, reuse the LLM args or fall back to keyword routing.

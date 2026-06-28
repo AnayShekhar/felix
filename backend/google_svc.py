@@ -10,7 +10,7 @@ is requested here.)
 import logging
 import os
 
-logger = logging.getLogger("felix.google")
+logger = logging.getLogger("lumis.google")
 
 CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
 TOKEN_FILE = os.getenv("GOOGLE_TOKEN_FILE", "token.json")

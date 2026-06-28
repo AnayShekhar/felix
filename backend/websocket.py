@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 
 from fastapi import WebSocket
 
-logger = logging.getLogger("felix.ws")
+logger = logging.getLogger("lumis.ws")
 
 # In-memory store for the most recent broadcast payload.
 latest_result: Optional[dict] = None

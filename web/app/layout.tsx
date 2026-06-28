@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Felix",
+  title: "Lumis",
   description: "Capture real-world context, see real actions happen.",
 };
 

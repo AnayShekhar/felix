@@ -17,7 +17,7 @@ import memory
 import tools
 import websocket as ws_module
 
-logger = logging.getLogger("felix.engine")
+logger = logging.getLogger("lumis.engine")
 
 _TOKEN = re.compile(r"\{\{\s*(\d+|last)\.(\w+)\s*\}\}")
 _ANY_TOKEN = re.compile(r"\{\{[^}]*\}\}")
@@ -169,7 +169,7 @@ async def run_workflow(
         set_latest(event)
         await broadcast(event)
 
-    # Record a one-sentence outcome as a "felix" turn so follow-up commands in
+    # Record a one-sentence outcome as a "lumis" turn so follow-up commands in
     # this session ("do that again", "change the time") have context (Phase 3).
     try:
         done = [

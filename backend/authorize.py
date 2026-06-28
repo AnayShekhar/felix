@@ -1,4 +1,4 @@
-"""One-time Google OAuth consent for Felix.
+"""One-time Google OAuth consent for Lumis.
 
 Run once before starting the server:
 

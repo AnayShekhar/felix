@@ -1,4 +1,4 @@
-"""Felix backend entrypoint."""
+"""Lumis backend entrypoint."""
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -22,13 +22,13 @@ db.init_db()
 async def lifespan(app: FastAPI):
     # Start the background task worker inside the running event loop (Phase 5).
     tasks.start_worker()
-    logging.getLogger("felix.main").info(
-        "Felix backend listening on 0.0.0.0:%s", os.getenv("PORT", "8000")
+    logging.getLogger("lumis.main").info(
+        "Lumis backend listening on 0.0.0.0:%s", os.getenv("PORT", "8000")
     )
     yield
 
 
-app = FastAPI(title="Felix Backend", lifespan=lifespan)
+app = FastAPI(title="Lumis Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,5 +66,5 @@ if __name__ == "__main__":
     import uvicorn
 
     port = int(os.getenv("PORT", "8000"))
-    logging.getLogger("felix.main").info("Starting uvicorn on 0.0.0.0:%s", port)
+    logging.getLogger("lumis.main").info("Starting uvicorn on 0.0.0.0:%s", port)
     uvicorn.run("main:app", host="0.0.0.0", port=port)

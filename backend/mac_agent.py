@@ -1,6 +1,6 @@
-"""Felix Mac agent — the local "hands" of the split architecture.
+"""Lumis Mac agent — the local "hands" of the split architecture.
 
-The Felix backend runs on Railway (Linux), which cannot run osascript, pmset,
+The Lumis backend runs on Railway (Linux), which cannot run osascript, pmset,
 screencapture, or touch the local filesystem. This agent runs on your Mac,
 connects to the Railway backend over the same /ws WebSocket as a special "mac"
 client, and executes those macOS-local tools locally on your behalf:
@@ -19,7 +19,7 @@ The agent runs the tool via tools.execute() and replies
                                 "data": {"action_id", "result"}}.
 
 Run it with ../run_mac_agent.sh, or directly: ./venv/bin/python mac_agent.py
-The backend URL comes from $FELIX_BACKEND_URL (defaults to the Railway URL);
+The backend URL comes from $LUMIS_BACKEND_URL (defaults to the Railway URL);
 http(s):// is rewritten to ws(s):// and "/ws" is appended automatically.
 stdlib + the existing `websockets` dependency only.
 """
@@ -37,18 +37,18 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-logger = logging.getLogger("felix.mac_agent")
+logger = logging.getLogger("lumis.mac_agent")
 
 # Default to the deployed Railway backend so the agent works out of the box;
-# override with FELIX_BACKEND_URL=http://localhost:8000 for local development.
-DEFAULT_BACKEND_URL = "https://felix-production-a0f5.up.railway.app"
+# override with LUMIS_BACKEND_URL=http://localhost:8000 for local development.
+DEFAULT_BACKEND_URL = "https://lumis-production-a0f5.up.railway.app"
 
 # Seconds between reconnect attempts when the connection drops.
 RECONNECT_DELAY_S = 3.0
 
 
 def _ws_url() -> str:
-    base = (os.getenv("FELIX_BACKEND_URL") or DEFAULT_BACKEND_URL).strip()
+    base = (os.getenv("LUMIS_BACKEND_URL") or DEFAULT_BACKEND_URL).strip()
     base = base.rstrip("/")
     if base.startswith("https://"):
         base = "wss://" + base[len("https://"):]
@@ -106,7 +106,7 @@ async def _session(url: str) -> None:
 
 async def run() -> None:
     url = _ws_url()
-    logger.info("Felix Mac agent starting. Backend: %s", url)
+    logger.info("Lumis Mac agent starting. Backend: %s", url)
     while True:
         try:
             await _session(url)
@@ -135,7 +135,7 @@ def main() -> None:
     try:
         loop.run_until_complete(task)
     except (KeyboardInterrupt, asyncio.CancelledError):
-        logger.info("Felix Mac agent stopped.")
+        logger.info("Lumis Mac agent stopped.")
     finally:
         loop.close()
 

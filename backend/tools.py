@@ -1,4 +1,4 @@
-"""Felix macOS execution engine.
+"""Lumis macOS execution engine.
 
 Each tool maps 1:1 to a real system action via AppleScript (`osascript`),
 the `open` command, or Chrome. There are no fake outputs here — every
@@ -21,7 +21,7 @@ import subprocess
 import time
 import urllib.parse
 
-logger = logging.getLogger("felix.tools")
+logger = logging.getLogger("lumis.tools")
 
 # Browser-like UA so search engines / sites return real HTML to the research agent.
 _WEB_UA = (
@@ -39,7 +39,7 @@ RETRY_BACKOFF_S = 0.5    # 500ms between attempts
 
 # Persistent Apple Numbers expense file so repeated receipts append to one doc.
 EXPENSE_FILE = os.path.expanduser(
-    os.getenv("FELIX_EXPENSE_FILE", "~/Documents/Felix Expenses.numbers")
+    os.getenv("LUMIS_EXPENSE_FILE", "~/Documents/Lumis Expenses.numbers")
 )
 EXPENSE_HEADERS = ["Date", "Merchant", "Category", "Amount", "Notes"]
 
@@ -158,7 +158,7 @@ def _first_two_sentences(text: str) -> str:
 
 def notes_create_from_image(args: dict) -> dict:
     """Open Apple Notes and create a new note from extracted image text."""
-    title = str(args.get("title") or "Felix Note").strip()
+    title = str(args.get("title") or "Lumis Note").strip()
     content = str(args.get("content") or "").strip()
     if not content:
         content = "(No text could be extracted from the image.)"
@@ -344,7 +344,7 @@ def gmail_draft_email(args: dict) -> dict:
 # records with ASCII GS (29), which never appear in message text (Phase 2).
 _MAIL_FIELD = chr(30)
 _MAIL_RECORD = chr(29)
-_MAIL_NOTFOUND = "<<FELIX_NOTFOUND>>"
+_MAIL_NOTFOUND = "<<LUMIS_NOTFOUND>>"
 
 
 def _parse_mail_records(raw: str) -> list:
@@ -881,8 +881,8 @@ def numbers_add_expense(args: dict) -> dict:
     return {
         "tool": "numbers.add_expense",
         "status": "success",
-        "message": f"{verb} {len(rows)} expense row(s) to your Felix Expenses (Numbers).",
-        "title": "Felix Expenses",
+        "message": f"{verb} {len(rows)} expense row(s) to your Lumis Expenses (Numbers).",
+        "title": "Lumis Expenses",
         "detail": "\n".join(", ".join(r) for r in rows),
         "data": {"file": EXPENSE_FILE, "rows_added": len(rows)},
     }
@@ -1478,7 +1478,7 @@ def calendar_create_event(args: dict) -> dict:
     """Create a Calendar.app event. IRREVERSIBLE — gated by confirmation (Phase 2)."""
     from datetime import timedelta
 
-    title = str(args.get("title") or "Felix Event").strip()
+    title = str(args.get("title") or "Lumis Event").strip()
     start = _parse_iso(args.get("start_datetime"))
     duration = _clamp(args.get("duration_minutes") or 60, 1, 24 * 60)
     end = start + timedelta(minutes=duration)
@@ -2011,13 +2011,13 @@ def contacts_find(args: dict) -> dict:
 # ----------------------------------------------------------------------------
 # Screen-awareness tools (Phase 1h / Phase 5)
 #
-# Felix "sees" the Mac screen: capture a screenshot, send it to Groq vision,
+# Lumis "sees" the Mac screen: capture a screenshot, send it to Groq vision,
 # and either describe it or build+execute a plan from what it sees.
 # ----------------------------------------------------------------------------
 
 def _capture_screen_b64() -> str:
     """Take a silent screenshot to a temp file and return it base64-encoded."""
-    path = "/tmp/felix_screen.png"
+    path = "/tmp/lumis_screen.png"
     _shell(["screencapture", "-x", "-t", "png", path])
     try:
         with open(path, "rb") as fh:
@@ -2053,7 +2053,7 @@ def screen_capture_and_describe(args: dict) -> dict:
 def screen_capture_and_act(args: dict) -> dict:
     """Screenshot the Mac, ask Groq for a tool plan, then execute it (Fix 6).
 
-    Groq returns a {"steps":[...]} plan referencing Felix's tools based on what
+    Groq returns a {"steps":[...]} plan referencing Lumis's tools based on what
     it sees. Steps run synchronously through ``execute`` (this tool already runs
     inside the engine's executor, so we avoid re-entering the async engine).
     """
@@ -2068,7 +2068,7 @@ def screen_capture_and_act(args: dict) -> dict:
         image_b64,
         "Here is a screenshot of the user's Mac. The user wants to: "
         f"{instruction}\nBased on what you see, create a step-by-step plan using "
-        f"ONLY these Felix tools: {tool_list}.\nRespond with ONLY a JSON object "
+        f"ONLY these Lumis tools: {tool_list}.\nRespond with ONLY a JSON object "
         '{"steps": [{"tool": "<tool>", "args": {...}}, ...]}. No prose.',
     )
     raw = raw.strip()
