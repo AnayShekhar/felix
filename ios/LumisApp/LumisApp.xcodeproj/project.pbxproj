@@ -431,6 +431,7 @@
 				DEVELOPMENT_TEAM = CSRVPSV3Y4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = LumisApp/LumisApp.entitlements;
 				INFOPLIST_FILE = LumisApp/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Lumis uses the camera to capture visual context.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lumis uses the microphone for voice commands.";
@@ -469,6 +470,7 @@
 				DEVELOPMENT_TEAM = CSRVPSV3Y4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = LumisApp/LumisApp.entitlements;
 				INFOPLIST_FILE = LumisApp/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Lumis uses the camera to capture visual context.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Lumis uses the microphone for voice commands.";

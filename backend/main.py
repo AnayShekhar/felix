@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+import auth
 import db
 import tasks
 import websocket as ws_module
@@ -14,8 +15,9 @@ from websocket import manager
 
 logging.basicConfig(level=logging.INFO)
 
-# Ensure the action-history SQLite store exists before serving requests.
+# Ensure the SQLite stores exist before serving requests.
 db.init_db()
+auth.init_auth()
 
 
 @asynccontextmanager
@@ -39,6 +41,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(auth.router)
 
 
 @app.websocket("/ws")

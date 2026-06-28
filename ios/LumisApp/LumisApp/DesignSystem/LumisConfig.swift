@@ -10,4 +10,12 @@ struct LumisConfig {
 
     /// Support address used by the "Send feedback" row in Settings.
     static let supportEmail  = "support@lumis.app"
+
+    /// iOS OAuth client ID from Google Cloud Console. Set this (and register the
+    /// reversed-client-id URL scheme) to enable "Continue with Google".
+    static let googleClientID = ""
+
+    /// In-app legal links.
+    static let privacyPolicyURL = "https://lumis.app/privacy"
+    static let termsURL         = "https://lumis.app/terms"
 }
