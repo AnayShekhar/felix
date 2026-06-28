@@ -23,7 +23,7 @@ struct MemorySection: View {
                             Text(prettyKey(key))
                                 .font(LumisTypography.bodyMedium)
                                 .foregroundStyle(LumisColors.carbonBlack)
-                            Text(value)
+                            Text(prettyValue(value))
                                 .font(LumisTypography.bodySmall)
                                 .foregroundStyle(LumisColors.textSecondary)
                                 .lineLimit(2)
@@ -44,11 +44,9 @@ struct MemorySection: View {
         .task { await load() }
     }
 
-    private func prettyKey(_ key: String) -> String {
-        key.split(whereSeparator: { $0 == "_" || $0 == "." })
-            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
-            .joined(separator: " ")
-    }
+    // Shared with the Mac app via MemoryFormat (shared/Constants.swift).
+    private func prettyKey(_ key: String) -> String { MemoryFormat.prettyKey(key) }
+    private func prettyValue(_ value: String) -> String { MemoryFormat.prettyValue(value) }
 
     private func load() async {
         loading = memory.isEmpty

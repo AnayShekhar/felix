@@ -131,12 +131,12 @@ private struct MemoryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(key)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(LumisBrand.accent)
+            Text(MemoryFormat.prettyKey(key))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(LumisBrand.ink.opacity(0.55))
                 .frame(width: 200, alignment: .leading)
                 .lineLimit(1)
-            Text(value)
+            Text(MemoryFormat.prettyValue(value))
                 .font(.system(size: 13))
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)

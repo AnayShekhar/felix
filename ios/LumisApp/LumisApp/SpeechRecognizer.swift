@@ -20,6 +20,10 @@ final class SpeechRecognizer: ObservableObject {
     /// Which engine produced the current `command` — "Whisper", "Apple", or ""
     /// (nothing captured yet). Drives the small badge in the transcription card.
     @Published var transcriptionEngine = ""
+    /// Live microphone input level, 0 (silence) → 1 (loud), sampled from the
+    /// existing audio tap. Drives the Lumis mark's audio-reactive listening
+    /// animation without opening a second AVAudioEngine on the same input.
+    @Published var inputLevel: CGFloat = 0
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -42,10 +46,19 @@ final class SpeechRecognizer: ObservableObject {
     // a cancellation error can't trigger a restart cascade that kills the engine.
     private var generation = 0
 
+    // Fuzzy wake markers — Apple Speech frequently mishears "Lumis", so we accept
+    // the common phonetic neighbours. `normalize` strips punctuation first, so
+    // commas/apostrophes don't need their own entries.
     private let wakeMarkers = [
-        "hey lumis", "hey, lumis", "hey loomis", "hey lumas", "hey lumus",
-        "hey luminous", "a lumis", "hey loomiss",
+        "hey lumis", "hey loomis", "hey lumas", "hey lumus", "hey lumos",
+        "hey luminous", "hey lewis", "hey louis", "hey loomiss",
+        "hey felics", "hey phoenix",
+        "a lumis", "okay lumis", "ok lumis",
     ]
+
+    // Sample the input level every few buffers (the tap fires ~50×/s); publishing
+    // on every buffer would needlessly thrash SwiftUI.
+    private var levelSampleCounter = 0
 
     func requestPermission() {
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
@@ -77,6 +90,12 @@ final class SpeechRecognizer: ObservableObject {
                 self.recordLock.lock()
                 try? self.commandFile?.write(from: buffer)
                 self.recordLock.unlock()
+                // Sample the mic level for the listening animation (throttled).
+                self.levelSampleCounter &+= 1
+                if self.levelSampleCounter % 3 == 0 {
+                    let level = Self.normalizedLevel(from: buffer)
+                    Task { @MainActor [weak self] in self?.inputLevel = level }
+                }
             }
             engine.prepare()
             try engine.start()
@@ -103,6 +122,7 @@ final class SpeechRecognizer: ObservableObject {
         phase = .idle
         command = ""
         transcriptionEngine = ""
+        inputLevel = 0
         whisperGeneration &+= 1
         discardCommandRecording()
     }
@@ -268,6 +288,18 @@ final class SpeechRecognizer: ObservableObject {
     }
 
     // MARK: - Helpers
+
+    /// Average absolute amplitude of a buffer, normalized to roughly 0…1.
+    /// Pure math — safe to call from the audio thread.
+    private nonisolated static func normalizedLevel(from buffer: AVAudioPCMBuffer) -> CGFloat {
+        guard let data = buffer.floatChannelData?[0] else { return 0 }
+        let frames = Int(buffer.frameLength)
+        guard frames > 0 else { return 0 }
+        var sum: Float = 0
+        for i in 0..<frames { sum += abs(data[i]) }
+        let avg = sum / Float(frames)
+        return CGFloat(min(avg * 20.0, 1.0))
+    }
 
     private func normalize(_ s: String) -> String {
         let lowered = s.lowercased()

@@ -7,9 +7,9 @@ LLM, and runs it on a background asyncio worker so POST /ingest stays snappy.
 Progress is tracked per-task and broadcast over the WebSocket as each step
 completes.
 
-Reuses the existing engine (so DB logging, undo, memory, and {{N.field}}
-chaining all apply identically) by passing a custom broadcast that maintains
-task state. asyncio + stdlib only.
+Runs the same ReAct agent as /ingest, but with a custom broadcast that also
+maintains per-task progress state and forwards the underlying step events so the
+existing UI keeps working. asyncio + stdlib only.
 """
 import asyncio
 import logging
@@ -17,9 +17,8 @@ import uuid
 from typing import Optional
 
 import db
-import engine
 import memory
-from llm import parse_plan
+from agent import LumisAgent
 from websocket import manager
 
 logger = logging.getLogger("lumis.tasks")
@@ -63,9 +62,8 @@ def get_status(task_id: str) -> Optional[dict]:
 async def _run_task(task_id: str) -> None:
     task = _tasks[task_id]
     task["status"] = "running"
-    loop = asyncio.get_event_loop()
 
-    # Scope planning + memory to this task's account.
+    # Scope memory/history to this task's account.
     memory.set_user(task.get("user_id"))
 
     await manager.broadcast({
@@ -75,44 +73,37 @@ async def _run_task(task_id: str) -> None:
                  "status": "running"},
     })
 
-    # Plan the instruction into steps via the LLM (blocking -> executor).
-    try:
-        plan = await loop.run_in_executor(
-            None, parse_plan, task["instruction"], "", task["session_id"]
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Task %s planning failed: %s", task_id, exc)
-        task["status"] = "failed"
-        await _broadcast_complete(task)
-        return
-
-    steps = plan.get("steps") or []
-    task["steps"] = [
-        {"tool": s.get("tool"), "status": "pending", "result": None} for s in steps
-    ]
-    total = len(steps) or 1
-
     async def task_broadcast(evt: dict) -> None:
-        """Update task state from engine events, then forward + emit progress."""
+        """Track per-task progress from the agent's events, then forward them.
+
+        The ReAct agent decides steps as it goes (no fixed total), so progress is
+        reported as a running step count and snaps to 100% on workflow_complete.
+        """
+        event = evt.get("event")
         data = evt.get("data", {})
-        idx = data.get("index")
-        if evt.get("event") == "step_executed" and isinstance(idx, int) and idx < len(task["steps"]):
-            task["steps"][idx]["status"] = data.get("status", "success")
-            task["steps"][idx]["result"] = {
-                k: data.get(k) for k in ("tool", "status", "message", "title", "url")
-            }
-            task["progress_pct"] = round((idx + 1) / total * 100)
+        if event == "step_executed":
+            task["steps"].append({
+                "tool": data.get("tool"),
+                "status": data.get("status", "success"),
+                "result": {k: data.get(k) for k in ("tool", "status", "message", "title", "url")},
+            })
+            task["progress_pct"] = min(95, task["progress_pct"] + 10)
             await manager.broadcast({
                 "session_id": task["session_id"],
                 "event": "task_progress",
                 "data": {"task_id": task_id, "progress_pct": task["progress_pct"],
-                         "index": idx, "total": total, "step": task["steps"][idx]},
+                         "index": len(task["steps"]) - 1, "total": len(task["steps"]),
+                         "step": task["steps"][-1]},
             })
-        await manager.broadcast(evt)  # keep existing step_* events intact
+        await manager.broadcast(evt)  # keep step_* / workflow_complete intact
 
+    agent = LumisAgent(
+        user_id=task.get("user_id", db.GLOBAL_USER),
+        session_id=task["session_id"],
+        broadcast=task_broadcast,
+    )
     try:
-        await engine.run_workflow(steps, task["session_id"], task_broadcast,
-                                  lambda e: None, user_id=task.get("user_id", db.GLOBAL_USER))
+        await agent.run(task["instruction"], None)
         task["status"] = "done"
         task["progress_pct"] = 100
     except Exception as exc:  # noqa: BLE001

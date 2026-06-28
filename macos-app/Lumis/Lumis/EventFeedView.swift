@@ -105,7 +105,9 @@ private struct EventCard: View {
     private var badgeColor: Color {
         if event.isError { return LumisBrand.error }
         switch event.event {
-        case "workflow_complete", "task_complete": return LumisBrand.online
+        // Completion uses the brand Powder Blue (not green) so the feed reads as
+        // one calm accent rather than a stoplight.
+        case "workflow_complete", "task_complete": return LumisBrand.accent
         case "action_undone": return LumisBrand.accentSoft
         default: return LumisBrand.accent
         }

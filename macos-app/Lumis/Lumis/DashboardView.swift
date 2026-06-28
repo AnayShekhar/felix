@@ -70,6 +70,9 @@ struct DashboardView: View {
             .padding(.bottom, 16)
         }
         .frame(maxHeight: .infinity)
+        // Slightly darker Parchment (#EFEBE4) so the nav column reads as its own
+        // surface against the main content area.
+        .background(Color(red: 0.937, green: 0.922, blue: 0.894))
     }
 
     // MARK: Main panel

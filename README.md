@@ -1,4 +1,4 @@
-# Lumis 
+# Lumis
 
 ## What is Lumis?
 
@@ -7,10 +7,10 @@ computer at the same time. You point your phone's camera at something in real li
 (like a whiteboard, a receipt, or some messy notes), you say what you want out loud,
 and Lumis actually goes and does it on your Mac. For real. Not fake.
 
-Here's the big idea: **the brain of Lumis is the backend.** The phone app is just
-the eyes and ears. You could swap the phone for a website or some other device and
-Lumis would still work, because all the smart stuff happens in one place. We think
-that's pretty cool.
+Here's the big idea: **the brain of Lumis is the backend.** The phone app is the
+eyes and ears, and your Mac is the hands. You could swap the phone for a website or
+some other device and Lumis would still work, because all the smart stuff happens in
+one place. We think that's pretty cool.
 
 A normal app makes you type and tap. Lumis lets you just *show it* something and
 *tell it* what to do, and then it turns real life into stuff happening on your
@@ -23,39 +23,94 @@ computer.
 3. The phone sends the picture + your words to the backend.
 4. The backend reads the receipt with AI, figures out the store, the date, and the
    price.
-5. Apple Numbers opens on your Mac and the new expense gets added. Boom. Done.
+5. The plan gets sent to your Mac, Apple Numbers opens, and the new expense gets
+   added. Boom. Done.
+
+---
+
+## The three pieces (brain / eyes / hands)
+
+Lumis is really one assistant wearing three hats. This is the single most important
+thing to understand about how it's built:
+
+- **The brain 🧠 — the backend on Railway.** It gets the picture + voice, asks the
+  AI for a plan, remembers your preferences, and decides what to do. It lives at a
+  permanent public URL in the cloud.
+- **The eyes & ears 👀 — the iPhone app.** Camera + microphone + the chat screen.
+  It captures the real world and shows you results. It never makes decisions.
+- **The hands ✋ — the Mac menu-bar app (and its local agent).** Railway runs in
+  Linux and *can't* run `osascript` or control Mac apps, so anything that touches
+  your actual Mac (Notes, Numbers, Finder, volume, screenshots) is handed down to a
+  small agent running on your Mac, which does it locally and reports back.
+
+So a single command can travel **phone → cloud brain → your Mac → back to the
+phone**, live, in a couple of seconds.
+
+---
+
+## Accounts & pairing (new)
+
+Lumis is now account-based, so your phone and your Mac share one brain and one
+memory.
+
+- **Sign in.** Both the iPhone app and the Mac app have a real login: email +
+  password, **Sign in with Apple**, or **Sign in with Google**. Sessions are JWTs
+  that last 30 days; passwords are hashed with PBKDF2. On iOS the token is stored in
+  the Keychain.
+- **One phone ↔ one Mac, paired by a 6-digit code.** Open the Mac app, it shows a
+  short numeric code; type that code into the iPhone, and the two are linked to your
+  account. After that, what you say on the phone runs on *your* Mac.
+- **Honest online/offline status.** The Mac sends a heartbeat every few seconds. The
+  phone only shows "online" if it has heard from your Mac in the last 30 seconds —
+  no fake green dots.
+- **Per-account memory.** Everything Lumis learns (your expense file, your music
+  service, who you email most) is scoped to your account, so the phone and the Mac
+  see the same memory.
 
 ---
 
 ## All the features
 
-Here is literally everything Lumis can do right now.
+Here is basically everything Lumis can do right now.
 
 ### On the phone (the iOS app)
--  **Live camera** — there's a real camera viewfinder with little corner brackets
-  so it feels like a real camera.
--  **"Hey Lumis" wake word** — it's always quietly listening. When you say
-  "Hey Lumis" it wakes up. It even understands when your phone mishears you a little
-  (like "hey felics" or "hey phoenix") so it still works.
--  **Live transcription** — once it's awake it shows "Listening…" and writes out
-  what you're saying on the screen in real time.
-- **Manual capture button** — when you're done talking, you tap the big shutter
-  button and THAT'S when it sends everything. Nothing gets sent by accident.
-- **Live / Offline status** — a little dot at the top tells you if the phone is
-  connected to the backend.
-- **Result popup** — when Lumis finishes a job, a little card slides up telling
-  you what it did, and sometimes a button to open the result (like a link to your
-  new slideshow).
+- **Account login** — email/password, Sign in with Apple, or Google. A splash screen
+  validates your saved session on launch.
+- **Home + glass chat bar** — the main screen is a clean "Parchment" home with a
+  frosted **Liquid Glass** chat bar pinned to the bottom. You can type a command, or
+  tap the camera button to capture the real world.
+- **Slide-out sidebar** — a hamburger menu opens a sidebar for history, memory,
+  settings, and pairing.
+- **Live camera capture** — a real camera viewfinder with corner brackets. You frame
+  the thing, tap the shutter, and *that's* when it sends. Nothing goes by accident.
+- **"Hey Lumis" wake word** — it's always quietly listening. When you say
+  "Hey Lumis" it wakes up. It even forgives mishears ("hey felics", "hey phoenix").
+- **Live transcription** — once awake it shows "Listening…" and writes out what
+  you're saying in real time.
+- **Result popup** — when Lumis finishes, a card slides up telling you what it did,
+  sometimes with a button to open the result (a link to your draft email, etc.).
+- **Talks back** — results are read aloud with text-to-speech.
+- **Native phone actions** — some commands open things directly on the iPhone
+  (Reminders, Notes, Maps, Messages drafts) via URL schemes.
+
+### On the Mac (the menu-bar app)
+- **Lives in the menu bar** (`LSUIElement`), out of your way.
+- **Login + pairing** — sign into your account and show the 6-digit code the phone
+  uses to pair.
+- **Dashboard / activity feed** — a live feed of everything Lumis is doing, with
+  expandable cards for content results (calendar reads, research, screen captures).
+- **Auto-starts the local agent** — the app runs `mac_agent.py` for you and shows
+  **"Mac Agent: Connected / Offline"** in the popover, so the brain always has hands.
+- **Memory view** — see and delete the preferences Lumis has learned.
 
 ### What Lumis can actually DO (the tools)
-The backend has **50 real tools** now. These aren't pretend — they actually control
-your Mac (and your phone). They're grouped into families:
+The backend has **50 real tools**. These aren't pretend — they actually control your
+Mac (and your phone). They're grouped into families:
 
 | Family | Tools |
 |---|---|
 | **Notes** | Make a note from an image, append to an existing note, list your notes. |
 | **Numbers** | Make a new spreadsheet, add a receipt to your running expense file, read a sheet, edit a single cell. |
-| **Slides** | Make a REAL Google Slides deck with titles + bullets and open it. |
 | **Gmail** | Draft an email, read your inbox, read a specific email, open a pre-filled reply. |
 | **Browser (Chrome)** | Open a URL, read the current page's text, fill in a form. |
 | **Media** | Play/pause, next/previous track, open Spotify (and play), open Apple Music. |
@@ -74,18 +129,25 @@ drafting a message, creating an event) is marked **irreversible** so it can be g
 behind a confirmation.
 
 ### Smart stuff happening behind the scenes
-- **Chaining steps** — Lumis can do more than one thing in a row. Like "make a
-  slideshow and then email the link to my friend." The second step can use the
-  result of the first step.
+- **It actually thinks in a loop (ReAct).** Lumis doesn't guess a whole plan up
+  front. It does ONE thing, looks at the real result, and then decides the next
+  thing based on what actually happened — THINK → ACT → OBSERVE → repeat. So if a
+  step fails, it can notice and try a different approach instead of barreling ahead.
+- **It can look at your Mac to check its work.** Mid-task, the agent can take a
+  screenshot and *see* the screen (Groq vision) to confirm something worked before
+  moving on.
+- **It can ask you a question.** If it genuinely can't tell what you mean ("which
+  Sarah?"), it pauses and asks. You just answer (capture again and say it) and it
+  picks up right where it left off, with full memory of the conversation.
+- **Chaining steps** — Lumis can do several things in a row. Like "make a note of
+  this receipt and remind me to submit expenses Friday." Each step can use the
+  result of the one before it.
 - **Anti-hallucination** — sometimes AI makes stuff up. We told it very firmly to
   ONLY use what it actually sees in the picture and to never invent fake prices or
   fake store names. If it can't read something, it leaves it blank instead of lying.
-- *Intent locking** — the AI sometimes gets confused and wants to make a note for
-  everything. So if you clearly say "email" or "spreadsheet," the backend forces it
-  to do that thing instead of being lazy and making a note.
 - **Persistent memory** — Lumis learns durable preferences from what you do (your
   expense file, your music service, who you email most, your preferred calendar) and
-  quietly fills those in as defaults next time.
+  quietly fills those in as defaults next time. Memory is per-account.
 - **Conversation memory** — it remembers the last few turns in a session, so
   follow-ups like "do that again" or "change the time to 3pm" actually work.
 - **Talks back** — Lumis reads results aloud on the phone (text-to-speech), and your
@@ -96,110 +158,140 @@ behind a confirmation.
 
 ## How it's built (the technical part)
 
-Lumis has **3 layers.** Think of it like a sandwich.
+Lumis has **3 layers,** plus the Mac agent that gives the cloud brain a pair of
+local hands.
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  LAYER 1: The Frontend (the phone / the website)  │
-│  - takes a picture                                │
-│  - listens to your voice                          │
-│  - sends it off                                   │
-│  - shows you the result                           │
+│  LAYER 1: The Frontend (iPhone / Mac menu bar)    │
+│  - takes a picture / hears your voice             │
+│  - sends it off (authenticated)                   │
+│  - shows you the result live                      │
 └───────────────────────┬───────────────────────────┘
-                         │  (sends image + text over the internet)
-                         ▼
+                        │  image + text over the internet
+                        ▼
 ┌─────────────────────────────────────────────────┐
-│  LAYER 2: The Backend (the brain) 🧠             │
+│  LAYER 2: The Backend (the brain) 🧠  [Railway]  │
 │  - gets the image + voice                         │
 │  - asks the AI what to do                         │
-│  - runs the real actions on the Mac               │
-│  - tells everybody what happened                  │
-└───────────────────────┬───────────────────────────┘
-                         │  (asks for a plan)
-                         ▼
-┌─────────────────────────────────────────────────┐
-│  LAYER 3: The AI (Groq llama-4-scout) 🤖         │
-│  - looks at the picture                           │
-│  - reads your command                             │
-│  - writes a step-by-step plan in JSON             │
-└─────────────────────────────────────────────────┘
+│  - runs cloud tools itself                        │
+│  - hands Mac-only tools to the local agent ───────┼──┐
+│  - broadcasts results to everybody                │  │
+└───────────────────────┬───────────────────────────┘  │
+                        │  asks for a plan              │  execute_on_mac
+                        ▼                               ▼
+┌──────────────────────────────────┐   ┌──────────────────────────────┐
+│  LAYER 3: The AI (llama-4-scout)  │   │  Mac agent ✋ (your Mac)      │
+│  - looks at the picture           │   │  - runs osascript / open      │
+│  - reads your command             │   │  - controls Notes, Numbers…   │
+│  - writes a step plan in JSON     │   │  - replies mac_result         │
+└──────────────────────────────────┘   └──────────────────────────────┘
 ```
 
-### Layer 1: The Frontend (iOS app)
-This is written in **Swift** using **SwiftUI** (that's Apple's way of building app
-screens). Here are the important files and what they do:
+### Layer 1a: The iPhone app
+Written in **Swift / SwiftUI** (iOS 17+). Important files:
 
 | File | What it does |
 |---|---|
-| `ContentView.swift` | The whole screen — camera, the status chip, the shutter button, the result popup. |
-| `CameraManager.swift` | Runs the camera using **AVFoundation** and takes a full-quality photo when you tap capture. |
-| `SpeechRecognizer.swift` | Listens with Apple's **Speech** framework, waits for "Hey Lumis," and writes down what you say. |
-| `APIClient.swift` | Takes the photo, squishes it into a JPEG, turns it into text (base64), and sends it to the backend's `/ingest`. |
-| `WebSocketClient.swift` | Keeps a live connection open to the backend so results show up instantly. If it drops, it reconnects by itself. |
-| `Config.swift` | Where you put the backend's web address. |
-| `Models.swift` | The shapes of the data going in and out. |
+| `UI/RootView.swift` | Top-level gate: splash → auth flow → main app, based on login state. |
+| `UI/MainTabView.swift` | The shell — home, glass chat bar, slide-out sidebar, camera sheet. |
+| `UI/ChatBarView.swift` | The frosted Liquid Glass chat bar at the bottom. |
+| `UI/SidebarView.swift` | History, memory, settings, pairing. |
+| `Auth/…` | Login/sign-up, Sign in with Apple, Google, Keychain storage. |
+| `CameraManager.swift` | Runs the camera with **AVFoundation**, takes a full-quality photo. |
+| `SpeechRecognizer.swift` | Apple **Speech** framework — wake word + live transcript. |
+| `WhisperTranscriber.swift` | Sends the command audio to **Groq Whisper** for accuracy. |
+| `APIClient.swift` | Encodes the photo to base64 and POSTs it to `/ingest`. |
+| `WebSocketClient.swift` | Live connection to the backend; auto-reconnects on drop. |
+| `MacDiscovery.swift` | Finds a Mac running the backend on the same WiFi (local dev). |
+| `DeepLinkRouter.swift` | Opens native phone URL schemes for `ios_action` results. |
 
-**How the voice part works (this part is tricky):** The mic stays on the whole time.
-Apple's on-device speech recognizer listens for the wake words **"hey lumis"** (it
-only has to nail two words, so it's reliable). Once it's awake, the audio of your
-actual command is recorded and sent to **Groq Whisper**, which transcribes it far
-more accurately — important for names like "Anay Shekhar" that Apple's recognizer
-mangles. If Whisper isn't configured or fails, it silently falls back to Apple's
-transcription. When you stop talking for about 1.3 seconds it "settles" — your words
-stay on screen and wait for you to tap capture. A little **generation counter** makes
-sure old, cancelled listening sessions don't clobber new ones (a real bug we had to
-squash — without it, it only worked the first time!).
+**How the voice part works (this part is tricky):** the mic stays on the whole time.
+Apple's on-device recognizer only has to nail two words — **"hey lumis"** — so it's
+reliable. Once awake, the audio of your actual command goes to **Groq Whisper**,
+which transcribes it far more accurately (important for names like "Anay Shekhar"
+that Apple mangles). If Whisper isn't configured, it silently falls back to Apple.
+When you stop talking for ~1.3s it "settles" and waits for you to tap capture. A
+**generation counter** keeps old, cancelled listening sessions from clobbering new
+ones (a real bug — without it, it only worked the first time!).
+
+### Layer 1b: The Mac menu-bar app
+Also **SwiftUI**, runs as a menu-bar-only app. Important files:
+
+| File | What it does |
+|---|---|
+| `LumisApp.swift` | App entry, menu-bar item, popover. |
+| `LoginView.swift` / `AuthStore.swift` | Account login (email, Apple, Google). |
+| `LinkController.swift` / `LinkCodeView.swift` | Shows the 6-digit pairing code. |
+| `MacAgentController.swift` | Auto-starts and supervises the local `mac_agent.py`. |
+| `DashboardView.swift` / `EventFeedView.swift` | The live activity feed. |
+| `MemoryView.swift` | View/delete learned preferences. |
+| `APIService.swift` | Talks to the backend (auth, status, memory). |
 
 ### Layer 2: The Backend (the brain)
-This is written in **Python** using **FastAPI** (a fast web server) and runs with
-**uvicorn**. Here's the file breakdown:
+**Python + FastAPI + uvicorn**, **SQLite** for persistence, deployed on **Railway**.
 
 | File | What it does |
 |---|---|
-| `main.py` | Starts the server and sets up the WebSocket. |
-| `routes.py` | The `/ingest` door where the phone drops off its image + voice. |
-| `llm.py` | The planner. Sends your stuff to the AI and gets back a plan. |
-| `engine.py` | The worker. Runs each step of the plan in order. |
-| `tools.py` | The actual real-life actions (Notes, Numbers, Gmail, media, browser, iOS, etc). |
-| `websocket.py` | Keeps track of everybody connected and tells them all the news. |
-| `google_svc.py` | Logs into Google so it can make real Slides. |
-| `memory.py` | Learns durable preferences (expense file, music service, …) and injects them into every plan. |
-| `db.py` | SQLite action history so you can see and undo what Lumis did. |
-| `tasks.py` | Background worker for long-running jobs. |
+| `main.py` | Starts the server and the `/ws` WebSocket. |
+| `routes.py` | `/ingest` (image + voice in), history, undo, memory, `/mac/status`, health. |
+| `auth.py` | Accounts: register/login, Apple + Google verification, JWT sessions. |
+| `linking.py` | Mac↔phone pairing: generate code, pair, heartbeat, online status. |
+| `agent.py` | The **ReAct agent** — the THINK→ACT→OBSERVE loop that decides one tool at a time. |
+| `agent_prompt.py` | The agent's system prompt (its rules + the full tool catalog). |
+| `tools.py` | The 50 real actions (Notes, Numbers, Gmail, media, browser, iOS, …). |
+| `mac_bridge.py` | Sends one tool to the Mac agent over `/ws` and awaits the result. |
+| `vision.py` | Grabs a Mac screenshot so the agent can *see* the screen. |
+| `mac_agent.py` | Runs on your Mac; executes Mac-only tools and replies over `/ws`. |
+| `websocket.py` | Tracks everyone connected (input clients + the Mac agent) and broadcasts. |
+| `memory.py` | Learns per-account preferences and feeds them to the agent. |
+| `db.py` | SQLite: action history, users, pairings. |
+| `tasks.py` | Background worker that runs long jobs on the same agent. |
 
 **The pipeline (step by step):**
-1. The phone POSTs to `/ingest` with the image and voice text.
-2. `llm.py` sends that to the AI and gets back a JSON plan that looks like a list of
-   steps.
-3. `engine.py` runs each step one at a time. Because controlling the Mac is slow, it
-   runs each tool in a separate thread so the WebSocket doesn't freeze.
-4. As each step finishes, the backend **broadcasts** the result to every connected
-   phone/website over the WebSocket. That's why the result shows up live.
+1. The phone POSTs to `/ingest` with the image, voice text, and its auth token.
+   The backend returns immediately — results stream back over the WebSocket.
+2. `agent.py` starts a **reasoning loop** on Groq. Each turn the model returns ONE
+   JSON action: call a tool, look at the Mac screen, ask you a question, or finish.
+3. For a tool call, the agent decides **where** it runs and then **reads the real
+   result before deciding the next step**:
+   - **Cloud tools** (`ios.*`, `web.search`, `web.fetch_page`) run on Railway.
+   - **Everything else** goes to your Mac via `mac_bridge` as `execute_on_mac`
+     `{action_id, tool, args}`; it waits (up to 30s) for the agent's `mac_result`.
+4. Every step is **broadcast** to every connected phone/Mac over the WebSocket, so
+   results show up live. The loop keeps going until the agent says it's done (or
+   hits its step limit). If it needs a detail, it pauses and asks; you answer and it
+   resumes with full context.
 
-**How it controls the Mac:** the tools use a thing called **AppleScript** (with a
-command called `osascript`) and the `open` command. So when Lumis "makes a note," it
-literally tells the Notes app "hey, make a note with this text" the same way a human
-would, just automatic.
+**How it controls the Mac:** the Mac agent uses **AppleScript** (`osascript`) and
+the `open` command. So when Lumis "makes a note," it literally tells the Notes app
+"hey, make a note with this text," the same way a human would — just automatic. If no
+agent is connected, a Mac step returns *"Mac agent not connected."*
 
-### Layer 3: The AI (the planner's brain)
-The backend doesn't decide things by itself, it asks an AI model. Lumis uses **one
-provider only: Groq**, running `llama-4-scout` (it's multimodal — text *and* vision —
-and super fast). `GROQ_API_KEY` is the only key you need. No Gemini, no OpenAI.
+### Layer 3: The AI (the agent's brain)
+Lumis uses **one provider only: Groq**, running `llama-4-scout` (multimodal — text
+*and* vision — and super fast). `GROQ_API_KEY` is the only key you need. No Gemini,
+no OpenAI.
 
-If Groq is totally unreachable, there's a **keyword fallback**: the backend just
-looks for words like "email" or "spreadsheet" or "play X on spotify" and routes to
-the right tool. Not as smart, but it still works offline-ish.
-
-The AI is given a big set of instructions (called the **system prompt**) that tells
-it: only output JSON, never write a paragraph, read images word-for-word, and don't
-make stuff up. The JSON it sends back looks like this:
+The AI gets a big **system prompt** (`agent_prompt.py`): only output JSON, read
+images word-for-word, don't make stuff up, and emit exactly ONE action per turn.
+Instead of one big plan, each turn is a single decision the loop acts on and then
+feeds the real result back. The JSON is one of four shapes:
 
 ```json
-{
-  "steps": [
-    { "tool": "gmail.draft_email", "args": { "to": "sam@example.com", "subject": "Hi", "body": "..." } }
-  ]
-}
+{ "action": "tool_call", "tool": "gmail.draft_email",
+  "args": { "to": "sam@example.com", "subject": "Hi", "body": "..." },
+  "reasoning": "…", "status_message": "Opening a draft…" }
+```
+```json
+{ "action": "capture_screen", "reasoning": "Check the draft actually opened" }
+```
+```json
+{ "action": "ask_user", "question": "Which Sarah — Sarah Lee or Sarah Kim?" }
+```
+```json
+{ "action": "finish", "title": "Draft ready", "summary": "Opened a draft to Sam.",
+  "speak": "Your draft to Sam is ready." }
 ```
 
 ---
@@ -232,26 +324,33 @@ make stuff up. The JSON it sends back looks like this:
 }
 ```
 
+**Backend → Mac agent** (when a step has to run locally):
+```json
+{ "event": "execute_on_mac", "action_id": "a-42", "tool": "notes.create_from_image", "args": { "text": "..." } }
+```
+…and the agent replies `{ "event": "mac_result", "action_id": "a-42", "result": { ... } }`.
+
 `status` is usually `"success"` or `"error"`. There's also a special
 `"ios_action"` status: the tool returns a phone-side URL scheme in `url` (with an
 optional `fallback_url`), and the iOS app opens it directly with
 `UIApplication.shared.open` — that's how "remind me on my phone" or "text Sarah"
-happen natively on the iPhone. Content tools also include a longer `summary` field
-for the on-screen sheet.
+happen natively. Content tools also include a longer `summary` field for the
+on-screen sheet and the Mac dashboard card.
 
 ---
 
 ## The tech stack (all the tools we used)
 
-- **Swift + SwiftUI** — the iPhone app (+ a SwiftUI menu-bar app for the Mac)
+- **Swift + SwiftUI** — the iPhone app *and* the Mac menu-bar app
 - **AVFoundation** — the camera
 - **Speech framework** — wake-word ("Hey Lumis") detection on-device
 - **Groq Whisper** — transcribes your actual command for accuracy on names
 - **Python + FastAPI + uvicorn** — the backend server
-- **WebSockets** — live updates so results pop up instantly
-- **Groq (llama-4-scout)** — the one and only AI brain (text + vision)
-- **Google Slides API** — for making real presentations
-- **AppleScript (`osascript`)** — for controlling Mac apps
+- **SQLite** — accounts, pairings, and action history
+- **WebSockets** — live updates *and* the cloud↔Mac-agent bridge
+- **Groq (llama-4-scout)** — the one and only AI brain (text + vision), driving the ReAct agent loop
+- **AppleScript (`osascript`)** — for controlling Mac apps (via the Mac agent)
+- **Sign in with Apple / Google** — account auth
 - **Railway** — hosts the backend at a permanent public URL (no tunnel needed);
   ngrok is just for local development
 
@@ -265,12 +364,17 @@ no tunnel, no same-WiFi requirement. The iOS and Mac apps point at it by default
 Full steps are in [`DEPLOY.md`](DEPLOY.md); the short version:
 
 1. Push the repo to GitHub → new Railway project → deploy from repo, root dir `backend`.
-2. Set env vars: `GROQ_API_KEY` and `GROQ_MODEL`.
+2. Set env vars: `GROQ_API_KEY`, `GROQ_MODEL`, and `LUMIS_JWT_SECRET` (plus optional
+   `LUMIS_GOOGLE_CLIENT_ID` / `LUMIS_APPLE_BUNDLE_ID` for social login).
 3. Copy the generated URL and drop it into the apps (see DEPLOY.md).
 4. Verify: `curl https://<your-url>/health` → `{"status":"ok"}`.
 
-Then just open the Xcode project in `ios/LumisApp/`, plug in your iPhone, and Run.
-(Use a real phone, not the simulator, so the camera and mic actually work.)
+Then:
+- Open `ios/LumisApp/` in Xcode, plug in a **real iPhone** (not the simulator, so the
+  camera and mic work), and Run. Sign in.
+- Open `macos-app/Lumis/` in Xcode and Run the Mac app. Sign into the **same
+  account**. It shows a 6-digit code — type that into the phone to pair. The Mac app
+  auto-starts the local agent so the brain has hands.
 
 ### The local-dev way
 **1. Start the backend** (the brain):
@@ -284,17 +388,25 @@ cd backend
 ngrok http 8000
 ```
 Ngrok prints a public URL like `https://something.ngrok-free.dev`. Put it in the
-app's Settings tab (or onboarding screen). The iOS app can also auto-discover a Mac
-running the backend on the same WiFi. Check `https://<url>/health` → `{"status":"ok"}`.
+app's Settings (or onboarding). The iOS app can also auto-discover a Mac running the
+backend on the same WiFi. Check `https://<url>/health` → `{"status":"ok"}`.
+
+**3. Run the Mac agent** (the hands) — the Mac app does this for you, or manually:
+```bash
+cd backend && LUMIS_BACKEND_URL=https://<your-url> ./run_mac_agent.sh
+```
+Check `GET /mac/status` to confirm it's connected.
 
 ### Setting up the AI key
-In `backend/.env` (see `backend/.env.example`) you put your one secret key:
+In `backend/.env` (see `backend/.env.example`):
 ```
 GROQ_API_KEY=your_key_here
 GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+LUMIS_JWT_SECRET=some-long-random-string
 ```
-Groq is the only provider — `GROQ_API_KEY` is all you need. The same key powers both
-the planner (llama-4-scout) and voice transcription (Whisper).
+Groq is the only AI provider — `GROQ_API_KEY` powers both the agent
+(llama-4-scout) and voice transcription (Whisper). Optional: `AGENT_MAX_STEPS`
+(default 20) caps how many tool calls the reasoning loop will take.
 
 ---
 
@@ -303,5 +415,6 @@ the planner (llama-4-scout) and voice transcription (Whisper).
 Most apps make you do all the work — type the email, open the spreadsheet, copy the
 numbers. Lumis flips it around. You just show it the real world and talk like a
 normal human, and it turns that into real actions across a bunch of different apps.
-The phone, the website, whatever — they're all just different faces for the same
-smart backend. That's the whole point: **reality goes in, finished work comes out.**
+The phone, the Mac, a website — they're all just different faces (and hands) for the
+same smart backend. That's the whole point: **reality goes in, finished work comes
+out.**

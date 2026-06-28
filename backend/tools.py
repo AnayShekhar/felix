@@ -660,75 +660,6 @@ def browser_fill_form(args: dict) -> dict:
     }
 
 
-def slides_create_presentation(args: dict) -> dict:
-    """Create a real Google Slides deck, fill it, and open it in Chrome.
-
-    args:
-      title:  presentation title
-      slides: [{ "title": str, "bullets": [str, ...] }, ...]
-    """
-    import google_svc
-
-    title = str(args.get("title") or "Untitled Presentation").strip()
-    slides = args.get("slides") or []
-    if not isinstance(slides, list) or not slides:
-        slides = [{"title": title, "bullets": []}]
-
-    svc = google_svc.slides_service()
-    pres = svc.presentations().create(body={"title": title}).execute()
-    pid = pres["presentationId"]
-    original_slide_ids = [s["objectId"] for s in pres.get("slides", [])]
-
-    requests = []
-    for i, slide in enumerate(slides):
-        if not isinstance(slide, dict):
-            slide = {"title": str(slide), "bullets": []}
-        slide_id, title_id, body_id = f"s_{i}", f"t_{i}", f"b_{i}"
-        s_title = str(slide.get("title") or "").strip()
-        bullets = slide.get("bullets") or []
-        if isinstance(bullets, str):
-            bullets = [bullets]
-        body_text = "\n".join(str(b).strip() for b in bullets if str(b).strip())
-
-        requests.append({
-            "createSlide": {
-                "objectId": slide_id,
-                "slideLayoutReference": {"predefinedLayout": "TITLE_AND_BODY"},
-                "placeholderIdMappings": [
-                    {"layoutPlaceholder": {"type": "TITLE", "index": 0}, "objectId": title_id},
-                    {"layoutPlaceholder": {"type": "BODY", "index": 0}, "objectId": body_id},
-                ],
-            }
-        })
-        if s_title:
-            requests.append({"insertText": {"objectId": title_id, "text": s_title}})
-        if body_text:
-            requests.append({"insertText": {"objectId": body_id, "text": body_text}})
-
-    # Remove the default blank slide(s) so only our content remains.
-    for sid in original_slide_ids:
-        requests.append({"deleteObject": {"objectId": sid}})
-
-    svc.presentations().batchUpdate(
-        presentationId=pid, body={"requests": requests}
-    ).execute()
-
-    url = f"https://docs.google.com/presentation/d/{pid}/edit"
-    subprocess.run(["open", "-a", CHROME, url], check=True)
-    return {
-        "tool": "slides.create_presentation",
-        "status": "success",
-        "message": f'Created a {len(slides)}-slide Google Slides deck "{title}".',
-        "title": title,
-        "detail": "\n\n".join(
-            f"Slide {i + 1}: {s.get('title', '') if isinstance(s, dict) else s}"
-            for i, s in enumerate(slides)
-        ),
-        "url": url,
-        "data": {"presentation_id": pid, "url": url, "slide_count": len(slides)},
-    }
-
-
 def _normalize_rows(headers, rows):
     """Build a list-of-lists-of-strings matrix from headers + rows."""
     if not isinstance(headers, list):
@@ -1422,7 +1353,7 @@ def clipboard_copy_text(args: dict) -> dict:
 # ----------------------------------------------------------------------------
 # Calendar tools (Phase 1e)
 #
-# Natural-language dates ("tomorrow at 3pm") are converted to ISO8601 in llm.py
+# Natural-language dates ("tomorrow at 3pm") are converted to ISO8601 in agent.py
 # (dateparser) BEFORE these tools run, so start_datetime is expected to be ISO.
 # ----------------------------------------------------------------------------
 
@@ -2029,6 +1960,25 @@ def _capture_screen_b64() -> str:
             pass
 
 
+def screen_capture(args: dict) -> dict:
+    """Screenshot the Mac and return the raw image (base64 PNG), no description.
+
+    Used by the ReAct agent's `capture_screen` action so the planning model
+    (llama-4-scout, multimodal) can *see* the screen itself and decide what to
+    do next, rather than relying on a text description. Runs on the Mac agent.
+    """
+    image_b64 = _capture_screen_b64()
+    return {
+        "tool": "screen.capture",
+        "status": "success",
+        "message": "Captured the Mac screen.",
+        "title": "Screen Capture",
+        "data": {"image_b64": image_b64},
+        # Top-level too, so the agent can read it without digging into data.
+        "image_b64": image_b64,
+    }
+
+
 def screen_capture_and_describe(args: dict) -> dict:
     """Screenshot the Mac and return a Groq vision description of it (Fix 6)."""
     image_b64 = _capture_screen_b64()
@@ -2626,8 +2576,8 @@ def build_undo(tool: str, args: dict, result: dict) -> tuple[bool, str | None]:
             )
         return False, None
 
-    # numbers.create_spreadsheet (unsaved/untitled), slides (persists in Drive),
-    # clipboard, system settings, and read-only tools have no safe auto-undo.
+    # numbers.create_spreadsheet (unsaved/untitled), clipboard, system settings,
+    # and read-only tools have no safe auto-undo.
     return False, None
 
 
@@ -2758,7 +2708,6 @@ TOOL_REGISTRY = {
     "ios.create_note": ios_create_note,
     "ios.open_maps": ios_open_maps,
     "ios.send_message_draft": ios_send_message_draft,
-    "slides.create_presentation": slides_create_presentation,
     "numbers.create_spreadsheet": numbers_create_spreadsheet,
     "numbers.add_expense": numbers_add_expense,
     # System control (Phase 1b)
@@ -2789,6 +2738,7 @@ TOOL_REGISTRY = {
     # Contacts (Phase 1g)
     "contacts.find": contacts_find,
     # Screen awareness (Phase 1h / Phase 5)
+    "screen.capture": screen_capture,
     "screen.capture_and_describe": screen_capture_and_describe,
     "screen.capture_and_act": screen_capture_and_act,
     # Web research agent (Phase 6)

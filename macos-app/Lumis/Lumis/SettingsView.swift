@@ -80,8 +80,8 @@ struct SettingsView: View {
     private func section(_ title: String, @ViewBuilder _ content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .heavy)).tracking(1.1)
-                .foregroundStyle(LumisBrand.accent)
+                .font(.system(size: 12, weight: .semibold)).tracking(1)
+                .foregroundStyle(LumisBrand.ink.opacity(0.5))
             content()
         }
         .lumisCard(padding: 16)

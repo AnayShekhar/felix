@@ -29,7 +29,7 @@ struct MainTabView: View {
                 .allowsHitTesting(!sidebarOpen)
 
             if sidebarOpen {
-                Color.black.opacity(0.18)
+                LumisColors.carbonBlack.opacity(0.30)
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .onTapGesture(perform: closeSidebar)

@@ -53,8 +53,8 @@ Two optional fields are also returned and broadcast over WebSocket:
   (calendar.read_*, reminders.read_list, contacts.find, system.get_battery,
   web.research, screen.capture_and_describe). Drives the iOS summary sheet and
   the Mac dashboard expandable card.
-The LLM (backend/llm.py) routes intent to one of these tools.
-- content: notes.create_from_image, slides.create_presentation, numbers.create_spreadsheet, numbers.add_expense
+The ReAct agent (backend/agent.py) picks one of these tools per step.
+- content: notes.create_from_image, numbers.create_spreadsheet, numbers.add_expense
 - media: media.play_pause, media.next_track, media.previous_track, media.open_spotify, media.open_apple_music
 - comms: gmail.draft_email, gmail.read_inbox, gmail.read_email, gmail.reply_draft
 - browser: browser.open_url, browser.read_page, browser.fill_form
@@ -66,19 +66,30 @@ The LLM (backend/llm.py) routes intent to one of these tools.
 - calendar: calendar.create_event, calendar.read_today, calendar.read_week, calendar.find_free_time
 - reminders: reminders.add_item, reminders.read_list, reminders.complete_item
 - contacts: contacts.find
-- screen: screen.capture_and_describe, screen.capture_and_act (Groq vision)
+- screen: screen.capture (raw b64 for the agent's vision), screen.capture_and_describe, screen.capture_and_act (Groq vision)
 - web: web.search, web.fetch_page, web.research (research agent — searches, fetches, synthesizes with Groq, saves a Note)
 - ios (native, returns "ios_action" + url for the phone to open): ios.create_reminder, ios.create_note, ios.open_maps, ios.send_message_draft
 
-## Mac agent split (backend/mac_agent.py, engine.py, websocket.py)
-Railway can't run osascript/pmset/local-file tools. engine._dispatch routes each
-step: CLOUD_TOOLS (ios.*, web.search, web.fetch_page) run on Railway; everything
-else is sent to the Mac agent. Flow: engine broadcasts `execute_on_mac`
-{action_id, tool, args} and awaits a Future (30s timeout); the Mac agent (a "mac"
-WS client that sent {event:"register", role:"mac"}) runs tools.execute() locally
-and replies `mac_result` {action_id, result}, which resolves the Future. If no
-agent is connected, the step returns "Mac agent not connected. Run mac_agent.py
-on your Mac." GET /mac/status reports connection. Run the agent with
+## ReAct agent (backend/agent.py, agent_prompt.py)
+/ingest no longer plans-then-runs; it runs a deep ReAct loop on Groq
+(llama-4-scout): THINK -> ACT (one tool) -> OBSERVE the real result -> repeat,
+until the agent emits `finish` or hits AGENT_MAX_STEPS (default 20). The model
+returns one JSON action per turn: tool_call | capture_screen (it sees the Mac
+screen to verify reality) | ask_user (pauses; resumed via the next /ingest on the
+same session_id, or POST /agent/reply) | finish. The agent emits new agent_*
+events AND backward-compatible step_started/step_executed/workflow_complete so the
+current iOS/Mac apps keep working. routes.active_agents holds paused sessions.
+Conversation transcript + datetime normalization live in agent.py.
+
+## Mac agent split (backend/mac_bridge.py, mac_agent.py, websocket.py)
+Railway can't run osascript/pmset/local-file tools. agent.py routes each step:
+CLOUD_TOOLS (ios.*, web.search, web.fetch_page) run on Railway; everything else
+goes to the Mac agent via mac_bridge.run_on_mac. Flow: it broadcasts
+`execute_on_mac` {action_id, tool, args} and awaits a Future (30s timeout); the
+Mac agent (a "mac" WS client that sent {event:"register", role:"mac"}) runs
+tools.execute() locally and replies `mac_result` {action_id, result}, which
+resolves the Future. If no agent is connected, the step returns "Mac agent not
+connected." GET /mac/status reports connection. Run the agent with
 run_mac_agent.sh (or the Mac app auto-starts it via MacAgentController and shows
 "Mac Agent: Connected/Offline" in the popover). Agent backend URL: $LUMIS_BACKEND_URL.
 
@@ -86,12 +97,14 @@ run_mac_agent.sh (or the Mac app auto-starts it via MacAgentController and shows
 Learns deterministic prefs from successful actions: expense_file, music_service,
 last_email_recipient, default_browser, preferred_calendar, preferred_reminder_list,
 frequent_contacts, home_folder, command_patterns. memory.get_context_block()
-renders all of it as a natural-language paragraph injected into every LLM call.
+renders all of it as a natural-language paragraph injected into the agent's
+first message every run.
 
-## Conversation history (backend/llm.py)
+## Conversation history (backend/agent.py)
 Per-session rolling transcript (last 10 turns, last 5 injected as a RECENT
 CONVERSATION block) enables follow-ups like "do that again" / "change the time to
-3pm". Cleared after 2h of inactivity. session_id is threaded through parse_plan.
+3pm". Cleared after 2h of inactivity. A fresh agent is created per /ingest, so
+this transcript (not the live loop context) carries cross-command memory.
 
 ## Key patterns
 - Backend broadcasts all events over WebSocket — frontends never poll

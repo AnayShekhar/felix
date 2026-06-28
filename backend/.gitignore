@@ -1,6 +1,9 @@
 # secrets
 .env
 
+# legacy Google OAuth token (Slides removed; ignore any stragglers)
+token.json
+
 # python virtualenv
 venv/
 __pycache__/

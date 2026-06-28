@@ -1,0 +1,606 @@
+"""Lumis ReAct agent.
+
+A deep reasoning loop on Groq (llama-4-scout): THINK -> ACT -> OBSERVE -> ...
+One tool call per iteration, reading the real result before deciding the next
+step. Replaces the old single-shot llm.py planner + engine.py runner.
+
+Where tools run:
+  - CLOUD_TOOLS (ios.*, web.search, web.fetch_page) run on Railway directly.
+  - Everything else is a macOS-local action dispatched to the Mac agent over the
+    WebSocket via mac_bridge.
+
+Event model — the agent emits BOTH:
+  - New agent_* events (agent_start/agent_step/agent_question/agent_done/
+    agent_error) for a richer future UI, and
+  - Backward-compatible step_started / step_executed / workflow_complete events
+    so the current iOS and Mac apps keep working unchanged.
+
+Clarifying questions pause the loop; the session is resumed (with full context
+intact) when the user answers — see resume().
+"""
+import asyncio
+import json
+import logging
+import os
+import re
+import threading
+import time
+from datetime import datetime
+from typing import Awaitable, Callable, Optional
+
+from dotenv import load_dotenv
+
+import db
+import memory
+import tools
+import mac_bridge
+import vision
+from agent_prompt import AGENT_SYSTEM_PROMPT
+
+load_dotenv()
+
+logger = logging.getLogger("lumis.agent")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+
+MAX_STEPS = int(os.getenv("AGENT_MAX_STEPS", "20"))      # hard cap on tool calls
+THINK_TIMEOUT_S = 40                                     # wait for a Groq decision
+MAC_TOOL_TIMEOUT_S = float(os.getenv("MAC_TOOL_TIMEOUT", "30"))
+
+# Tools that run entirely in the cloud (no osascript / local files). Mirrors the
+# old engine's CLOUD_TOOLS exactly. web.research is NOT here: it saves a Note via
+# osascript, so it must run on the Mac agent.
+CLOUD_TOOLS = {
+    "ios.create_reminder",
+    "ios.create_note",
+    "ios.open_maps",
+    "ios.send_message_draft",
+    "web.search",
+    "web.fetch_page",
+}
+
+# Tool args holding a datetime that must be ISO-8601 before execution.
+_DATETIME_ARGS = {
+    "calendar.create_event": ("start_datetime",),
+    "reminders.add_item": ("due_date",),
+}
+
+Broadcast = Callable[[dict], Awaitable[None]]
+SetLatest = Callable[[dict], None]
+
+
+# --------------------------------------------------------------------------- #
+# Conversation history (ported from the old llm.py)
+#
+# A fresh agent is created per /ingest, so cross-command follow-ups
+# ("do that again", "change the time to 3pm") rely on this short per-session
+# transcript, injected into the agent's first message.
+# --------------------------------------------------------------------------- #
+_session_history: dict = {}
+_history_lock = threading.Lock()
+_HISTORY_MAX_TURNS = 10
+_HISTORY_INJECT_TURNS = 5
+_HISTORY_TTL_S = 2 * 60 * 60
+
+
+def _prune_expired_sessions() -> None:
+    now = time.time()
+    stale = [
+        sid for sid, s in _session_history.items()
+        if now - s.get("last_activity", 0) > _HISTORY_TTL_S
+    ]
+    for sid in stale:
+        del _session_history[sid]
+
+
+def _append_turn(session_id: str, role: str, content: str) -> None:
+    content = str(content or "").strip()
+    if not session_id or not content:
+        return
+    with _history_lock:
+        _prune_expired_sessions()
+        sess = _session_history.setdefault(
+            session_id, {"turns": [], "last_activity": time.time()}
+        )
+        sess["turns"].append({"role": role, "content": content})
+        sess["turns"] = sess["turns"][-_HISTORY_MAX_TURNS:]
+        sess["last_activity"] = time.time()
+
+
+def _conversation_block(session_id: str) -> str:
+    if not session_id:
+        return ""
+    with _history_lock:
+        _prune_expired_sessions()
+        sess = _session_history.get(session_id)
+        turns = list(sess["turns"]) if sess else []
+    if not turns:
+        return ""
+    recent = turns[-_HISTORY_INJECT_TURNS:]
+    lines = [
+        f"{'User' if t.get('role') == 'user' else 'Lumis'}: {t.get('content', '')}"
+        for t in recent
+    ]
+    return "RECENT CONVERSATION:\n" + "\n".join(lines) + "\n\n"
+
+
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+
+def _date_block() -> str:
+    now = datetime.now()
+    today = now.strftime("%A, %B %d, %Y")
+    return (
+        f"Today is {today} and the current time is {now.strftime('%I:%M %p')}. "
+        "Resolve every relative date/time against this clock. Never use a date "
+        "from your training data.\n"
+    )
+
+
+# llama-4-scout does not reliably follow the exact action schema — it very often
+# puts the tool name directly in "action" (e.g. {"action": "gmail.read_inbox"})
+# instead of {"action": "tool_call", "tool": "gmail.read_inbox"}, or omits
+# "action" entirely and just gives a "tool". If we don't tolerate these, the loop
+# treats every turn as "unexpected" and finishes having run nothing. Normalizing
+# the decision is what makes the agent actually do work.
+_FINISH_ALIASES = {"finish", "done", "complete", "completed", "stop", "end", "final"}
+_ASK_ALIASES = {"ask_user", "ask", "question", "clarify", "ask_question", "need_input"}
+_SCREEN_ALIASES = {"capture_screen", "screenshot", "screen", "look_at_screen",
+                   "view_screen", "see_screen"}
+_TOOLCALL_ALIASES = {"tool_call", "tool", "use_tool", "call_tool", "run_tool",
+                     "call", "execute", "act"}
+
+
+def _normalize_decision(d: dict) -> dict:
+    """Coerce the model's loosely-formatted JSON into one of our four actions."""
+    if not isinstance(d, dict):
+        return {"action": "finish", "summary": "Done.", "speak": "Done."}
+
+    action = str(d.get("action") or "").strip()
+    low = action.lower()
+
+    # Pull args out of whatever key the model used.
+    if "args" not in d:
+        for alt in ("arguments", "parameters", "params", "input"):
+            if isinstance(d.get(alt), dict):
+                d["args"] = d[alt]
+                break
+    # Tool name may live under several keys.
+    tool_name = d.get("tool") or d.get("tool_name") or d.get("name")
+
+    if low in _FINISH_ALIASES:
+        d["action"] = "finish"
+        return d
+    if low in _ASK_ALIASES:
+        d["action"] = "ask_user"
+        return d
+    if low in _SCREEN_ALIASES:
+        d["action"] = "capture_screen"
+        return d
+    if low in _TOOLCALL_ALIASES:
+        d["action"] = "tool_call"
+        if not d.get("tool"):
+            d["tool"] = tool_name
+        return d
+    # The model put the tool name directly in "action".
+    if action in tools.TOOL_REGISTRY or ("." in action and " " not in action):
+        d["action"] = "tool_call"
+        d["tool"] = action
+        return d
+    # No usable action, but a tool was named anyway.
+    if tool_name:
+        d["action"] = "tool_call"
+        d["tool"] = tool_name
+        return d
+    # Looks like a final answer (has a summary/answer/message) — finish on it.
+    if d.get("summary") or d.get("answer") or d.get("speak") or d.get("message"):
+        d["action"] = "finish"
+        d.setdefault("summary", d.get("answer") or d.get("message") or "Done.")
+        return d
+    return {"action": "finish", "summary": "Done.", "speak": "Done."}
+
+
+def _strip_fences(text: str) -> str:
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1] if "\n" in text else text
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+    return text
+
+
+def _normalize_datetimes(tool: str, args: dict) -> dict:
+    """Convert natural-language datetime args to ISO-8601 before execution.
+
+    The model is told the current date and usually emits ISO directly, but if it
+    passes "tomorrow at 3pm" we parse it (preferring future dates) so the
+    calendar/reminder tools get a clean string. Already-ISO/unparseable values
+    are left untouched.
+    """
+    keys = _DATETIME_ARGS.get(tool)
+    if not keys or not isinstance(args, dict):
+        return args
+    try:
+        import dateparser
+    except ImportError:
+        return args
+    settings = {"PREFER_DATES_FROM": "future", "RETURN_AS_TIMEZONE_AWARE": False}
+    for key in keys:
+        raw = args.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        try:
+            datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            continue  # already ISO
+        except ValueError:
+            pass
+        parsed = None
+        for cand in (raw, raw.replace("next ", ""), raw.replace(" at ", " ")):
+            parsed = dateparser.parse(cand, settings=settings)
+            if parsed:
+                break
+        if parsed:
+            args[key] = parsed.isoformat()
+            logger.info("Normalized %s %r -> %s", key, raw, args[key])
+    return args
+
+
+# --------------------------------------------------------------------------- #
+# The agent
+# --------------------------------------------------------------------------- #
+
+class LumisAgent:
+    def __init__(
+        self,
+        user_id: str,
+        session_id: str,
+        broadcast: Broadcast,
+        set_latest: Optional[SetLatest] = None,
+    ) -> None:
+        self.user_id = user_id
+        self.session_id = session_id
+        self.broadcast = broadcast
+        self.set_latest = set_latest or (lambda _e: None)
+        self.steps_taken = 0
+        self.context: list = []          # full message history for this run
+        self.results: list = []          # tool results, for workflow_complete
+        self.pending_question: Optional[str] = None
+        self.created_at = time.time()
+        self.last_active = time.time()
+        self._loop = asyncio.get_event_loop()
+
+    # ----- public entry points ----------------------------------------------
+
+    async def run(self, voice_text: str, image_b64: Optional[str] = None) -> None:
+        """Start a fresh ReAct run for a new command."""
+        memory.set_user(self.user_id)
+
+        block = _conversation_block(self.session_id)
+        _append_turn(self.session_id, "user", voice_text)
+
+        self.context.append({
+            "role": "user",
+            "content": self._build_initial_message(voice_text, image_b64, block),
+        })
+
+        await self._emit({
+            "event": "agent_start",
+            "session_id": self.session_id,
+            "message": "Lumis is thinking…",
+        })
+        # Compat: spin up the existing UI's working indicator.
+        await self._emit({"event": "step_started",
+                          "session_id": self.session_id, "data": {}})
+
+        await self._loop_until_done()
+
+    async def resume(self, user_reply: str, image_b64: Optional[str] = None) -> None:
+        """Continue a paused run after the user answers a clarifying question."""
+        memory.set_user(self.user_id)
+        _append_turn(self.session_id, "user", user_reply)
+        self.pending_question = None
+
+        content: list = [{"type": "text", "text": f"User's answer: {user_reply}"}]
+        if image_b64:
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": _data_url(image_b64)},
+            })
+        self.context.append({"role": "user", "content": content})
+
+        await self._emit({"event": "step_started",
+                          "session_id": self.session_id, "data": {}})
+        await self._loop_until_done()
+
+    # ----- the loop ----------------------------------------------------------
+
+    async def _loop_until_done(self) -> None:
+        while self.steps_taken < MAX_STEPS:
+            self.last_active = time.time()
+            decision = await self._think()
+            action = decision.get("action")
+
+            if action == "ask_user":
+                await self._handle_ask_user(decision)
+                return                      # pause — resumed by resume()
+            if action == "finish":
+                await self._handle_finish(decision)
+                return
+            if action == "capture_screen":
+                await self._handle_screen_capture(decision)
+                continue
+            if action == "tool_call":
+                await self._handle_tool_call(decision)
+                continue
+
+            # Unexpected shape — treat as done so we never spin.
+            await self._handle_finish(
+                {"summary": "Task complete.", "speak": "Done.", "title": "Done"}
+            )
+            return
+
+        await self._handle_step_limit()
+
+    # ----- THINK -------------------------------------------------------------
+
+    async def _think(self) -> dict:
+        if not GROQ_API_KEY:
+            return {"action": "finish",
+                    "summary": "AI is not configured (no GROQ_API_KEY).",
+                    "speak": "My AI isn't configured right now.",
+                    "title": "Not configured"}
+        try:
+            raw = await self._loop.run_in_executor(None, self._groq_call)
+            return _normalize_decision(json.loads(_strip_fences(raw)))
+        except Exception as exc:  # noqa: BLE001 - never crash the loop
+            logger.warning("THINK failed: %s", exc)
+            return {"action": "finish",
+                    "summary": f"I hit an error while thinking: {exc}",
+                    "speak": "Something went wrong while I was thinking.",
+                    "title": "Error"}
+
+    def _groq_call(self) -> str:
+        from groq import Groq
+
+        client = Groq(api_key=GROQ_API_KEY)
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": _date_block() + AGENT_SYSTEM_PROMPT},
+                *self.context,
+            ],
+            temperature=0,
+            response_format={"type": "json_object"},
+            timeout=THINK_TIMEOUT_S,
+        )
+        return response.choices[0].message.content or "{}"
+
+    # ----- ACT: tool call ----------------------------------------------------
+
+    async def _handle_tool_call(self, decision: dict) -> None:
+        tool = str(decision.get("tool") or "").strip()
+        args = decision.get("args")
+        if not isinstance(args, dict):
+            args = {}
+        reasoning = decision.get("reasoning", "")
+        status_message = decision.get("status_message") or f"Running {tool}…"
+
+        self.steps_taken += 1
+        args = _normalize_datetimes(tool, args)
+
+        # History row first, so even a crash leaves a trail. Its id doubles as
+        # the unique action_id for the Mac round-trip.
+        action_id = db.record_action(self.session_id, tool, args, user_id=self.user_id)
+
+        await self._emit({
+            "event": "agent_step",
+            "session_id": self.session_id,
+            "step": self.steps_taken,
+            "tool": tool,
+            "reasoning": reasoning,
+            "message": status_message,
+        })
+
+        if tool not in tools.TOOL_REGISTRY:
+            result = {
+                "tool": tool, "status": "error",
+                "message": f"Unknown tool: {tool}", "title": tool,
+                "data": {"error": "unknown_tool"},
+            }
+        elif tool in CLOUD_TOOLS:
+            result = await self._loop.run_in_executor(None, tools.execute, tool, args)
+        else:
+            result = await mac_bridge.run_on_mac(
+                tool, args, str(action_id), self.broadcast, timeout=MAC_TOOL_TIMEOUT_S
+            )
+
+        # Persist result + undo info, and learn durable prefs from successes.
+        undo_available, undo_script = tools.build_undo(tool, args, result)
+        db.complete_action(action_id, result, undo_available, undo_script)
+        try:
+            memory.learn_from_action(tool, args, result)
+        except Exception:  # noqa: BLE001 - learning is best-effort
+            logger.warning("learn_from_action failed for %s", tool, exc_info=True)
+
+        self.results.append(result)
+        self._observe(tool, args, reasoning, result)
+
+        # Compat event for the current iOS/Mac UI (drives result cards + TTS).
+        await self._emit_step_executed(tool, args, action_id, undo_available, result)
+
+    def _observe(self, tool: str, args: dict, reasoning: str, result: dict) -> None:
+        """Append the call + its real result to the model's context."""
+        self.context.append({
+            "role": "assistant",
+            "content": json.dumps({
+                "action": "tool_call", "tool": tool, "args": args,
+                "reasoning": reasoning,
+            }),
+        })
+        # Trim noisy/huge fields (e.g. base64) before feeding back to the model.
+        observed = {k: v for k, v in result.items()
+                    if k not in ("image_b64",) and k != "data"}
+        data = result.get("data")
+        if isinstance(data, dict):
+            observed["data"] = {k: v for k, v in data.items() if k != "image_b64"}
+        self.context.append({
+            "role": "user",
+            "content": json.dumps({"tool_result": {"tool": tool, "status": result.get("status"),
+                                                    "result": observed}}),
+        })
+
+    # ----- ACT: capture screen ----------------------------------------------
+
+    async def _handle_screen_capture(self, decision: dict) -> None:
+        self.steps_taken += 1
+        await self._emit({
+            "event": "agent_step",
+            "session_id": self.session_id,
+            "step": self.steps_taken,
+            "tool": "capture_screen",
+            "reasoning": decision.get("reasoning", ""),
+            "message": "Looking at your Mac screen…",
+        })
+
+        screenshot_b64 = await vision.capture_mac_screen(
+            self.broadcast, action_id=f"{self.session_id}-screen-{self.steps_taken}"
+        )
+
+        self.context.append({
+            "role": "assistant",
+            "content": json.dumps({"action": "capture_screen",
+                                   "reasoning": decision.get("reasoning", "")}),
+        })
+        if screenshot_b64 is None:
+            self.context.append({
+                "role": "user",
+                "content": json.dumps({"tool_result": {
+                    "tool": "capture_screen", "status": "error",
+                    "message": "Could not capture the Mac screen (agent offline?).",
+                }}),
+            })
+            return
+        self.context.append({
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Here is the current Mac screen. Use it to "
+                                         "verify what happened and decide what to do next."},
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"}},
+            ],
+        })
+
+    # ----- terminal states ---------------------------------------------------
+
+    async def _handle_ask_user(self, decision: dict) -> None:
+        question = decision.get("question") or "I need a little more information to continue."
+        self.pending_question = question
+        self.context.append({
+            "role": "assistant",
+            "content": json.dumps({"action": "ask_user", "question": question}),
+        })
+
+        await self._emit({
+            "event": "agent_question",
+            "session_id": self.session_id,
+            "question": question,
+            "speak": question,
+        })
+        # Compat: show the question as a result card + speak it, then stop the
+        # spinner. The user answers by capturing again; routes resumes us.
+        q_result = {"tool": "lumis.ask", "status": "success", "title": "One quick question",
+                    "message": question, "speak": question}
+        await self._emit_step_executed("lumis.ask", {}, None, False, q_result)
+        await self._complete([q_result])
+
+    async def _handle_finish(self, decision: dict) -> None:
+        summary = decision.get("summary") or "Done."
+        speak = decision.get("speak") or summary
+        title = decision.get("title") or "Complete"
+        url = decision.get("url")
+        _append_turn(self.session_id, "lumis", summary)
+
+        await self._emit({
+            "event": "agent_done",
+            "session_id": self.session_id,
+            "title": title, "summary": summary, "speak": speak, "url": url,
+        })
+        final = {"tool": "lumis.finish", "status": "success", "title": title,
+                 "message": summary, "summary": summary, "speak": speak}
+        if url:
+            final["url"] = url
+        await self._emit_step_executed("lumis.finish", {}, None, False, final)
+        await self._complete(self.results + [final])
+
+    async def _handle_step_limit(self) -> None:
+        msg = "I ran out of steps trying to finish that. Try breaking it into smaller commands."
+        await self._emit({
+            "event": "agent_error",
+            "session_id": self.session_id,
+            "message": msg, "speak": msg,
+        })
+        err = {"tool": "lumis.finish", "status": "error", "title": "Didn't finish",
+               "message": msg, "speak": msg}
+        await self._emit_step_executed("lumis.finish", {}, None, False, err)
+        await self._complete(self.results + [err])
+
+    # ----- emit helpers ------------------------------------------------------
+
+    async def _emit(self, event: dict) -> None:
+        await self.broadcast(event)
+
+    async def _emit_step_executed(
+        self, tool: str, args: dict, action_id, undo_available: bool, result: dict
+    ) -> None:
+        event = {
+            "session_id": self.session_id,
+            "event": "step_executed",
+            "data": {
+                "index": self.steps_taken, "total": self.steps_taken,
+                "tool": tool, "args": args, "action_id": action_id,
+                "undo_available": undo_available, **result,
+            },
+        }
+        self.set_latest(event)
+        await self.broadcast(event)
+
+    async def _complete(self, steps: list) -> None:
+        event = {
+            "session_id": self.session_id,
+            "event": "workflow_complete",
+            "data": {"total": len(steps), "steps": steps},
+        }
+        self.set_latest(event)
+        await self.broadcast(event)
+
+    # ----- initial message ---------------------------------------------------
+
+    def _build_initial_message(
+        self, voice_text: str, image_b64: Optional[str], conversation_block: str
+    ) -> list:
+        content: list = []
+        if image_b64:
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": _data_url(image_b64)},
+            })
+
+        ctx = memory.get_context_block()
+        memory_block = (
+            "\n\nWHAT LUMIS KNOWS ABOUT THIS USER (use as defaults; never override "
+            f"what the user explicitly says):\n{ctx}" if ctx else ""
+        )
+        content.append({
+            "type": "text",
+            "text": f"{conversation_block}User command: {voice_text}{memory_block}",
+        })
+        return content
+
+
+def _data_url(image_b64: str) -> str:
+    if image_b64.startswith("data:"):
+        return image_b64
+    return f"data:image/jpeg;base64,{image_b64}"

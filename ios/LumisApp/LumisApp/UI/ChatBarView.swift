@@ -27,7 +27,7 @@ struct ChatBarView: View {
                     Image(systemName: "camera.fill")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(LumisColors.carbonBlack)
-                        .frame(width: 50, height: 50)
+                        .frame(width: 56, height: 56)
                         .glassEffect(.regular, in: Circle())
                     .contentShape(Circle())
                 }
@@ -50,6 +50,8 @@ struct ChatBarView: View {
                         .tint(LumisColors.powderBlue)
                         .focused($focused)
                         .submitLabel(.send)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
                         .onSubmit(send)
 
                     if canSend {
@@ -67,7 +69,7 @@ struct ChatBarView: View {
                 }
                 .padding(.leading, 16)
                 .padding(.trailing, canSend ? 8 : 16)
-                .frame(height: 50)
+                .frame(height: 56)
                 .glassEffect(.regular, in: Capsule())
             }
         }

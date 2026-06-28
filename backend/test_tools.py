@@ -10,13 +10,11 @@ Usage:
     ./venv/bin/python test_tools.py                 # run every tool
     ./venv/bin/python test_tools.py notes spotify   # run only matching tools
     ./venv/bin/python test_tools.py --list          # list available tools
-    ./venv/bin/python test_tools.py --skip slides spotify
+    ./venv/bin/python test_tools.py --skip notes spotify
 
 Notes:
   - These perform REAL actions (open Notes, Numbers, Chrome, Spotify). Run on a
     Mac where you don't mind windows opening.
-  - slides.create_presentation needs Google auth (google_svc); it is included
-    but will report an error if credentials are missing — that's expected.
   - SLOW_THRESHOLD_MS flags any tool over the Phase 1 latency budget.
 """
 import argparse
@@ -44,10 +42,6 @@ SAMPLES: dict[str, dict] = {
         "body": "This is a harness-generated draft. Not sent.",
     },
     "browser.open_url": {"url": "https://example.com"},
-    "slides.create_presentation": {
-        "title": "Lumis Test Deck",
-        "slides": [{"title": "Hello", "bullets": ["one", "two"]}],
-    },
     "numbers.create_spreadsheet": {
         "title": "Lumis Test Sheet",
         "headers": ["A", "B"],

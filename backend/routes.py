@@ -1,23 +1,28 @@
-"""Lumis pipeline: INPUT -> LLM PLANNER -> WORKFLOW ENGINE -> REAL ACTIONS."""
+"""Lumis pipeline: INPUT -> ReAct AGENT -> REAL ACTIONS (cloud + Mac agent)."""
 import asyncio
 import logging
-import os
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 import db
-import engine
 import memory
 import tasks
 import tools
 import websocket as ws_module
+from agent import LumisAgent
 from auth import current_user
-from llm import parse_plan
 from websocket import manager
 
 logger = logging.getLogger("lumis.routes")
 router = APIRouter()
+
+# Live agent sessions keyed by session_id. In-memory and ephemeral (cleared on
+# restart, which is fine). A session lingers here while it waits on the user to
+# answer a clarifying question, so the next /ingest can resume it with context.
+active_agents: dict[str, LumisAgent] = {}
+_AGENT_TTL_S = 30 * 60
 
 
 class IngestPayload(BaseModel):
@@ -30,25 +35,60 @@ def _set_latest(event: dict) -> None:
     ws_module.latest_result = event
 
 
+def _prune_agents() -> None:
+    now = time.time()
+    stale = [sid for sid, a in active_agents.items()
+             if now - a.last_active > _AGENT_TTL_S]
+    for sid in stale:
+        active_agents.pop(sid, None)
+
+
 @router.post("/ingest")
 async def ingest(payload: IngestPayload, user: dict = Depends(current_user)):
-    # Scope this user's learned memory before planning (it's injected into the
-    # LLM prompt) and before execution (history + new memory are saved per-user).
+    """Start a new ReAct agent run, or resume one waiting on a clarifying question.
+
+    Returns immediately; the agent runs in the background and streams progress
+    over the WebSocket (the apps render results live, never from this response).
+    """
     memory.set_user(user["id"])
-
-    # 1. LLM planner: intent -> ordered workflow of tool calls.
+    _prune_agents()
     logger.info("Ingest voice_text=%r (image=%s)", payload.voice_text, bool(payload.image))
-    plan = parse_plan(payload.voice_text, payload.image, payload.session_id)
-    steps = plan.get("steps") or [
-        {"tool": "browser.open_url", "args": {"url": "https://google.com"}}
-    ]
 
-    # 2. Workflow engine: execute each real action in order, broadcasting progress.
-    results = await engine.run_workflow(
-        steps, payload.session_id, manager.broadcast, _set_latest, user_id=user["id"]
+    existing = active_agents.get(payload.session_id)
+    if existing is not None and existing.pending_question and existing.user_id == user["id"]:
+        # The user is answering Lumis's question — resume with full context.
+        asyncio.create_task(existing.resume(payload.voice_text, payload.image or None))
+        return {"status": "resumed", "session_id": payload.session_id}
+
+    agent = LumisAgent(
+        user_id=user["id"],
+        session_id=payload.session_id,
+        broadcast=manager.broadcast,
+        set_latest=_set_latest,
     )
+    active_agents[payload.session_id] = agent
+    asyncio.create_task(agent.run(payload.voice_text, payload.image or None))
+    return {"status": "accepted", "session_id": payload.session_id}
 
-    return {"steps": results}
+
+class AgentReplyPayload(BaseModel):
+    session_id: str
+    reply: str
+    image: str = ""
+
+
+@router.post("/agent/reply")
+async def agent_reply(payload: AgentReplyPayload, user: dict = Depends(current_user)):
+    """Answer an agent's clarifying question and continue its run.
+
+    The iOS app can also simply re-capture on the same session_id (which routes
+    back through /ingest -> resume); this endpoint is the explicit path.
+    """
+    agent = active_agents.get(payload.session_id)
+    if agent is None or agent.user_id != user["id"]:
+        raise HTTPException(status_code=404, detail="Session not found or expired.")
+    asyncio.create_task(agent.resume(payload.reply, payload.image or None))
+    return {"status": "accepted", "session_id": payload.session_id}
 
 
 @router.get("/latest")

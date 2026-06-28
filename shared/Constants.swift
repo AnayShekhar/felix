@@ -118,6 +118,43 @@ enum ToolSummary {
     }
 }
 
+/// Human-readable formatting for learned-memory keys/values, shared by the iOS
+/// Settings memory list and the Mac Memory table so both read identically.
+enum MemoryFormat {
+    private static let labels: [String: String] = [
+        "command_patterns": "Common Commands",
+        "default_browser": "Default Browser",
+        "frequent_contacts": "Frequent Contacts",
+        "last_email_recipient": "Last Email Recipient",
+        "expense_file": "Expense File",
+        "expense_file_path": "Expense File",
+        "preferred_calendar": "Default Calendar",
+        "preferred_reminder_list": "Default Reminder List",
+        "music_service": "Music Service",
+        "home_folder": "Home Folder",
+    ]
+
+    /// "command_patterns" -> "Common Commands" (curated), else title-cased.
+    static func prettyKey(_ key: String) -> String {
+        if let label = labels[key] { return label }
+        return key.split(whereSeparator: { $0 == "_" || $0 == "." })
+            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            .joined(separator: " ")
+    }
+
+    /// A stored JSON-array value (e.g. `["a","b"]`) becomes "a, b"; plain values
+    /// pass through unchanged.
+    static func prettyValue(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("["),
+           let data = trimmed.data(using: .utf8),
+           let array = try? JSONSerialization.jsonObject(with: data) as? [Any] {
+            return array.map { String(describing: $0) }.joined(separator: ", ")
+        }
+        return value
+    }
+}
+
 /// Relative time formatting shared by Activity/History rows ("2 min ago").
 enum RelativeTime {
     private static let formatter: RelativeDateTimeFormatter = {

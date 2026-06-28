@@ -20,8 +20,8 @@ struct HomeView: View {
 
                 Spacer()
 
-                LumisShapeView(state: vm.lumisState, containerSize: 260,
-                               dimmed: macVM.connectionState == .linkedOffline)
+                AnimatedLumisMark(state: vm.lumisState, speech: vm.speech,
+                                  dimmed: macVM.connectionState == .linkedOffline)
 
                 TranscriptionText(state: vm.lumisState,
                                   transcript: vm.transcript,
@@ -76,11 +76,10 @@ struct HomeView: View {
         HStack {
             Button { Haptics.light(); onMenu() } label: {
                 Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(LumisColors.carbonBlack)
                     .frame(width: 44, height: 44)
-                    .glassEffect(.regular, in: Circle())
-                    .contentShape(Circle())
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open menu")
@@ -89,6 +88,24 @@ struct HomeView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 44)
+    }
+}
+
+/// Wraps the Lumis mark and observes the speech recognizer so the audio-reactive
+/// listening animation gets the live mic level — without re-rendering all of
+/// HomeView at audio rate.
+private struct AnimatedLumisMark: View {
+    let state: LumisState
+    @ObservedObject var speech: SpeechRecognizer
+    let dimmed: Bool
+
+    var body: some View {
+        LumisShapeView(
+            state: state,
+            containerSize: 260,
+            audioLevel: state == .listening ? speech.inputLevel : 0,
+            dimmed: dimmed
+        )
     }
 }
 
@@ -110,9 +127,9 @@ private struct ConnectionStatusDot: View {
         Button { showPopover.toggle() } label: {
             Circle()
                 .fill(color)
-                .frame(width: 8, height: 8)
-                .scaleEffect(pulse && macVM.connectionState == .linkedOnline ? 1.4 : 1)
-                .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: pulse)
+                .frame(width: 10, height: 10)
+                .scaleEffect(pulse && macVM.connectionState == .linkedOnline ? 1.5 : 1)
+                .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulse)
         }
         .onAppear { pulse = true }
         .accessibilityLabel(statusText)

@@ -11,7 +11,8 @@ struct SettingsSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title.uppercased())
                 .font(LumisTypography.caption)
-                .foregroundStyle(LumisColors.carbonBlack.opacity(0.4))
+                .tracking(0.8)
+                .foregroundStyle(LumisColors.carbonBlack.opacity(0.5))
                 .padding(.leading, 4)
                 .padding(.bottom, 8)
             VStack(spacing: 0) {
