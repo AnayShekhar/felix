@@ -59,7 +59,7 @@ final class AppSettings: ObservableObject {
     }
 
     /// Used when no Mac is discovered and no manual URL is set.
-    let fallbackURL = "https://lumis-production-a0f5.up.railway.app"
+    let fallbackURL = LumisConfig.backendURL
 
     init() {
         let d = UserDefaults.standard

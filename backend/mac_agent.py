@@ -41,7 +41,7 @@ logger = logging.getLogger("lumis.mac_agent")
 
 # Default to the deployed Railway backend so the agent works out of the box;
 # override with LUMIS_BACKEND_URL=http://localhost:8000 for local development.
-DEFAULT_BACKEND_URL = "https://lumis-production-a0f5.up.railway.app"
+DEFAULT_BACKEND_URL = "https://lumis-production-b878.up.railway.app"
 
 # Seconds between reconnect attempts when the connection drops.
 RECONNECT_DELAY_S = 3.0

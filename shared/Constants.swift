@@ -19,7 +19,7 @@ enum LumisBrand {
     static let error = Color(red: 0.95, green: 0.36, blue: 0.33)
 
     /// Persistence + networking defaults (matches CLAUDE.md API contract).
-    static let defaultBackendURL = "https://lumis-production-a0f5.up.railway.app"
+    static let defaultBackendURL = "https://lumis-production-b878.up.railway.app"
     static let backendURLKey = "lumis.backendURL"
     static let notifyCompletionKey = "lumis.notify.completion"
     static let notifyErrorsKey = "lumis.notify.errors"
