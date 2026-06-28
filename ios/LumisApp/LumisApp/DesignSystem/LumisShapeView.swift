@@ -54,13 +54,12 @@ struct LumisShapeView: View {
                 ForEach(0..<petalCount, id: \.self) { i in
                     petal(index: i)
                 }
-                // Inner glow — white core at the exact center.
+                // Inner glow — soft luminous core at the exact center.
                 Circle()
                     .fill(Color.white)
                     .frame(width: 44, height: 44)
                     .blur(radius: 14)
-                    .opacity(0.85)
-                    .blendMode(.screen)
+                    .opacity(0.9)
             }
             .rotationEffect(.degrees(rotation))
         }
@@ -94,11 +93,14 @@ struct LumisShapeView: View {
     private func petal(index i: Int) -> some View {
         let angle = Double(i) / Double(petalCount) * 2 * .pi
         let distance = baseOffset * bloom[i]
+        // Translucent powder-blue petals layer with normal alpha so overlaps
+        // deepen into the bloom on the light Parchment background. (`.screen`,
+        // from the original dark-theme spec, washes out on Parchment.)
         return Circle()
             .fill(LumisColors.powderBlue)
             .frame(width: petalDiameter, height: petalDiameter)
             .opacity(0.55)
-            .blendMode(.screen)
+            .blendMode(.multiply)
             .offset(x: CGFloat(cos(angle)) * distance,
                     y: CGFloat(sin(angle)) * distance)
     }
@@ -184,7 +186,6 @@ private struct RippleRing: View {
             .frame(width: animate ? endDiameter : startDiameter,
                    height: animate ? endDiameter : startDiameter)
             .opacity(animate ? 0 : 0.4)
-            .blendMode(.screen)
             .onAppear {
                 withAnimation(.easeOut(duration: 1.8)) { animate = true }
             }
