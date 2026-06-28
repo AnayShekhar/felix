@@ -12,6 +12,10 @@ struct MenuBarPopover: View {
 
             Divider().overlay(.white.opacity(0.08))
 
+            LinkCodeView()
+
+            Divider().overlay(.white.opacity(0.08))
+
             Text("RECENT")
                 .font(.system(size: 10, weight: .heavy))
                 .foregroundStyle(.secondary)

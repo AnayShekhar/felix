@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import auth
 import db
+import linking
 import tasks
 import websocket as ws_module
 from routes import router
@@ -18,6 +19,7 @@ logging.basicConfig(level=logging.INFO)
 # Ensure the SQLite stores exist before serving requests.
 db.init_db()
 auth.init_auth()
+linking.init_linking()
 
 
 @asynccontextmanager
@@ -42,6 +44,7 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(auth.router)
+app.include_router(linking.router)
 
 
 @app.websocket("/ws")

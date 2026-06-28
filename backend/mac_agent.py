@@ -28,6 +28,12 @@ import json
 import logging
 import os
 import signal
+import socket
+import time
+import urllib.error
+import urllib.request
+import uuid
+from pathlib import Path
 
 import websockets
 
@@ -55,6 +61,99 @@ def _ws_url() -> str:
     elif base.startswith("http://"):
         base = "ws://" + base[len("http://"):]
     return base + "/ws"
+
+
+# --------------------------------------------------------------------------- #
+# iPhone <-> Mac linking
+# --------------------------------------------------------------------------- #
+HEARTBEAT_S = 15.0
+_STATE_DIR = Path(os.path.expanduser("~/.lumis"))
+
+
+def _http_base() -> str:
+    return (os.getenv("LUMIS_BACKEND_URL") or DEFAULT_BACKEND_URL).strip().rstrip("/")
+
+
+def _mac_id() -> str:
+    """Stable per-machine id, persisted so re-launches keep the same identity."""
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+    path = _STATE_DIR / "mac_id"
+    if path.exists():
+        return path.read_text().strip()
+    new_id = str(uuid.uuid4())
+    path.write_text(new_id)
+    return new_id
+
+
+def _mac_name() -> str:
+    name = socket.gethostname().replace(".local", "")
+    return name or "Mac"
+
+
+def _post(path: str, body: dict) -> dict:
+    req = urllib.request.Request(
+        _http_base() + path,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode())
+
+
+def _get(path: str) -> dict:
+    with urllib.request.urlopen(_http_base() + path, timeout=10) as resp:
+        return json.loads(resp.read().decode())
+
+
+def _print_code_banner(code: str) -> None:
+    line = "═" * 38
+    logger.info("\n╔%s╗\n║  Open Lumis on your iPhone and enter:  ║\n║%s║\n║              %s              ║\n║%s║\n╚%s╝",
+                line, " " * 38, "  ".join(code), " " * 38, line)
+
+
+def _write_state(code, linked: bool) -> None:
+    """Expose link state to the Mac app (which reads this file for its UI)."""
+    try:
+        (_STATE_DIR / "link_state.json").write_text(json.dumps({
+            "code": code, "linked": linked, "mac_name": _mac_name(),
+            "updated_at": time.time(),
+        }))
+    except OSError:
+        pass
+
+
+async def linking_loop() -> None:
+    """Keep the Mac paired: request a code when unlinked, heartbeat when linked."""
+    mac_id = _mac_id()
+    code = None
+    code_expires = 0.0
+    while True:
+        try:
+            linked = (await asyncio.to_thread(_get, f"/link/mac/{mac_id}")).get("linked", False)
+            if linked:
+                if code is not None:
+                    logger.info("iPhone linked to this Mac. ✅")
+                    code = None
+                _write_state(None, True)
+                await asyncio.to_thread(_post, "/link/heartbeat",
+                                        {"mac_id": mac_id, "mac_name": _mac_name()})
+                await asyncio.sleep(HEARTBEAT_S)
+            else:
+                now = time.time()
+                if code is None or now > code_expires:
+                    resp = await asyncio.to_thread(_post, "/link/generate",
+                                                   {"mac_id": mac_id, "mac_name": _mac_name()})
+                    code = resp.get("code")
+                    code_expires = resp.get("expiresAt", now + 600)
+                    _print_code_banner(code)
+                    _write_state(code, False)
+                await asyncio.sleep(5)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            logger.debug("Linking poll failed (%s); retrying.", exc)
+            await asyncio.sleep(5)
+        except asyncio.CancelledError:
+            raise
 
 
 async def _handle_execute(ws, data: dict) -> None:
@@ -107,17 +206,22 @@ async def _session(url: str) -> None:
 async def run() -> None:
     url = _ws_url()
     logger.info("Lumis Mac agent starting. Backend: %s", url)
-    while True:
-        try:
-            await _session(url)
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - keep the agent alive
-            logger.warning("Connection lost (%s). Reconnecting in %.0fs…",
-                           exc, RECONNECT_DELAY_S)
-        else:
-            logger.info("Connection closed. Reconnecting in %.0fs…", RECONNECT_DELAY_S)
-        await asyncio.sleep(RECONNECT_DELAY_S)
+    # Run iPhone<->Mac linking concurrently with the WS service loop.
+    link_task = asyncio.create_task(linking_loop())
+    try:
+        while True:
+            try:
+                await _session(url)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - keep the agent alive
+                logger.warning("Connection lost (%s). Reconnecting in %.0fs…",
+                               exc, RECONNECT_DELAY_S)
+            else:
+                logger.info("Connection closed. Reconnecting in %.0fs…", RECONNECT_DELAY_S)
+            await asyncio.sleep(RECONNECT_DELAY_S)
+    finally:
+        link_task.cancel()
 
 
 def main() -> None:
