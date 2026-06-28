@@ -565,12 +565,42 @@ def browser_open_url(args: dict) -> dict:
     }
 
 
+# Chrome's error when "Allow JavaScript from Apple Events" is off.
+_JS_OFF_MARKER = "Executing JavaScript through AppleScript is turned off"
+
+
+def _enable_chrome_apple_events_js() -> bool:
+    """Best-effort: tick Chrome's View > Developer > Allow JavaScript from Apple
+    Events via System Events so the user doesn't have to do it by hand.
+
+    Idempotent (only clicks when not already checked). Needs Accessibility
+    permission for whatever runs the Mac agent; returns False if it can't.
+    """
+    script = (
+        'tell application "System Events"\n'
+        '  tell process "Google Chrome"\n'
+        '    set m to menu item "Allow JavaScript from Apple Events" of menu 1 '
+        'of menu item "Developer" of menu 1 of menu bar item "View" of menu bar 1\n'
+        '    if (value of attribute "AXMenuItemMarkChar" of m) is missing value then click m\n'
+        "  end tell\n"
+        "end tell"
+    )
+    try:
+        _osascript(script, timeout=10.0)
+        logger.info("Auto-enabled Chrome 'Allow JavaScript from Apple Events'.")
+        return True
+    except Exception as exc:  # noqa: BLE001 - no Accessibility perm / menu differs
+        logger.info("Could not auto-enable Chrome JS-from-Apple-Events (%s).", exc)
+        return False
+
+
 def _chrome_js(js: str, timeout: float = 20.0) -> str:
     """Execute JavaScript in Chrome's active tab and return the result as text.
 
-    Requires Chrome's "Allow JavaScript from Apple Events" (View > Developer)
-    plus Automation permission. Used to read the live (JS-rendered) DOM and to
-    click elements — things a plain HTTP re-fetch cannot do.
+    Used to read the live (JS-rendered) DOM and to click elements. Chrome gates
+    this behind "Allow JavaScript from Apple Events"; if it's off we try to turn
+    it on automatically (once) and retry, otherwise we raise a clean, actionable
+    error instead of a raw AppleScript dump.
     """
     script = (
         'tell application "Google Chrome"\n'
@@ -578,7 +608,24 @@ def _chrome_js(js: str, timeout: float = 20.0) -> str:
         "    return r as string\n"
         "end tell"
     )
-    return _osascript(script, timeout=timeout)
+    try:
+        return _osascript(script, timeout=timeout)
+    except Exception as exc:  # noqa: BLE001
+        if _JS_OFF_MARKER not in str(exc):
+            raise
+        # Chrome is blocking automation JS — try to enable it, then retry once.
+        if _enable_chrome_apple_events_js():
+            try:
+                return _osascript(script, timeout=timeout)
+            except Exception as exc2:  # noqa: BLE001
+                if _JS_OFF_MARKER not in str(exc2):
+                    raise
+        raise ToolError(
+            "Chrome is blocking automation. Turn it on once: Chrome menu bar > "
+            "View > Developer > Allow JavaScript from Apple Events. (I tried to "
+            "enable it for you but need Accessibility permission for the Mac "
+            "agent in System Settings > Privacy & Security > Accessibility.)"
+        )
 
 
 # JS that scrapes the live tab: title, url, visible text, and the clickable
@@ -747,13 +794,7 @@ def browser_fill_form(args: dict) -> dict:
         "el.dispatchEvent(new Event('change',{bubbles:true}));n++;}});"
         "return n;})();"
     )
-    script = (
-        'tell application "Google Chrome"\n'
-        f'    set n to execute active tab of front window javascript "{_as_escape(js)}"\n'
-        "    return n as string\n"
-        "end tell"
-    )
-    raw = _osascript(script, timeout=20.0)
+    raw = _chrome_js(js)
     try:
         filled = int(float(raw.strip()))
     except (ValueError, TypeError):
