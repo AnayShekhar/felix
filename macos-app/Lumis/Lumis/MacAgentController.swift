@@ -79,6 +79,12 @@ final class MacAgentController: ObservableObject {
             return
         }
 
+        // Guarantee a SINGLE agent. Orphans from prior launches (force-quit,
+        // crash, manual runs) stay connected to the backend, and a command
+        // broadcast would otherwise run on each one — e.g. opening a URL several
+        // times. Kill any strays before starting our own.
+        killStrayAgents()
+
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/bash")
         proc.arguments = [script]
@@ -95,6 +101,17 @@ final class MacAgentController: ObservableObject {
             launchError = "Couldn't start the Mac agent: \(error.localizedDescription)"
             processRunning = false
         }
+    }
+
+    /// Terminate any already-running mac_agent.py processes (other than the one
+    /// we're about to launch, which isn't running yet). Best-effort; `pkill`
+    /// matches the python invocation specifically so it won't hit editors etc.
+    private func killStrayAgents() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        p.arguments = ["-f", "python mac_agent.py"]
+        try? p.run()
+        p.waitUntilExit()
     }
 
     private func handleTermination() {
