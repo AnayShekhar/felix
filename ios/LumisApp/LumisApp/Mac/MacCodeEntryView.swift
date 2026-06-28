@@ -74,15 +74,14 @@ struct MacCodeEntryView: View {
         ZStack {
             // Hidden field that actually captures input.
             TextField("", text: $code)
-                .keyboardType(.asciiCapable)
-                .textInputAutocapitalization(.characters)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
                 .autocorrectionDisabled()
                 .focused($focused)
                 .opacity(0.01)
                 .frame(width: 1, height: 1)
                 .onChange(of: code) { _, newValue in
-                    code = String(newValue.uppercased().prefix(slots))
-                        .filter { $0.isLetter || $0.isNumber }
+                    code = String(newValue.filter { $0.isNumber }.prefix(slots))
                     failed = false
                     if code.count == slots { submit() }
                 }
@@ -123,7 +122,7 @@ struct MacCodeEntryView: View {
                     .foregroundStyle(LumisColors.powderBlue)
             }
             if helpExpanded {
-                Text("Open the Lumis app on your Mac and keep it running. It shows a 6-character code in a window — type that code here.")
+                Text("Sign into the Lumis app on your Mac with this same account. Click the menu-bar icon — it shows a 6-digit code. Type that code here.")
                     .font(LumisTypography.caption)
                     .foregroundStyle(LumisColors.textSecondary)
                     .multilineTextAlignment(.center)

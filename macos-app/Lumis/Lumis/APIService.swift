@@ -151,6 +151,40 @@ enum APIService {
         } catch { throw friendly(error) }
     }
 
+    // MARK: - Linking (account-bound, 6-digit code)
+
+    /// The signed-in Mac asks the backend for a fresh 6-digit pairing code.
+    static func generateLinkCode(macId: String, macName: String) async throws -> LinkCodeResponse {
+        do {
+            var req = try authed("/link/generate", method: "POST")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["mac_id": macId, "mac_name": macName])
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            try check(resp)
+            return try JSONDecoder().decode(LinkCodeResponse.self, from: data)
+        } catch { throw friendly(error) }
+    }
+
+    /// The pairing state for the signed-in account (works for phone + Mac).
+    static func linkStatus() async throws -> LinkStatusResponse {
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: try authed("/link/status"))
+            try check(resp)
+            return try JSONDecoder().decode(LinkStatusResponse.self, from: data)
+        } catch { throw friendly(error) }
+    }
+
+    /// Keep this Mac marked "online" for the paired phone.
+    static func heartbeat(macId: String, macName: String) async throws {
+        do {
+            var request = URLRequest(url: try url("/link/heartbeat"))
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["mac_id": macId, "mac_name": macName])
+            _ = try await URLSession.shared.data(for: request)
+        } catch { throw friendly(error) }
+    }
+
     // MARK: - Mac agent
 
     /// Whether the Mac agent (mac_agent.py) is currently connected to the backend.

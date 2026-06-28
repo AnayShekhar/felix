@@ -123,13 +123,7 @@ struct MenuBarPopover: View {
                     .font(.system(size: 15, weight: .heavy))
                 HStack(spacing: 6) {
                     StatusDot(connected: env.feed.connected)
-                    Text(env.feed.connected ? "Connected" : "Offline")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(LumisBrand.ink.opacity(0.55))
-                }
-                HStack(spacing: 6) {
-                    StatusDot(connected: env.macAgentConnected)
-                    Text(env.macAgentConnected ? "Mac Agent: Connected" : "Mac Agent: Offline")
+                    Text(env.feed.connected ? "Backend connected" : "Backend offline")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(LumisBrand.ink.opacity(0.55))
                 }

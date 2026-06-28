@@ -6,9 +6,5 @@
 	<false/>
 	<key>com.apple.security.network.client</key>
 	<true/>
-	<key>com.apple.developer.applesignin</key>
-	<array>
-		<string>Default</string>
-	</array>
 </dict>
 </plist>

@@ -95,6 +95,23 @@ struct ErrorEnvelope: Codable {
     let detail: String?
 }
 
+// MARK: - Linking
+
+struct LinkCodeResponse: Codable {
+    let code: String
+    let expiresAt: Double?
+    let macId: String?
+}
+
+struct LinkStatusResponse: Codable {
+    let linked: Bool
+    let macId: String?
+    let macName: String?
+    let macOnline: Bool?
+    let linkedAt: Double?
+    let lastSeen: Double?
+}
+
 /// A single rendered card in the live event feed (right panel).
 struct FeedEvent: Identifiable {
     let id = UUID()

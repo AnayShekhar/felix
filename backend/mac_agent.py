@@ -106,51 +106,24 @@ def _get(path: str) -> dict:
         return json.loads(resp.read().decode())
 
 
-def _print_code_banner(code: str) -> None:
-    line = "═" * 38
-    logger.info("\n╔%s╗\n║  Open Lumis on your iPhone and enter:  ║\n║%s║\n║              %s              ║\n║%s║\n╚%s╝",
-                line, " " * 38, "  ".join(code), " " * 38, line)
-
-
-def _write_state(code, linked: bool) -> None:
-    """Expose link state to the Mac app (which reads this file for its UI)."""
-    try:
-        (_STATE_DIR / "link_state.json").write_text(json.dumps({
-            "code": code, "linked": linked, "mac_name": _mac_name(),
-            "updated_at": time.time(),
-        }))
-    except OSError:
-        pass
-
-
 async def linking_loop() -> None:
-    """Keep the Mac paired: request a code when unlinked, heartbeat when linked."""
+    """Keep the Mac marked "online" for its paired phone.
+
+    Pairing itself (showing the 6-digit code, confirming it) is owned by the
+    signed-in Lumis Mac app, which calls the authenticated /link endpoints. This
+    loop only sends heartbeats while a pairing exists, so the phone can tell the
+    Mac is reachable. It identifies the Mac by the shared ~/.lumis/mac_id file.
+    """
     mac_id = _mac_id()
-    code = None
-    code_expires = 0.0
     while True:
         try:
             linked = (await asyncio.to_thread(_get, f"/link/mac/{mac_id}")).get("linked", False)
             if linked:
-                if code is not None:
-                    logger.info("iPhone linked to this Mac. ✅")
-                    code = None
-                _write_state(None, True)
                 await asyncio.to_thread(_post, "/link/heartbeat",
                                         {"mac_id": mac_id, "mac_name": _mac_name()})
-                await asyncio.sleep(HEARTBEAT_S)
-            else:
-                now = time.time()
-                if code is None or now > code_expires:
-                    resp = await asyncio.to_thread(_post, "/link/generate",
-                                                   {"mac_id": mac_id, "mac_name": _mac_name()})
-                    code = resp.get("code")
-                    code_expires = resp.get("expiresAt", now + 600)
-                    _print_code_banner(code)
-                    _write_state(code, False)
-                await asyncio.sleep(5)
+            await asyncio.sleep(HEARTBEAT_S if linked else 5)
         except (urllib.error.URLError, OSError, ValueError) as exc:
-            logger.debug("Linking poll failed (%s); retrying.", exc)
+            logger.debug("Heartbeat poll failed (%s); retrying.", exc)
             await asyncio.sleep(5)
         except asyncio.CancelledError:
             raise
