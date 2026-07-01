@@ -191,6 +191,51 @@ async def mac_status():
     }
 
 
+# --------------------------------------------------------------------------- #
+# Account connections (Chrome extension cookie sync)
+# --------------------------------------------------------------------------- #
+class CookieSyncRequest(BaseModel):
+    service: str
+    domain: str
+    cookies: list[dict]
+
+
+@router.get("/connect/status")
+async def connection_status(user: dict = Depends(current_user)):
+    """Which services this account has connected (drives the extension's UI)."""
+    import connections
+
+    return {"connected": connections.get_connected_services(user["id"])}
+
+
+@router.post("/connect/cookies/sync")
+async def sync_cookies(request: CookieSyncRequest, user: dict = Depends(current_user)):
+    """Receive cookies captured by the Chrome extension and inject them into the
+    user's persistent Browserbase context so future cloud-browser sessions are
+    already signed in."""
+    import connections
+    from cloud_browser import (
+        CloudBrowserNotConfigured,
+        get_or_create_user_context,
+        inject_cookies_into_context,
+    )
+
+    if not request.cookies:
+        raise HTTPException(status_code=400, detail="No cookies to sync.")
+
+    try:
+        context_id = await get_or_create_user_context(user["id"])
+        await inject_cookies_into_context(context_id, request.cookies)
+    except CloudBrowserNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Cookie sync failed for user %s", user["id"])
+        raise HTTPException(status_code=502, detail=f"Cookie sync failed: {exc}")
+
+    connections.add_connected_service(user["id"], request.service)
+    return {"success": True, "service": request.service}
+
+
 @router.get("/health")
 async def health():
     return {"status": "ok"}

@@ -7,6 +7,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 import auth
+import connections
 import db
 import linking
 import tasks
@@ -19,6 +20,7 @@ logging.basicConfig(level=logging.INFO)
 # Ensure the SQLite stores exist before serving requests.
 db.init_db()
 auth.init_auth()
+connections.init_connections()
 linking.init_linking()
 
 

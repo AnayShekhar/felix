@@ -49,6 +49,19 @@ struct DashboardView: View {
 
             Spacer()
 
+            // One-time browser-automation setup (Playwright Chromium download).
+            if env.macAgent.settingUpBrowser {
+                HStack(spacing: 7) {
+                    ProgressView().controlSize(.small)
+                    Text("Setting up browser automation…")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+
             HStack(spacing: 7) {
                 StatusDot(connected: env.feed.connected)
                 Text(env.feed.connected ? "Connected" : "Offline")

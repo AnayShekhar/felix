@@ -14,6 +14,15 @@ dateparser
 # Web research agent (Phase 6): fetch + clean HTML pages.
 requests
 beautifulsoup4
+# Browser automation on the Mac agent — replaces AppleScript Chrome control, so
+# no "Allow JavaScript from Apple Events" toggle is ever needed. Mac-agent only;
+# run `python -m playwright install chromium` once after install (the Mac app
+# does this automatically on first launch).
+playwright>=1.40.0
+# Browserbase cloud browser — persists per-user logged-in contexts so cookies
+# synced from the Chrome extension (chrome-extension/) make future cloud-browser
+# sessions already signed in. Needs BROWSERBASE_API_KEY + BROWSERBASE_PROJECT_ID.
+browserbase
 # Pinned: newer cryptography has no prebuilt wheel for Python 3.9 / x86_64 macOS
 # and tries to build from source (needs Rust + OpenSSL). 42.0.8 ships a wheel.
 cryptography==42.0.8

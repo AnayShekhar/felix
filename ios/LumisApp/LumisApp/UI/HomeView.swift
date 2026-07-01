@@ -3,9 +3,16 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var vm: LumisViewModel
     @EnvironmentObject private var macVM: MacConnectionViewModel
+    @EnvironmentObject private var authVM: AuthViewModel
 
     /// Opens the sidebar (replaces the old top-left wordmark).
     var onMenu: () -> Void = {}
+
+    /// New York serif greeting, shown above the mark when Lumis is idle. It
+    /// fades out while a conversation is active so the transcript/response leads.
+    private var greeting: String {
+        LumisGreeting.current(name: authVM.currentUser?.name)
+    }
 
     var body: some View {
         ZStack {
@@ -20,13 +27,24 @@ struct HomeView: View {
 
                 Spacer()
 
+                Text(greeting)
+                    .font(LumisTypography.greeting)
+                    .tracking(-0.5)
+                    .foregroundStyle(LumisColors.carbonBlack)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 32)
+                    .opacity(vm.lumisState == .idle ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.4), value: vm.lumisState)
+                    .accessibilityAddTraits(.isHeader)
+
                 AnimatedLumisMark(state: vm.lumisState, speech: vm.speech,
                                   dimmed: macVM.connectionState == .linkedOffline)
 
                 TranscriptionText(state: vm.lumisState,
                                   transcript: vm.transcript,
                                   response: vm.responseText)
-                    .padding(.top, 16)
+                    .padding(.top, 24)
                     .padding(.horizontal, 32)
 
                 // Capture button: send the spoken command (visible once we have text).
@@ -165,15 +183,15 @@ private struct TranscriptionText: View {
             switch state {
             case .idle:
                 Text("Say \u{201C}Hey Lumis\u{201D}")
-                    .font(.system(size: 14))
-                    .foregroundStyle(LumisColors.powderBlue.opacity(0.6))
+                    .font(.system(size: 17))
+                    .foregroundStyle(LumisColors.carbonBlack.opacity(0.4))
             case .listening:
                 AnimatedWords(text: transcript.isEmpty ? "Listening…" : transcript)
                     .foregroundStyle(LumisColors.carbonBlack)
             case .thinking:
                 Text("Thinking…")
-                    .font(.system(size: 14))
-                    .foregroundStyle(LumisColors.powderBlue.opacity(thinkingPulse ? 0.8 : 0.4))
+                    .font(.system(size: 17))
+                    .foregroundStyle(LumisColors.carbonBlack.opacity(thinkingPulse ? 0.7 : 0.45))
                     .onAppear {
                         withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                             thinkingPulse = true

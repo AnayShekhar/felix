@@ -31,6 +31,7 @@ from typing import Awaitable, Callable, Optional
 from dotenv import load_dotenv
 
 import db
+import linking
 import memory
 import tools
 import mac_bridge
@@ -45,7 +46,9 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
 MAX_STEPS = int(os.getenv("AGENT_MAX_STEPS", "20"))      # hard cap on tool calls
-THINK_TIMEOUT_S = 40                                     # wait for a Groq decision
+# Fail fast if Groq is slow so the user gets feedback quickly rather than a long
+# hang (Part 2). Overridable for vision-heavy steps via AGENT_THINK_TIMEOUT.
+THINK_TIMEOUT_S = int(os.getenv("AGENT_THINK_TIMEOUT", "12"))
 MAC_TOOL_TIMEOUT_S = float(os.getenv("MAC_TOOL_TIMEOUT", "30"))
 
 # Tools that run entirely in the cloud (no osascript / local files). Mirrors the
@@ -383,6 +386,28 @@ class LumisAgent:
         )
         return response.choices[0].message.content or "{}"
 
+    def _drop_stale_images(self) -> None:
+        """Strip image data out of older context turns, keeping only the most
+        recent screenshot as an actual image.
+
+        Every THINK call re-sends the full context, so leaving past screenshots
+        in as image_url payloads means each step re-uploads every screenshot ever
+        taken — Groq vision payloads are large, so multi-step tasks get slower and
+        slower. The model only needs to SEE the latest screen; earlier ones are
+        replaced with a one-line text note so the reasoning trail stays intact.
+        """
+        for msg in self.context:
+            content = msg.get("content")
+            if not isinstance(content, list):
+                continue
+            if not any(part.get("type") == "image_url" for part in content):
+                continue
+            note = next(
+                (part.get("text") for part in content if part.get("type") == "text"),
+                "a screenshot",
+            )
+            msg["content"] = f"[earlier screenshot omitted to save time: {note}]"
+
     # ----- ACT: tool call ----------------------------------------------------
 
     async def _handle_tool_call(self, decision: dict) -> None:
@@ -417,6 +442,21 @@ class LumisAgent:
             }
         elif tool in CLOUD_TOOLS:
             result = await self._loop.run_in_executor(None, tools.execute, tool, args)
+        elif not await self._loop.run_in_executor(None, linking.is_paired, self.user_id):
+            # Mac tool requested, but this account has NOT paired with a Mac.
+            # A connected Mac WebSocket is not enough — the phone must have
+            # entered the 6-digit code. Refuse rather than silently controlling
+            # whatever Mac happens to be connected.
+            result = {
+                "tool": tool, "status": "error",
+                "message": "No Mac is linked to this account. Open the Lumis Mac "
+                           "app, then enter its 6-digit code on your phone to link.",
+                "title": tool,
+                "speak": "You haven't linked a Mac yet. Enter the code from the "
+                         "Lumis Mac app to connect.",
+                "data": {"error": "mac_not_linked"},
+                "elapsed_ms": 0,
+            }
         else:
             result = await mac_bridge.run_on_mac(
                 tool, args, str(action_id), self.broadcast, timeout=MAC_TOOL_TIMEOUT_S
@@ -433,7 +473,25 @@ class LumisAgent:
         self.results.append(result)
         self._observe(tool, args, reasoning, result)
 
+        # A tool that returns an image (e.g. browser.screenshot) is treated like
+        # capture_screen: feed the image into context as a vision message so the
+        # next THINK step can SEE the result and verify the action worked.
+        image_b64 = result.pop("image_b64", None)
+        if image_b64:
+            self._drop_stale_images()  # keep only this newest screenshot as an image
+            self.context.append({
+                "role": "user",
+                "content": [
+                    {"type": "text",
+                     "text": f"Screenshot returned by {tool}. Use it to verify "
+                             "what happened and decide what to do next."},
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+                ],
+            })
+
         # Compat event for the current iOS/Mac UI (drives result cards + TTS).
+        # `image_b64` was popped above so we never push base64 over the socket.
         await self._emit_step_executed(tool, args, action_id, undo_available, result)
 
     def _observe(self, tool: str, args: dict, reasoning: str, result: dict) -> None:
@@ -470,9 +528,13 @@ class LumisAgent:
             "message": "Looking at your Mac screen…",
         })
 
-        screenshot_b64 = await vision.capture_mac_screen(
-            self.broadcast, action_id=f"{self.session_id}-screen-{self.steps_taken}"
-        )
+        # Same gate as tool dispatch: never touch a Mac this account hasn't linked.
+        if not await self._loop.run_in_executor(None, linking.is_paired, self.user_id):
+            screenshot_b64 = None
+        else:
+            screenshot_b64 = await vision.capture_mac_screen(
+                self.broadcast, action_id=f"{self.session_id}-screen-{self.steps_taken}"
+            )
 
         self.context.append({
             "role": "assistant",
@@ -488,6 +550,7 @@ class LumisAgent:
                 }}),
             })
             return
+        self._drop_stale_images()  # keep only this newest screenshot as an image
         self.context.append({
             "role": "user",
             "content": [

@@ -42,8 +42,15 @@ final class AppEnvironment: ObservableObject {
     @Published var macAgentConnected = false
 
     private var macStatusTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
+        // Re-publish the Mac agent's changes (e.g. settingUpBrowser) so views
+        // observing AppEnvironment refresh when the nested controller updates.
+        macAgent.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
         feed.onEvent = { [weak self] event, _ in
             guard let self else { return }
             Notifier.handle(event, notifyCompletion: self.notifyCompletion,

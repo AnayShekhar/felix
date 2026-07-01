@@ -5,6 +5,8 @@ import SwiftUI
 struct SidebarView: View {
     let recent: [ActionHistoryItem]
     let initials: String
+    var name: String = ""
+    var email: String = ""
     var onSettings: () -> Void
 
     var body: some View {
@@ -51,14 +53,24 @@ struct SidebarView: View {
                         .foregroundStyle(LumisColors.carbonBlack)
                         .frame(width: 46, height: 46)
                         .glassEffect(.regular, in: Circle())
-                    .contentShape(Circle())
-                    Text("Settings")
-                        .font(LumisTypography.bodyMedium)
-                        .foregroundStyle(LumisColors.textSecondary)
+                        .contentShape(Circle())
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(name.isEmpty ? "Settings" : name)
+                            .font(LumisTypography.titleSmall)
+                            .foregroundStyle(LumisColors.carbonBlack)
+                            .lineLimit(1)
+                        if !email.isEmpty {
+                            Text(email)
+                                .font(LumisTypography.caption)
+                                .foregroundStyle(LumisColors.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
                     Spacer()
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Open Settings")
             .padding(.horizontal, 18)
             .padding(.bottom, 28)
         }
@@ -77,31 +89,22 @@ struct SidebarView: View {
 private struct RecentActionRow: View {
     let item: ActionHistoryItem
 
-    private var type: ActionType { ActionType.from(tool: item.tool_name) }
     private var failed: Bool { item.status == "error" }
     private var title: String { item.title ?? toolMeta(item.tool_name).label }
 
     var body: some View {
-        HStack(spacing: 11) {
-            ZStack {
-                Circle().fill(type.tint.opacity(0.18)).frame(width: 34, height: 34)
-                Image(systemName: failed ? "exclamationmark" : type.symbol)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(failed ? LumisColors.destructive : type.tint)
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(LumisTypography.bodyMedium)
-                    .foregroundStyle(LumisColors.carbonBlack)
-                    .lineLimit(1)
-                Text(RelativeTime.friendly(item.timestamp))
-                    .font(LumisTypography.caption)
-                    .foregroundStyle(LumisColors.textTertiary)
-            }
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(LumisTypography.bodyMedium)
+                .foregroundStyle(failed ? LumisColors.destructive : LumisColors.carbonBlack)
+                .lineLimit(1)
+            Text(RelativeTime.friendly(item.timestamp))
+                .font(LumisTypography.caption)
+                .foregroundStyle(LumisColors.textTertiary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.vertical, 9)
         .accessibilityElement(children: .combine)
     }
 }

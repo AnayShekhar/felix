@@ -13,9 +13,14 @@ final class MacAgentController: ObservableObject {
     @Published var processRunning = false
     /// Surfaced inline if we couldn't locate or start the agent script.
     @Published var launchError: String?
+    /// True while the one-time Playwright browser download is running, so the
+    /// dashboard can show "Setting up browser automation…".
+    @Published var settingUpBrowser = false
 
     /// Override the agent launcher location; defaults to the repo checkout.
     static let scriptPathKey = "lumis.macAgentScript"
+    /// Set once the Playwright Chromium download has completed successfully.
+    static let playwrightInstalledKey = "lumis.playwrightInstalled"
 
     private var process: Process?
     private var restartWorkItem: DispatchWorkItem?
@@ -55,11 +60,62 @@ final class MacAgentController: ObservableObject {
         return nil
     }
 
-    /// Start the agent (idempotent). Call once on app launch.
+    /// Start the agent (idempotent). Call once on app launch. Runs the one-time
+    /// Playwright browser setup first so browser tools work without any Chrome
+    /// settings, then spawns the agent process.
     func start() {
         guard !wantRunning else { return }
         wantRunning = true
-        spawn()
+        Task {
+            await ensurePlaywrightInstalled()
+            spawn()
+        }
+    }
+
+    /// One-time: install the Playwright package + Chromium into the backend venv
+    /// so browser automation works out of the box. Gated by a UserDefaults flag
+    /// so it only runs on the first launch after install. Best-effort — if it
+    /// fails the agent still starts; browser tools will simply report the issue.
+    func ensurePlaywrightInstalled() async {
+        if UserDefaults.standard.bool(forKey: Self.playwrightInstalledKey) { return }
+        guard let script = resolveScriptPath() else { return }
+        let backend = (script as NSString).deletingLastPathComponent + "/backend"
+        let python = "\(backend)/venv/bin/python"
+        guard FileManager.default.fileExists(atPath: python) else { return }
+
+        settingUpBrowser = true
+        defer { settingUpBrowser = false }
+
+        // Install the pip package (no-op if present), then download Chromium.
+        _ = await runShell("\(python.q) -m pip install 'playwright>=1.40.0'")
+        let result = await runShell("\(python.q) -m playwright install chromium")
+        if result.lowercased().contains("chromium")
+            || result.lowercased().contains("already") || result.isEmpty {
+            UserDefaults.standard.set(true, forKey: Self.playwrightInstalledKey)
+            print("Playwright ready")
+        }
+    }
+
+    /// Run a shell command and return its combined stdout+stderr.
+    private func runShell(_ command: String) async -> String {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let proc = Process()
+                proc.executableURL = URL(fileURLWithPath: "/bin/bash")
+                proc.arguments = ["-lc", command]
+                let pipe = Pipe()
+                proc.standardOutput = pipe
+                proc.standardError = pipe
+                do {
+                    try proc.run()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    proc.waitUntilExit()
+                    continuation.resume(returning: String(data: data, encoding: .utf8) ?? "")
+                } catch {
+                    continuation.resume(returning: "")
+                }
+            }
+        }
     }
 
     /// Stop supervising and terminate the agent (called on app quit).
@@ -123,4 +179,9 @@ final class MacAgentController: ObservableObject {
         restartWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
     }
+}
+
+private extension String {
+    /// Single-quote this string for safe embedding in a `/bin/bash -lc` command.
+    var q: String { "'" + replacingOccurrences(of: "'", with: "'\\''") + "'" }
 }

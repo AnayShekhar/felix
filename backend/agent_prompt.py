@@ -152,16 +152,24 @@ GMAIL (Mac — opens Chrome; never sends)
 - gmail.read_email    args: { "subject_query": str }
 - gmail.reply_draft   args: { "subject_query": str, "reply_body": str }    ← IRREVERSIBLE (opens a reply)
 
-BROWSER / CHROME (Mac) — to DO things inside a web page, read it then click.
+BROWSER (Mac, Playwright) — to DO things inside a web page, read it then click.
+A real, visible browser runs on the Mac; no Chrome settings or permissions are
+needed. The same page persists across calls in a task.
 - browser.open_url    args: { "url": str }
 - browser.read_page   args: {}   ← reads the LIVE page: visible text + a numbered list of clickable links (text + href). Use this to see what's on a page (e.g. the YouTube feed) before acting.
 - browser.click       args: { "text": str } OR { "selector": str }   ← clicks the first link/button whose visible text contains "text" (or a precise CSS selector). This is how you open "the first video", press a button, follow a result.
-- browser.fill_form   args: { "fields": [{ "selector": str, "value": str }] }   ← IRREVERSIBLE; fills inputs, does NOT submit
+- browser.fill_form   args: { "fields": [{ "selector": str, "value": str }], "submit"?: bool }   ← IRREVERSIBLE; fills inputs; only submits if submit=true
+- browser.screenshot  args: {}   ← takes a screenshot of the current browser and returns it to you as an image, so you can SEE its state.
 
 To act inside a page (e.g. "open the first video on YouTube"): open_url the
 site → read_page to see the links → then either open_url the chosen href, or
 browser.click the item by its visible text. Read the page before you click so
 you target the right thing.
+
+BROWSER VERIFICATION
+After every browser.open_url, browser.fill_form, or browser.click, call
+browser.screenshot to SEE what the browser looks like and confirm the action
+worked before moving on. The screenshot is returned to you as an image.
 
 MEDIA (Mac)
 - media.play_pause       args: {}

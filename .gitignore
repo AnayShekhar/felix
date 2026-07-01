@@ -1,2 +1,3 @@
 # Lumis iOS — holds the hardcoded Groq API key. Never push the real key.
 ios/LumisApp/LumisApp/WhisperTranscriber.swift
+ios/LumisApp/GoogleSignIn-iOS

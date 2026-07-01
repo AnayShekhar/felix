@@ -38,6 +38,8 @@ struct MainTabView: View {
                 SidebarView(
                     recent: recent,
                     initials: authVM.currentUser?.initials ?? "?",
+                    name: authVM.currentUser?.displayName ?? "",
+                    email: authVM.currentUser?.email ?? "",
                     onSettings: { showSettings = true }
                 )
                 .transition(.move(edge: .leading))

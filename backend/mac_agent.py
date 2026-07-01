@@ -24,6 +24,7 @@ http(s):// is rewritten to ws(s):// and "/ws" is appended automatically.
 stdlib + the existing `websockets` dependency only.
 """
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -31,6 +32,7 @@ import signal
 import socket
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
@@ -129,6 +131,257 @@ async def linking_loop() -> None:
             raise
 
 
+# --------------------------------------------------------------------------- #
+# Browser automation (Playwright)
+#
+# Replaces the old AppleScript Chrome control entirely — no "Allow JavaScript
+# from Apple Events" toggle, no Automation/Accessibility prompts. One persistent
+# Playwright browser + page lives in THIS agent's event loop and survives across
+# tool calls in a session, so open_url → read_page → click → screenshot all act
+# on the same live page. The browser is launched visibly so the user can watch.
+# --------------------------------------------------------------------------- #
+_playwright = None
+_browser = None
+_page = None
+_browser_lock = asyncio.Lock()
+
+
+async def get_browser_page():
+    """Get or create the persistent, visible Playwright page."""
+    global _playwright, _browser, _page
+    from playwright.async_api import async_playwright  # lazy: only if browser used
+
+    if _playwright is None:
+        _playwright = await async_playwright().start()
+    if _browser is None or not _browser.is_connected():
+        _browser = await _playwright.chromium.launch(
+            headless=False,            # visible so the user sees what Lumis does
+            args=["--no-sandbox"],
+        )
+    if _page is None or _page.is_closed():
+        context = await _browser.new_context(
+            viewport={"width": 1280, "height": 800},
+            user_agent=("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0 Safari/537.36"),
+        )
+        _page = await context.new_page()
+    return _page
+
+
+async def close_browser() -> None:
+    global _playwright, _browser, _page
+    try:
+        if _page:
+            await _page.close()
+        if _browser:
+            await _browser.close()
+        if _playwright:
+            await _playwright.stop()
+    except Exception:  # noqa: BLE001 - shutdown is best-effort
+        pass
+    _playwright = _browser = _page = None
+
+
+async def tool_browser_open_url(args: dict) -> dict:
+    url = str(args.get("url") or "").strip()
+    if not url:
+        return {"status": "error", "message": "browser.open_url requires a 'url'."}
+    if not url.startswith(("http://", "https://")):
+        # Bare domain → https; a multi-word query → Google search.
+        if "." in url and " " not in url:
+            url = "https://" + url
+        else:
+            url = "https://www.google.com/search?q=" + urllib.parse.quote(url)
+    page = await get_browser_page()
+    await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+    title = await page.title()
+    return {
+        "status": "success",
+        "title": title or url,
+        "message": f"Opened {title or url}.",
+        "url": page.url,
+        "speak": f"Opened {title or url}.",
+        "data": {"url": page.url, "title": title},
+    }
+
+
+# Scrape the rendered page: visible text + clickable links (text + href) so the
+# agent can SEE what's on the page and choose what to open/click.
+_READ_PAGE_JS = """() => {
+    const clone = document.body ? document.body.cloneNode(true) : null;
+    if (clone) clone.querySelectorAll('script,style,nav,footer,aside,iframe,noscript')
+                    .forEach(el => el.remove());
+    const text = (clone ? clone.innerText : '').replace(/\\s+/g, ' ').slice(0, 4000);
+    const seen = {}, links = [];
+    const as = document.querySelectorAll('a[href]');
+    for (let i = 0; i < as.length && links.length < 40; i++) {
+        const a = as[i];
+        const txt = (a.innerText || a.textContent || a.getAttribute('aria-label') || '')
+                        .trim().replace(/\\s+/g, ' ');
+        if (!txt || txt.length > 140) continue;
+        const href = a.href;
+        if (!href || href.indexOf('javascript:') === 0 || seen[href]) continue;
+        seen[href] = 1; links.push({ text: txt, href });
+    }
+    return { title: document.title, url: location.href, text, links };
+}"""
+
+
+async def tool_browser_read_page(args: dict) -> dict:
+    page = await get_browser_page()
+    parsed = await page.evaluate(_READ_PAGE_JS)
+    text = str(parsed.get("text") or "").strip()
+    title = str(parsed.get("title") or "")
+    url = str(parsed.get("url") or page.url)
+    links = parsed.get("links") or []
+    links_block = ""
+    if links:
+        links_block = "\n\nLinks on the page:\n" + "\n".join(
+            f"{i}. {l.get('text', '')} — {l.get('href', '')}"
+            for i, l in enumerate(links[:25])
+        )
+    summary = f"{title}\n{url}\n\n{text}{links_block}"
+    return {
+        "status": "success",
+        "title": title or "Current Page",
+        "message": text or f"Read {title or url}.",
+        "detail": text[:3000],
+        "summary": summary,
+        "speak": f"You're on {title or url}.",
+        "data": {"url": url, "title": title, "text": text, "links": links},
+    }
+
+
+async def tool_browser_fill_form(args: dict) -> dict:
+    """Fill fields in the live page. IRREVERSIBLE; does NOT submit unless asked.
+
+    Accepts either the list form  { fields: [{selector, value}] }  or the map
+    form  { fields: { "selector_or_label": "value" } }. For each field it tries a
+    CSS selector first, then placeholder text, then label text.
+    """
+    raw_fields = args.get("fields") or {}
+    should_submit = bool(args.get("submit", False))
+    pairs: list[tuple[str, str]] = []
+    if isinstance(raw_fields, dict):
+        pairs = [(str(k), str(v)) for k, v in raw_fields.items()]
+    elif isinstance(raw_fields, list):
+        pairs = [(str(f["selector"]), str(f.get("value", "")))
+                 for f in raw_fields if isinstance(f, dict) and f.get("selector")]
+    if not pairs:
+        return {"status": "error",
+                "message": "browser.fill_form requires a non-empty 'fields'."}
+
+    page = await get_browser_page()
+    filled = []
+    for selector, value in pairs:
+        try:
+            el = page.locator(selector).first
+            if await el.count() == 0:
+                el = page.get_by_placeholder(selector).first
+            if await el.count() == 0:
+                el = page.get_by_label(selector).first
+            await el.fill(value, timeout=5000)
+            filled.append(selector)
+        except Exception:  # noqa: BLE001 - skip a field that won't match
+            continue
+    if should_submit:
+        await page.keyboard.press("Enter")
+    summary = "Filled fields:\n" + "\n".join(f"• {s} = {v}" for s, v in pairs)
+    return {
+        "status": "success",
+        "title": "Form Filled",
+        "message": f"Filled {len(filled)} of {len(pairs)} field(s)"
+                   + (" and submitted." if should_submit else "."),
+        "detail": summary,
+        "summary": summary,
+        "speak": f"I filled {len(filled)} field{'s' if len(filled) != 1 else ''}."
+                 + ("" if should_submit else " Review before submitting."),
+        "data": {"filled": filled, "requested": len(pairs), "submitted": should_submit},
+    }
+
+
+async def tool_browser_click(args: dict) -> dict:
+    """Click a button/link by CSS selector or by visible text."""
+    selector = str(args.get("selector") or "").strip()
+    text = str(args.get("text") or "").strip()
+    if not selector and not text:
+        return {"status": "error",
+                "message": "browser.click requires a 'selector' or 'text'."}
+    page = await get_browser_page()
+    try:
+        if selector:
+            await page.locator(selector).first.click(timeout=8000)
+            label = selector
+        else:
+            await page.get_by_text(text, exact=False).first.click(timeout=8000)
+            label = text
+    except Exception as exc:  # noqa: BLE001 - report a clean not-found error
+        target = selector or f"text '{text}'"
+        return {"status": "error", "title": "Click failed",
+                "message": f"Couldn't click {target}: {exc}",
+                "data": {"error": "not_found", "selector": selector, "text": text}}
+    return {
+        "status": "success",
+        "title": "Clicked",
+        "message": f"Clicked {('`'+selector+'`') if selector else repr(text)}.",
+        "url": page.url,
+        "speak": f"Clicked {label}.",
+        "data": {"clicked": label, "url": page.url},
+    }
+
+
+async def tool_browser_screenshot(args: dict) -> dict:
+    """Screenshot the current browser so the agent can SEE its state."""
+    page = await get_browser_page()
+    shot = await page.screenshot(type="png", full_page=False)
+    return {
+        "status": "success",
+        "title": "Browser screenshot",
+        "message": "Captured the current browser view.",
+        "image_b64": base64.b64encode(shot).decode(),
+        "speak": "I can see the browser now.",
+        "data": {"url": page.url},
+    }
+
+
+BROWSER_TOOLS = {
+    "browser.open_url": tool_browser_open_url,
+    "browser.read_page": tool_browser_read_page,
+    "browser.fill_form": tool_browser_fill_form,
+    "browser.click": tool_browser_click,
+    "browser.screenshot": tool_browser_screenshot,
+}
+
+
+async def _run_browser_tool(tool: str, args: dict) -> dict:
+    """Run a Playwright browser tool in this agent's event loop, serialized so
+    concurrent requests don't race on the single shared page. Always returns the
+    standard result contract with `tool` + `elapsed_ms`."""
+    fn = BROWSER_TOOLS[tool]
+    start = time.monotonic()
+    async with _browser_lock:
+        try:
+            result = await fn(args or {})
+        except ImportError:
+            result = {
+                "status": "error",
+                "message": "Playwright isn't installed yet. The Lumis Mac app "
+                           "sets it up on first launch; reopen the app to finish.",
+                "data": {"error": "playwright_missing"},
+            }
+        except Exception as exc:  # noqa: BLE001 - report failure truthfully
+            logger.exception("Browser tool %s crashed", tool)
+            result = {"status": "error",
+                      "message": f"Browser tool {tool} failed: {exc}",
+                      "data": {"error": str(exc)}}
+    result.setdefault("tool", tool)
+    result.setdefault("status", "success")
+    result.setdefault("title", tool)
+    result["elapsed_ms"] = round((time.monotonic() - start) * 1000, 1)
+    return result
+
+
 async def _handle_execute(ws, data: dict) -> None:
     """Run one execute_on_mac request locally and reply with mac_result."""
     action_id = data.get("action_id")
@@ -136,10 +389,14 @@ async def _handle_execute(ws, data: dict) -> None:
     args = data.get("args") or {}
     logger.info("Executing %s (action %s) args=%s", tool, action_id, args)
 
-    # tools.execute is blocking (osascript/subprocess) — run it off the event
+    # Browser tools run async in THIS event loop (persistent Playwright page).
+    # Everything else is blocking (osascript/subprocess) — run it off the event
     # loop so the WebSocket keeps draining while a tool runs.
     try:
-        result = await asyncio.to_thread(tools.execute, tool, args)
+        if tool in BROWSER_TOOLS:
+            result = await _run_browser_tool(tool, args)
+        else:
+            result = await asyncio.to_thread(tools.execute, tool, args)
     except Exception as exc:  # noqa: BLE001 - report failure truthfully
         logger.exception("Tool %s crashed", tool)
         result = {
@@ -195,6 +452,7 @@ async def run() -> None:
             await asyncio.sleep(RECONNECT_DELAY_S)
     finally:
         link_task.cancel()
+        await close_browser()
 
 
 def main() -> None:

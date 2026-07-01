@@ -74,10 +74,9 @@ final class SpeechRecognizer: ObservableObject {
     func startListening() {
         guard engine.isRunning == false else { return }
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement,
-                                    options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            // The shared AVAudioSession is configured ONCE at app launch in
+            // LumisApp.configureAudioSession() and never deactivated — that's the
+            // Part 2 lag fix. Do NOT set the category/active state here.
 
             // Install the tap once; it feeds whatever request is current.
             let input = engine.inputNode
@@ -210,9 +209,13 @@ final class SpeechRecognizer: ObservableObject {
         }
     }
 
+    // Silence after the command before we settle the transcript and fire Whisper.
+    // Kept tight (Part 2) so Lumis responds quickly instead of waiting in dead air.
+    private let silenceThreshold: TimeInterval = 1.0
+
     private func armSilenceTimer() {
         silenceTimer?.invalidate()
-        silenceTimer = Timer.scheduledTimer(withTimeInterval: 1.3, repeats: false) { _ in
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: silenceThreshold, repeats: false) { _ in
             Task { @MainActor [weak self] in self?.holdForCapture() }
         }
     }

@@ -1,7 +1,11 @@
 import SwiftUI
 
-/// Type scale for the app. SF Pro only (system default), no custom fonts.
+/// Type scale for the app. SF Pro for everything, with New York (the system
+/// serif on iOS, reached via `design: .serif`) reserved for the hero greeting.
 struct LumisTypography {
+    // Greeting — New York serif, hero moments only (the home greeting).
+    static let greeting      = Font.system(size: 34, weight: .regular, design: .serif)
+
     // Display
     static let displayLarge  = Font.system(size: 34, weight: .semibold, design: .default)
     static let displayMedium = Font.system(size: 28, weight: .semibold, design: .default)

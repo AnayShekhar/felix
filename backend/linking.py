@@ -70,6 +70,22 @@ def _gen_code() -> str:
     return "".join(secrets.choice("0123456789") for _ in range(CODE_LENGTH))
 
 
+def is_paired(user_id: str) -> bool:
+    """True if this account has confirmed a pairing with a Mac (via the code).
+
+    This is the authority the agent loop checks before dispatching any tool to
+    the Mac agent. A Mac WebSocket being connected is NOT enough — the phone must
+    have actually entered the 6-digit code for this account.
+    """
+    if not user_id:
+        return False
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM pairings WHERE user_id = ?", (user_id,)
+        ).fetchone()
+    return row is not None
+
+
 # --------------------------------------------------------------------------- #
 # Request models
 # --------------------------------------------------------------------------- #

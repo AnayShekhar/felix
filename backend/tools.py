@@ -541,278 +541,31 @@ def gmail_reply_draft(args: dict) -> dict:
     }
 
 
-def browser_open_url(args: dict) -> dict:
-    """Open Chrome and navigate to the given URL."""
-    url = str(args.get("url") or "").strip()
-    if not url:
-        raise ToolError("browser.open_url requires a 'url'.")
-    if not url.startswith(("http://", "https://")):
-        # Treat bare terms as a Google search; pass through anything domain-like.
-        if "." in url and " " not in url:
-            url = "https://" + url
-        else:
-            url = "https://www.google.com/search?q=" + urllib.parse.quote(url)
+# ----------------------------------------------------------------------------
+# Browser tools — implemented with Playwright in mac_agent.py.
+#
+# The old AppleScript-over-Chrome control (which required Chrome's "Allow
+# JavaScript from Apple Events" toggle + Automation/Accessibility permissions)
+# has been removed. browser.open_url / read_page / click / fill_form / screenshot
+# now run on a persistent Playwright browser inside the Mac agent's event loop
+# (see mac_agent.BROWSER_TOOLS), which intercepts them before tools.execute().
+# These stubs only exist so the registry stays complete and any accidental
+# direct call fails loudly instead of silently doing nothing.
+# ----------------------------------------------------------------------------
 
-    subprocess.run(["open", "-a", CHROME, url], check=True)
-    return {
-        "tool": "browser.open_url",
-        "status": "success",
-        "message": f"Opened {url} in Chrome.",
-        "title": url,
-        "detail": url,
-        "url": url,
-        "data": {"url": url},
-    }
-
-
-# Chrome's error when "Allow JavaScript from Apple Events" is off.
-_JS_OFF_MARKER = "Executing JavaScript through AppleScript is turned off"
-
-
-def _enable_chrome_apple_events_js() -> bool:
-    """Best-effort: tick Chrome's View > Developer > Allow JavaScript from Apple
-    Events via System Events so the user doesn't have to do it by hand.
-
-    Idempotent (only clicks when not already checked). Needs Accessibility
-    permission for whatever runs the Mac agent; returns False if it can't.
-    """
-    script = (
-        'tell application "System Events"\n'
-        '  tell process "Google Chrome"\n'
-        '    set m to menu item "Allow JavaScript from Apple Events" of menu 1 '
-        'of menu item "Developer" of menu 1 of menu bar item "View" of menu bar 1\n'
-        '    if (value of attribute "AXMenuItemMarkChar" of m) is missing value then click m\n'
-        "  end tell\n"
-        "end tell"
+def _browser_via_playwright(args: dict) -> dict:
+    raise ToolError(
+        "Browser tools run via Playwright on the Mac agent, not through "
+        "tools.execute(). If you're seeing this, the Mac agent is out of date — "
+        "restart the Lumis Mac app."
     )
-    try:
-        _osascript(script, timeout=10.0)
-        logger.info("Auto-enabled Chrome 'Allow JavaScript from Apple Events'.")
-        return True
-    except Exception as exc:  # noqa: BLE001 - no Accessibility perm / menu differs
-        logger.info("Could not auto-enable Chrome JS-from-Apple-Events (%s).", exc)
-        return False
 
 
-def _chrome_js(js: str, timeout: float = 20.0) -> str:
-    """Execute JavaScript in Chrome's active tab and return the result as text.
-
-    Used to read the live (JS-rendered) DOM and to click elements. Chrome gates
-    this behind "Allow JavaScript from Apple Events"; if it's off we try to turn
-    it on automatically (once) and retry, otherwise we raise a clean, actionable
-    error instead of a raw AppleScript dump.
-    """
-    script = (
-        'tell application "Google Chrome"\n'
-        f'    set r to execute active tab of front window javascript "{_as_escape(js)}"\n'
-        "    return r as string\n"
-        "end tell"
-    )
-    try:
-        return _osascript(script, timeout=timeout)
-    except Exception as exc:  # noqa: BLE001
-        if _JS_OFF_MARKER not in str(exc):
-            raise
-        # Chrome is blocking automation JS — try to enable it, then retry once.
-        if _enable_chrome_apple_events_js():
-            try:
-                return _osascript(script, timeout=timeout)
-            except Exception as exc2:  # noqa: BLE001
-                if _JS_OFF_MARKER not in str(exc2):
-                    raise
-        raise ToolError(
-            "Chrome is blocking automation. Turn it on once: Chrome menu bar > "
-            "View > Developer > Allow JavaScript from Apple Events. (I tried to "
-            "enable it for you but need Accessibility permission for the Mac "
-            "agent in System Settings > Privacy & Security > Accessibility.)"
-        )
-
-
-# JS that scrapes the live tab: title, url, visible text, and the clickable
-# links (text + href). Lets the agent SEE the rendered page (e.g. the YouTube
-# feed) and choose what to open/click — a plain HTTP fetch returns none of this.
-_READ_PAGE_JS = (
-    "(function(){try{"
-    "var t=(document.body?document.body.innerText:'').replace(/\\s+/g,' ').slice(0,4000);"
-    "var seen={};var links=[];var as=document.querySelectorAll('a[href]');"
-    "for(var i=0;i<as.length&&links.length<40;i++){var a=as[i];"
-    "var txt=(a.innerText||a.textContent||a.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ');"
-    "if(!txt||txt.length>140)continue;var href=a.href;"
-    "if(!href||href.indexOf('javascript:')===0||seen[href])continue;seen[href]=1;"
-    "links.push({text:txt,href:href});}"
-    "return JSON.stringify({title:document.title,url:location.href,text:t,links:links});"
-    "}catch(e){return 'ERR:'+e;}})();"
-)
-
-
-def browser_read_page(args: dict) -> dict:
-    """Read the frontmost Chrome tab from the LIVE DOM: title, URL, visible text,
-    and clickable links (text + href).
-
-    Reads the rendered page via injected JS so JS-heavy sites (YouTube, Twitter,
-    web apps) actually return their content and links — which the agent can then
-    open_url or click. Falls back to an HTTP fetch if JS execution is blocked.
-    Requires Chrome's "Allow JavaScript from Apple Events" + Automation perms.
-    """
-    text = ""
-    links: list = []
-    url = ""
-    page_title = ""
-    try:
-        raw = _chrome_js(_READ_PAGE_JS)
-        if raw and not raw.startswith("ERR:"):
-            parsed = json.loads(raw)
-            url = str(parsed.get("url") or "")
-            page_title = str(parsed.get("title") or "")
-            text = str(parsed.get("text") or "")
-            links = parsed.get("links") or []
-    except Exception as exc:  # noqa: BLE001 - fall back to HTTP fetch below
-        logger.info("read_page JS scrape failed (%s); falling back to fetch.", exc)
-
-    if not url:
-        # Fallback: AppleScript URL + HTTP fetch (no live DOM / links).
-        script = (
-            'tell application "Google Chrome"\n'
-            "    set theURL to URL of active tab of front window\n"
-            "    set theTitle to title of active tab of front window\n"
-            "    return theURL & (character id 9) & theTitle\n"
-            "end tell"
-        )
-        raw = _osascript(script, timeout=20.0)
-        parts = raw.split("\t")
-        url = parts[0].strip()
-        page_title = parts[1].strip() if len(parts) > 1 else ""
-        if not url:
-            raise ToolError("Could not read the active Chrome tab. Is Chrome open?")
-        try:
-            fetched = web_fetch_page({"url": url})
-            text = fetched["data"].get("text", "")
-            page_title = page_title or fetched.get("title") or url
-        except Exception as exc:  # noqa: BLE001
-            text = f"(Could not fetch page text: {exc})"
-
-    links_block = ""
-    if links:
-        links_block = "\n\nLinks on the page:\n" + "\n".join(
-            f"{i}. {l.get('text', '')} — {l.get('href', '')}"
-            for i, l in enumerate(links[:25])
-        )
-    summary = f"{page_title}\n{url}\n\n{text}{links_block}"
-    return {
-        "tool": "browser.read_page",
-        "status": "success",
-        "message": f"Read the current Chrome tab: {page_title or url}.",
-        "title": page_title or "Current Page",
-        "detail": text[:3000],
-        "speak": f"You're on {page_title or url}.",
-        "summary": summary,
-        "data": {"url": url, "title": page_title, "text": text, "links": links},
-    }
-
-
-def browser_click(args: dict) -> dict:
-    """Click an element in the frontmost Chrome tab — by CSS selector or by its
-    visible text — via injected JavaScript.
-
-    This is how the agent acts INSIDE a page: open the first video, press a
-    button, follow a result. Pass `selector` for precision, or `text` to click
-    the first link/button whose visible text contains it. Requires Chrome's
-    "Allow JavaScript from Apple Events" + Automation permission.
-    """
-    selector = str(args.get("selector") or "").strip()
-    text = str(args.get("text") or "").strip()
-    if not selector and not text:
-        raise ToolError("browser.click requires a 'selector' or 'text'.")
-
-    finder = (
-        "var el=document.querySelector(" + json.dumps(selector) + ");"
-        if selector else
-        "var q=" + json.dumps(text.lower()) + ";var el=null;"
-        "var c=document.querySelectorAll('a,button,[role=\"button\"],[onclick],ytd-rich-item-renderer a#thumbnail');"
-        "for(var i=0;i<c.length;i++){var s=(c[i].innerText||c[i].textContent||c[i].getAttribute('aria-label')||'').trim().toLowerCase();"
-        "if(s&&s.indexOf(q)>-1){el=c[i];break;}}"
-    )
-    js = (
-        "(function(){try{" + finder +
-        "if(!el){return 'NOTFOUND';}"
-        "el.scrollIntoView({block:'center'});"
-        "var label=(el.innerText||el.textContent||el.getAttribute('aria-label')||'').trim().replace(/\\s+/g,' ').slice(0,100);"
-        "var href=el.href||'';el.click();"
-        "return 'OK|'+label+'|'+href;"
-        "}catch(e){return 'ERR:'+e;}})();"
-    )
-    raw = (_chrome_js(js) or "").strip()
-    if raw == "NOTFOUND" or not raw:
-        target = selector or f"text '{text}'"
-        return {
-            "tool": "browser.click", "status": "error",
-            "message": f"Couldn't find anything to click for {target} on the page.",
-            "title": "Click failed",
-            "data": {"error": "not_found", "selector": selector, "text": text},
-        }
-    if raw.startswith("ERR:"):
-        raise ToolError(f"browser.click failed: {raw[4:]}")
-
-    _, _, rest = raw.partition("|")
-    label, _, href = rest.partition("|")
-    label = label.strip() or (selector or text)
-    return {
-        "tool": "browser.click",
-        "status": "success",
-        "message": f"Clicked “{label}” in Chrome." + (f" → {href}" if href else ""),
-        "title": "Clicked",
-        "speak": f"Clicked {label}.",
-        "url": href or None,
-        "data": {"clicked": label, "href": href, "selector": selector, "text": text},
-    }
-
-
-def browser_fill_form(args: dict) -> dict:
-    """Fill fields in the frontmost Chrome tab via injected JavaScript.
-
-    Sets each field's value by CSS selector and dispatches input + change events
-    so the page's reactive framework registers the change. Does NOT submit.
-    IRREVERSIBLE (mutates page state). Requires Chrome's "Allow JavaScript from
-    Apple Events" (View > Developer) and Automation permission (Phase 3).
-    """
-    fields = args.get("fields") or []
-    if not isinstance(fields, list) or not fields:
-        raise ToolError("browser.fill_form requires a non-empty 'fields' list.")
-    clean = [
-        {"selector": str(f["selector"]), "value": str(f.get("value", ""))}
-        for f in fields
-        if isinstance(f, dict) and f.get("selector")
-    ]
-    if not clean:
-        raise ToolError("browser.fill_form requires fields with a 'selector'.")
-
-    js = (
-        "(function(){var fields=" + json.dumps(clean) + ";var n=0;"
-        "fields.forEach(function(f){var el=document.querySelector(f.selector);"
-        "if(el){el.value=f.value;"
-        "el.dispatchEvent(new Event('input',{bubbles:true}));"
-        "el.dispatchEvent(new Event('change',{bubbles:true}));n++;}});"
-        "return n;})();"
-    )
-    raw = _chrome_js(js)
-    try:
-        filled = int(float(raw.strip()))
-    except (ValueError, TypeError):
-        filled = 0
-
-    summary = "Filled fields:\n" + "\n".join(
-        f"• {f['selector']} = {f['value']}" for f in clean
-    )
-    return {
-        "tool": "browser.fill_form",
-        "status": "success",
-        "message": f"Filled {filled} of {len(clean)} field(s) in the current Chrome tab.",
-        "title": "Form Filled",
-        "detail": summary,
-        "speak": f"I filled {filled} field{'s' if filled != 1 else ''}. Review before submitting.",
-        "summary": summary,
-        "data": {"filled": filled, "requested": len(clean), "fields": clean},
-    }
+browser_open_url = _browser_via_playwright
+browser_read_page = _browser_via_playwright
+browser_click = _browser_via_playwright
+browser_fill_form = _browser_via_playwright
+browser_screenshot = _browser_via_playwright
 
 
 def _normalize_rows(headers, rows):
@@ -2668,10 +2421,9 @@ def build_undo(tool: str, args: dict, result: dict) -> tuple[bool, str | None]:
         return True, _close_chrome_tab_script("mail.google.com")
 
     if tool == "browser.open_url":
-        url = data.get("url")
-        if not url:
-            return False, None
-        return True, _close_chrome_tab_script(url)
+        # The Playwright browser is a separate, dedicated window (not a Chrome
+        # tab), so there's no AppleScript tab to close. Undo is unavailable.
+        return False, None
 
     if tool == "media.open_spotify":
         return True, 'tell application "Spotify" to pause'
@@ -2852,10 +2604,13 @@ TOOL_REGISTRY = {
     "gmail.read_inbox": gmail_read_inbox,
     "gmail.read_email": gmail_read_email,
     "gmail.reply_draft": gmail_reply_draft,
+    # Browser tools run on the Mac agent via Playwright (mac_agent.BROWSER_TOOLS);
+    # these registry entries keep routing/validation aware they exist.
     "browser.open_url": browser_open_url,
     "browser.read_page": browser_read_page,
     "browser.fill_form": browser_fill_form,
     "browser.click": browser_click,
+    "browser.screenshot": browser_screenshot,
     "notes.append_to_note": notes_append_to_note,
     "notes.list_notes": notes_list_notes,
     "numbers.read_sheet": numbers_read_sheet,
