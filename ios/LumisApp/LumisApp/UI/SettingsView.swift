@@ -16,6 +16,9 @@ struct SettingsView: View {
     @State private var showSignOut = false
     @State private var route: SettingsRoute?
 
+    @StateObject private var servicesVM = ConnectedServicesViewModel()
+    @State private var showExtensionInstructions = false
+
     enum SettingsRoute: Hashable { case macDetail, changeEmail, changePassword, deleteAccount, editProfile }
 
     var body: some View {
@@ -25,6 +28,7 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         profileCard
+                        connectedServicesSection
                         macSection
                         voiceSection
                         MemorySection()
@@ -35,6 +39,7 @@ struct SettingsView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 110)
                 }
+                .refreshable { await servicesVM.fetchStatus() }
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -61,6 +66,10 @@ struct SettingsView: View {
             .sheet(isPresented: $showCodeEntry) {
                 MacCodeEntryView().environmentObject(macVM)
             }
+            .sheet(isPresented: $showExtensionInstructions) {
+                ExtensionInstructionsView()
+            }
+            .task { await servicesVM.fetchStatus() }
             .confirmationDialog("Sign out of Lumis?", isPresented: $showSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { authVM.logout() }
                 Button("Cancel", role: .cancel) {}
@@ -95,6 +104,53 @@ struct SettingsView: View {
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(LumisColors.divider, lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Connected services (Chrome extension)
+
+    @ViewBuilder
+    private var connectedServicesSection: some View {
+        SettingsSection("Connected Services") {
+            if servicesVM.hasAnyConnection {
+                ForEach(SUPPORTED_SERVICES) { service in
+                    HStack {
+                        Image(systemName: service.icon)
+                            .foregroundColor(LumisColors.carbonBlack.opacity(0.6))
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(service.displayName)
+                                .font(LumisTypography.bodyMedium)
+                                .foregroundColor(LumisColors.carbonBlack)
+                            Text(service.description)
+                                .font(LumisTypography.caption)
+                                .foregroundColor(LumisColors.carbonBlack.opacity(0.5))
+                        }
+                        Spacer()
+                        if servicesVM.isConnected(service.id) {
+                            Label("Connected", systemImage: "checkmark.circle.fill")
+                                .font(LumisTypography.caption)
+                                .foregroundColor(LumisColors.success)
+                        } else {
+                            Text("Not connected")
+                                .font(LumisTypography.caption)
+                                .foregroundColor(LumisColors.carbonBlack.opacity(0.3))
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                Divider()
+
+                Button(action: { showExtensionInstructions = true }) {
+                    Label("Connect more accounts", systemImage: "plus.circle")
+                        .font(LumisTypography.bodyMedium)
+                        .foregroundColor(LumisColors.powderBlue)
+                }
+                .padding(.top, 4)
+            } else {
+                ConnectServicesEmptyState(onGetStarted: { showExtensionInstructions = true })
+            }
+        }
     }
 
     // MARK: - Mac

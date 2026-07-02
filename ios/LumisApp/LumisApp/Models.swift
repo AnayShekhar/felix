@@ -57,6 +57,11 @@ struct WSEnvelope: Codable {
     let session_id: String?
     let event: String?
     let data: WSData?
+    // Top-level fields carried by the `service_required` event (an account the
+    // requested tool needs isn't connected yet).
+    let service: String?
+    let message: String?
+    let speak: String?
 }
 
 // Flexible payload covering per-step, workflow_complete, and task_* events.

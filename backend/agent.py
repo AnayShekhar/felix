@@ -4,10 +4,12 @@ A deep reasoning loop on Groq (llama-4-scout): THINK -> ACT -> OBSERVE -> ...
 One tool call per iteration, reading the real result before deciding the next
 step. Replaces the old single-shot llm.py planner + engine.py runner.
 
-Where tools run:
-  - CLOUD_TOOLS (ios.*, web.search, web.fetch_page) run on Railway directly.
-  - Everything else is a macOS-local action dispatched to the Mac agent over the
-    WebSocket via mac_bridge.
+Where tools run (routed by TOOL_REGISTRY "runs_on"):
+  - google_api    → google_tools (Docs/Sheets/Gmail/Calendar/Tasks/People/Drive)
+  - cloud_browser → browser_tools (Browserbase) + web.* research
+  - ios_native    → tools.execute_ios_tool (phone URL schemes)
+Tools requiring a connected account emit a `service_required` event when the
+user hasn't linked it yet.
 
 Event model — the agent emits BOTH:
   - New agent_* events (agent_start/agent_step/agent_question/agent_done/
@@ -30,12 +32,13 @@ from typing import Awaitable, Callable, Optional
 
 from dotenv import load_dotenv
 
+import browser_tools
+import connections
 import db
-import linking
+import google_oauth
+import google_tools
 import memory
 import tools
-import mac_bridge
-import vision
 from agent_prompt import AGENT_SYSTEM_PROMPT
 
 load_dotenv()
@@ -49,19 +52,6 @@ MAX_STEPS = int(os.getenv("AGENT_MAX_STEPS", "20"))      # hard cap on tool call
 # Fail fast if Groq is slow so the user gets feedback quickly rather than a long
 # hang (Part 2). Overridable for vision-heavy steps via AGENT_THINK_TIMEOUT.
 THINK_TIMEOUT_S = int(os.getenv("AGENT_THINK_TIMEOUT", "12"))
-MAC_TOOL_TIMEOUT_S = float(os.getenv("MAC_TOOL_TIMEOUT", "30"))
-
-# Tools that run entirely in the cloud (no osascript / local files). Mirrors the
-# old engine's CLOUD_TOOLS exactly. web.research is NOT here: it saves a Note via
-# osascript, so it must run on the Mac agent.
-CLOUD_TOOLS = {
-    "ios.create_reminder",
-    "ios.create_note",
-    "ios.open_maps",
-    "ios.send_message_draft",
-    "web.search",
-    "web.fetch_page",
-}
 
 # Tool args holding a datetime that must be ISO-8601 before execution.
 _DATETIME_ARGS = {
@@ -180,7 +170,9 @@ def _normalize_decision(d: dict) -> dict:
         d["action"] = "ask_user"
         return d
     if low in _SCREEN_ALIASES:
-        d["action"] = "capture_screen"
+        # Full-Mac screen capture is gone; the only visual check is a browser shot.
+        d["action"] = "tool_call"
+        d["tool"] = "browser.screenshot"
         return d
     if low in _TOOLCALL_ALIASES:
         d["action"] = "tool_call"
@@ -337,9 +329,6 @@ class LumisAgent:
             if action == "finish":
                 await self._handle_finish(decision)
                 return
-            if action == "capture_screen":
-                await self._handle_screen_capture(decision)
-                continue
             if action == "tool_call":
                 await self._handle_tool_call(decision)
                 continue
@@ -434,33 +423,40 @@ class LumisAgent:
             "message": status_message,
         })
 
-        if tool not in tools.TOOL_REGISTRY:
+        meta = tools.TOOL_REGISTRY.get(tool)
+        if meta is None:
             result = {
                 "tool": tool, "status": "error",
                 "message": f"Unknown tool: {tool}", "title": tool,
                 "data": {"error": "unknown_tool"},
             }
-        elif tool in CLOUD_TOOLS:
-            result = await self._loop.run_in_executor(None, tools.execute, tool, args)
-        elif not await self._loop.run_in_executor(None, linking.is_paired, self.user_id):
-            # Mac tool requested, but this account has NOT paired with a Mac.
-            # A connected Mac WebSocket is not enough — the phone must have
-            # entered the 6-digit code. Refuse rather than silently controlling
-            # whatever Mac happens to be connected.
+        elif not await self._service_ready(meta):
+            # The tool needs a connected account that this user hasn't linked.
+            service = meta.get("requires_service")
+            msg = f"{service.capitalize()} isn't connected yet."
+            speak = f"You'll need to connect {service} first."
+            result = {
+                "tool": tool, "status": "error", "title": "Connect an account",
+                "message": msg, "speak": speak,
+                "data": {"error": "service_required", "service": service},
+            }
+            await self._emit({
+                "event": "service_required", "session_id": self.session_id,
+                "service": service, "message": msg, "speak": speak,
+            })
+        elif meta["runs_on"] == "google_api":
+            result = await self._loop.run_in_executor(
+                None, google_tools.execute_google_tool, tool, args, self.user_id)
+        elif meta["runs_on"] == "cloud_browser":
+            result = await browser_tools.execute_browser_tool(tool, args, self.user_id)
+        elif meta["runs_on"] == "ios_native":
+            result = await self._loop.run_in_executor(
+                None, tools.execute_ios_tool, tool, args, self.user_id)
+        else:
             result = {
                 "tool": tool, "status": "error",
-                "message": "No Mac is linked to this account. Open the Lumis Mac "
-                           "app, then enter its 6-digit code on your phone to link.",
-                "title": tool,
-                "speak": "You haven't linked a Mac yet. Enter the code from the "
-                         "Lumis Mac app to connect.",
-                "data": {"error": "mac_not_linked"},
-                "elapsed_ms": 0,
+                "message": f"No execution path for {tool}", "data": {},
             }
-        else:
-            result = await mac_bridge.run_on_mac(
-                tool, args, str(action_id), self.broadcast, timeout=MAC_TOOL_TIMEOUT_S
-            )
 
         # Persist result + undo info, and learn durable prefs from successes.
         undo_available, undo_script = tools.build_undo(tool, args, result)
@@ -515,51 +511,19 @@ class LumisAgent:
                                                     "result": observed}}),
         })
 
-    # ----- ACT: capture screen ----------------------------------------------
+    # ----- service gating ----------------------------------------------------
 
-    async def _handle_screen_capture(self, decision: dict) -> None:
-        self.steps_taken += 1
-        await self._emit({
-            "event": "agent_step",
-            "session_id": self.session_id,
-            "step": self.steps_taken,
-            "tool": "capture_screen",
-            "reasoning": decision.get("reasoning", ""),
-            "message": "Looking at your Mac screen…",
-        })
-
-        # Same gate as tool dispatch: never touch a Mac this account hasn't linked.
-        if not await self._loop.run_in_executor(None, linking.is_paired, self.user_id):
-            screenshot_b64 = None
-        else:
-            screenshot_b64 = await vision.capture_mac_screen(
-                self.broadcast, action_id=f"{self.session_id}-screen-{self.steps_taken}"
-            )
-
-        self.context.append({
-            "role": "assistant",
-            "content": json.dumps({"action": "capture_screen",
-                                   "reasoning": decision.get("reasoning", "")}),
-        })
-        if screenshot_b64 is None:
-            self.context.append({
-                "role": "user",
-                "content": json.dumps({"tool_result": {
-                    "tool": "capture_screen", "status": "error",
-                    "message": "Could not capture the Mac screen (agent offline?).",
-                }}),
-            })
-            return
-        self._drop_stale_images()  # keep only this newest screenshot as an image
-        self.context.append({
-            "role": "user",
-            "content": [
-                {"type": "text", "text": "Here is the current Mac screen. Use it to "
-                                         "verify what happened and decide what to do next."},
-                {"type": "image_url",
-                 "image_url": {"url": f"data:image/png;base64,{screenshot_b64}"}},
-            ],
-        })
+    async def _service_ready(self, meta: dict) -> bool:
+        """True if the connected account this tool needs is available for the user."""
+        service = meta.get("requires_service")
+        if not service:
+            return True
+        if service == "google":
+            return await self._loop.run_in_executor(
+                None, google_oauth.has_google, self.user_id)
+        connected = await self._loop.run_in_executor(
+            None, connections.get_connected_services, self.user_id)
+        return service in connected
 
     # ----- terminal states ---------------------------------------------------
 

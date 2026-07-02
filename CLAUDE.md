@@ -4,29 +4,29 @@
 - Backend: Python + FastAPI + uvicorn, SQLite for persistence, deployed on Railway
   (permanent public URL; ngrok only for local dev)
 - iOS: Swift + SwiftUI, iOS 17+, AVFoundation, Speech framework, no third-party deps
-- Mac: SwiftUI menu bar app, LSUIElement = YES
+- Chrome extension: Manifest V3, vanilla JS — auth + cookie sync only (no automation)
 - AI: Groq llama-4-scout ONLY (multimodal — text + vision)
 - Realtime: WebSocket for live event broadcasting
-- Mac agent: backend/mac_agent.py runs locally (Railway = brain, mac_agent = hands,
-  iOS = eyes/ears). Railway (Linux) can't run osascript/pmset, so macOS-local tools
-  are dispatched to the Mac agent over /ws. See "Mac agent split" below.
+- Execution is 100% cloud (Railway = brain, iOS = eyes/ears). Tools run three ways:
+  Google REST APIs, a Browserbase cloud browser, or a phone-side URL scheme.
+  See "Cloud execution split" below. There is NO Mac app / Mac agent / osascript.
 
 ## Repo layout
-backend/        FastAPI server — all AI logic lives here
-ios/            SwiftUI iOS app — input layer only
-macos-app/      SwiftUI menu bar app — dashboard + tray
+backend/           FastAPI server — all AI + tool logic lives here
+ios/               SwiftUI iOS app — input layer only
+chrome-extension/  "Connect your accounts" browser extension (auth + cookie sync)
 
 ## Hard constraints
 - NEVER touch CameraManager.swift or SpeechRecognizer.swift
 - NEVER add Python dependencies without asking first
 - NEVER put AI logic in any frontend — backend only
 - AI Provider: Groq (llama-4-scout) ONLY. No Gemini, no OpenAI, no other
-  providers. GROQ_API_KEY is the only required API key. Never add Gemini
-  dependencies.
+  providers. GROQ_API_KEY is the only required AI key. Never add Gemini
+  dependencies. (google-* packages are for Google service APIs / auth, NOT AI.)
 - All API errors must surface in UI, no silent console-only failures
-- Light "Parchment" theme across all frontends (background #F8F3EE). iOS uses
-  `LumisColors`; macOS uses `LumisBrand` in shared/Constants.swift — keep the
-  two palettes in sync (same hex values).
+- Light "Parchment" theme across frontends (background #F8F3EE). iOS uses
+  `LumisColors`; the shared palette in shared/Constants.swift (`LumisBrand`)
+  mirrors the same hex values.
 - SF Pro font, single brand accent color: Powder Blue (#B0BFD1) on Carbon
   (#212222) ink. iOS tab bar is the iOS 26 native Liquid Glass `TabView`.
 - Backend deployed on Railway with a permanent public URL; ngrok is for local
@@ -34,71 +34,81 @@ macos-app/      SwiftUI menu bar app — dashboard + tray
 - "ios_action" is a valid result status: the tool returns a phone-side URL
   scheme in the `url` field (with optional `fallback_url`), and the iOS client
   opens it directly with UIApplication.shared.open
-- All irreversible tools require confirmation (see IRREVERSIBLE_TOOLS)
+- Irreversible tools are flagged in TOOL_REGISTRY (`irreversible: true`), surfaced
+  as IRREVERSIBLE_TOOLS; be confident of args before calling one (the agent is
+  told to ask_user if unsure).
 
 ## API contracts
-POST /ingest        { session_id, image (base64), voice_text, timestamp }
-GET  /history       returns last 50 actions
-GET  /memory        returns learned user preferences as key/value
-DELETE /memory/:key removes one memory entry
-GET  /health        returns { status: "ok", latency_ms }
-WS   /ws            real-time event stream
+POST /ingest               { session_id, image (base64), voice_text }
+GET  /history              returns last 50 actions
+GET  /memory               returns learned user preferences as key/value
+DELETE /memory/:key        removes one memory entry
+GET  /connect/status       { connected: [service, …] } for the signed-in account
+POST /connect/cookies/sync  Chrome extension → inject cookies into Browserbase ctx
+GET  /health               returns { status: "ok" }
+WS   /ws                   real-time event stream (broadcast-only to clients)
 
-## Tool families (backend/tools.py, registered in TOOL_REGISTRY)
-All tools return the contract { status, message, title, tool, data, elapsed_ms }.
-Two optional fields are also returned and broadcast over WebSocket:
-- speak: string — short 1-2 sentence spoken summary (TTS on iOS); empty for
-  action-only tools (set_volume, create_folder, open_url, etc.).
-- summary: string — longer formatted display text, only for content tools
-  (calendar.read_*, reminders.read_list, contacts.find, system.get_battery,
-  web.research, screen.capture_and_describe). Drives the iOS summary sheet and
-  the Mac dashboard expandable card.
-The ReAct agent (backend/agent.py) picks one of these tools per step.
-- content: notes.create_from_image, numbers.create_spreadsheet, numbers.add_expense
-- media: media.play_pause, media.next_track, media.previous_track, media.open_spotify, media.open_apple_music
-- comms: gmail.draft_email, gmail.read_inbox, gmail.read_email, gmail.reply_draft
-- browser: browser.open_url, browser.read_page, browser.fill_form
-- notes: notes.create_from_image, notes.append_to_note, notes.list_notes
-- numbers: numbers.create_spreadsheet, numbers.add_expense, numbers.read_sheet, numbers.edit_cell
-- system: system.set_volume, system.set_brightness, system.open_focus_settings, system.lock_screen, system.empty_trash, system.get_battery
-- finder: finder.open_file, finder.find_file, finder.move_file, finder.create_folder, finder.rename_file, finder.show_in_finder
-- clipboard: clipboard.copy_text
-- calendar: calendar.create_event, calendar.read_today, calendar.read_week, calendar.find_free_time
-- reminders: reminders.add_item, reminders.read_list, reminders.complete_item
-- contacts: contacts.find
-- screen: screen.capture (raw b64 for the agent's vision), screen.capture_and_describe, screen.capture_and_act (Groq vision)
-- web: web.search, web.fetch_page, web.research (research agent — searches, fetches, synthesizes with Groq, saves a Note)
-- ios (native, returns "ios_action" + url for the phone to open): ios.create_reminder, ios.create_note, ios.open_maps, ios.send_message_draft
+## Tool families (backend/tools.py TOOL_REGISTRY — metadata, not callables)
+Each registry entry is { runs_on, irreversible, requires_service }. `runs_on` is
+one of "google_api" | "cloud_browser" | "ios_native". Tools return the contract
+{ status, message, title, tool, data, elapsed_ms } plus optional:
+- speak: short 1-2 sentence spoken summary (TTS on iOS); empty for action-only tools.
+- summary: longer formatted display text for content tools (sheets.read_sheet,
+  calendar.read_today, gmail.read_inbox, people.search_contacts, drive.search_files,
+  web.research). Drives the iOS summary sheet.
+The ReAct agent (backend/agent.py) picks one tool per step and routes by runs_on.
+
+- google_api (backend/google_tools.py — needs Google connected):
+  docs.create_document, docs.append_text, sheets.create_spreadsheet, sheets.add_row
+  (set args.expense=true to use the remembered expense sheet), sheets.read_sheet,
+  sheets.edit_cell, gmail.draft_email, gmail.send_email (IRREVERSIBLE), gmail.read_inbox,
+  calendar.create_event, calendar.read_today, tasks.create_task, tasks.complete_task,
+  people.search_contacts, drive.search_files, drive.move_file
+- cloud_browser (backend/browser_tools.py — Browserbase, signed in via synced cookies):
+  browser.open_url, browser.read_page, browser.click, browser.fill_form,
+  browser.screenshot, media.open_spotify, media.play_pause, notion.create_page,
+  notion.append_to_page, linkedin.post_update, slack.send_message, airtable.add_record
+- web (backend/tools.py — keyless HTTP, no auth/browser): web.search, web.fetch_page,
+  web.research (searches, synthesizes with Groq, saves a Google Doc if connected)
+- ios_native (backend/tools.py — returns "ios_action" + url for the phone to open):
+  ios.create_reminder, ios.create_note, ios.open_maps, ios.send_message_draft
 
 ## ReAct agent (backend/agent.py, agent_prompt.py)
-/ingest no longer plans-then-runs; it runs a deep ReAct loop on Groq
-(llama-4-scout): THINK -> ACT (one tool) -> OBSERVE the real result -> repeat,
-until the agent emits `finish` or hits AGENT_MAX_STEPS (default 20). The model
-returns one JSON action per turn: tool_call | capture_screen (it sees the Mac
-screen to verify reality) | ask_user (pauses; resumed via the next /ingest on the
-same session_id, or POST /agent/reply) | finish. The agent emits new agent_*
-events AND backward-compatible step_started/step_executed/workflow_complete so the
-current iOS/Mac apps keep working. routes.active_agents holds paused sessions.
-Conversation transcript + datetime normalization live in agent.py.
+/ingest runs a deep ReAct loop on Groq (llama-4-scout): THINK -> ACT (one tool) ->
+OBSERVE the real result -> repeat, until the agent emits `finish` or hits
+AGENT_MAX_STEPS (default 20). One JSON action per turn: tool_call | ask_user
+(pauses; resumed via the next /ingest on the same session_id, or POST /agent/reply)
+| finish. There is no capture_screen action — the only visual check is the
+browser.screenshot tool (its image is fed back into the loop). The agent emits
+agent_* events AND backward-compatible step_started/step_executed/workflow_complete
+so the iOS app keeps working. routes.active_agents holds paused sessions.
 
-## Mac agent split (backend/mac_bridge.py, mac_agent.py, websocket.py)
-Railway can't run osascript/pmset/local-file tools. agent.py routes each step:
-CLOUD_TOOLS (ios.*, web.search, web.fetch_page) run on Railway; everything else
-goes to the Mac agent via mac_bridge.run_on_mac. Flow: it broadcasts
-`execute_on_mac` {action_id, tool, args} and awaits a Future (30s timeout); the
-Mac agent (a "mac" WS client that sent {event:"register", role:"mac"}) runs
-tools.execute() locally and replies `mac_result` {action_id, result}, which
-resolves the Future. If no agent is connected, the step returns "Mac agent not
-connected." GET /mac/status reports connection. Run the agent with
-run_mac_agent.sh (or the Mac app auto-starts it via MacAgentController and shows
-"Mac Agent: Connected/Offline" in the popover). Agent backend URL: $LUMIS_BACKEND_URL.
+## Cloud execution split (backend/agent.py, tools.py, google_tools.py, browser_tools.py)
+Before running a tool the agent gates on the account it needs (TOOL_REGISTRY
+requires_service): "google" is satisfied by google_oauth.has_google(user_id);
+other services (spotify/notion/…) by connections.get_connected_services(user_id).
+If missing, the agent emits a `service_required` event {service, message, speak}
+and the iOS app tells the user which account to connect. Otherwise it dispatches:
+- runs_on google_api    -> google_tools.execute_google_tool(tool, args, user_id)
+- runs_on cloud_browser -> browser_tools.execute_browser_tool(tool, args, user_id)
+  (web.* delegated to tools.execute_cloud_tool; no browser/auth needed)
+- runs_on ios_native    -> tools.execute_ios_tool(tool, args, user_id)
+
+## Account connections (backend/connections.py, cloud_browser.py, google_oauth.py)
+The Chrome extension signs into the user's Lumis account (reusing /auth/*), then
+syncs each service's logged-in cookies to POST /connect/cookies/sync, which injects
+them into the user's persistent Browserbase context (cloud_browser.py). connections
+stores the per-user context id + connected-services set. Google REST tools need
+OAuth tokens (google_oauth.py), which cookies do NOT provide — until a Google OAuth
+consent flow populates that store, Google tools return a clean "connect Google"
+error. Config: BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, GOOGLE_OAUTH_CLIENT_ID,
+GOOGLE_OAUTH_CLIENT_SECRET.
 
 ## Memory (backend/memory.py)
-Learns deterministic prefs from successful actions: expense_file, music_service,
-last_email_recipient, default_browser, preferred_calendar, preferred_reminder_list,
-frequent_contacts, home_folder, command_patterns. memory.get_context_block()
-renders all of it as a natural-language paragraph injected into the agent's
-first message every run.
+Learns deterministic prefs from successful actions (e.g. expense_sheet_id,
+last_email_recipient, frequent_contacts, command_patterns). memory.get_context_block()
+renders all of it as a natural-language paragraph injected into the agent's first
+message every run. Set a pref with memory.set_pref(key, value).
 
 ## Conversation history (backend/agent.py)
 Per-session rolling transcript (last 10 turns, last 5 injected as a RECENT
@@ -108,6 +118,6 @@ this transcript (not the live loop context) carries cross-command memory.
 
 ## Key patterns
 - Backend broadcasts all events over WebSocket — frontends never poll
-- All tools return { status: "success"|"error", message: string, data?: any }
-- Backend URL stored in UserDefaults key: lumis.backendURL, defaults to http://localhost:8000
-- Session IDs prefixed by client type: "ios-", "web-", "mac-"
+- All tools return { status: "success"|"error"|"ios_action", message, data?, … }
+- Backend URL: LumisConfig.backendURL (iOS); auth token in the Keychain
+- Session IDs prefixed by client type: "ios-", "web-"

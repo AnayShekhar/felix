@@ -2,10 +2,14 @@ fastapi
 uvicorn[standard]
 # Groq is the ONLY AI provider (Fix 6/9) — no google-generativeai/Gemini.
 groq
-# google-auth verifies Google ID tokens for "Sign in with Google" (auth.py).
-# It is NOT an AI dependency. (Google Slides/Drive were removed, so
-# google-api-python-client and google-auth-oauthlib are no longer needed.)
+# google-auth verifies Google ID tokens for "Sign in with Google" (auth.py) and
+# authenticates the Google-API tool layer (google_tools.py). NOT an AI provider.
 google-auth
+# Google REST API tools (Docs, Sheets, Gmail, Calendar, Tasks, People, Drive)
+# that replaced the AppleScript Mac tools. google-auth-oauthlib supports the
+# per-user OAuth token flow in google_oauth.py.
+google-api-python-client
+google-auth-oauthlib
 python-dotenv
 websockets
 # Natural-language date parsing for calendar/reminder tools ("tomorrow at 3pm"
@@ -14,10 +18,7 @@ dateparser
 # Web research agent (Phase 6): fetch + clean HTML pages.
 requests
 beautifulsoup4
-# Browser automation on the Mac agent — replaces AppleScript Chrome control, so
-# no "Allow JavaScript from Apple Events" toggle is ever needed. Mac-agent only;
-# run `python -m playwright install chromium` once after install (the Mac app
-# does this automatically on first launch).
+# Playwright drives the Browserbase cloud browser over CDP (browser_tools.py).
 playwright>=1.40.0
 # Browserbase cloud browser — persists per-user logged-in contexts so cookies
 # synced from the Chrome extension (chrome-extension/) make future cloud-browser
