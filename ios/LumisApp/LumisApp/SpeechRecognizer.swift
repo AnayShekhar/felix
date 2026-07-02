@@ -74,7 +74,7 @@ final class SpeechRecognizer: ObservableObject {
     func startListening() {
         guard engine.isRunning == false else { return }
         do {
-            // The shared AVAudioSession is configured ONCE at app launch in
+            // The shared AVAudioSession is configured ONCE at ap p launch in
             // LumisApp.configureAudioSession() and never deactivated — that's the
             // Part 2 lag fix. Do NOT set the category/active state here.
 
