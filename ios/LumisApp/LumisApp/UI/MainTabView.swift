@@ -6,7 +6,6 @@ import SwiftUI
 /// full-screen Settings sheet reached from the sidebar's initials button.
 struct MainTabView: View {
     @EnvironmentObject private var vm: LumisViewModel
-    @EnvironmentObject private var macVM: MacConnectionViewModel
     @EnvironmentObject private var authVM: AuthViewModel
 
     @State private var sidebarOpen = false
@@ -58,15 +57,12 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $showSettings, onDismiss: { Task { await loadRecent() } }) {
             SettingsView(onClose: { showSettings = false })
                 .environmentObject(authVM)
-                .environmentObject(macVM)
                 .environmentObject(vm)
         }
         .onAppear {
             vm.start()
-            macVM.startPolling()
             Task { await loadRecent() }
         }
-        .onDisappear { macVM.stopPolling() }
     }
 
     private func openSidebar() {

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var authVM: AuthViewModel
-    @EnvironmentObject private var macVM: MacConnectionViewModel
     @EnvironmentObject private var lumisVM: LumisViewModel
 
     /// When presented as the full-screen sheet from the sidebar, this provides
@@ -12,14 +11,13 @@ struct SettingsView: View {
     // Persisted preferences (only ones wired to real behavior).
     @AppStorage("lumis.pref.wakeWord") private var wakeWord = true
 
-    @State private var showCodeEntry = false
     @State private var showSignOut = false
     @State private var route: SettingsRoute?
 
     @StateObject private var servicesVM = ConnectedServicesViewModel()
     @State private var showExtensionInstructions = false
 
-    enum SettingsRoute: Hashable { case macDetail, changeEmail, changePassword, deleteAccount, editProfile }
+    enum SettingsRoute: Hashable { case changeEmail, changePassword, deleteAccount, editProfile }
 
     var body: some View {
         NavigationStack {
@@ -29,7 +27,6 @@ struct SettingsView: View {
                     VStack(spacing: 24) {
                         profileCard
                         connectedServicesSection
-                        macSection
                         voiceSection
                         MemorySection()
                         accountSection
@@ -56,15 +53,11 @@ struct SettingsView: View {
             }
             .navigationDestination(item: $route) { dest in
                 switch dest {
-                case .macDetail:       MacDetailView()
                 case .changeEmail:     ChangeEmailSheet()
                 case .changePassword:  ChangePasswordSheet()
                 case .deleteAccount:   DeleteAccountView()
                 case .editProfile:     EditProfileView()
                 }
-            }
-            .sheet(isPresented: $showCodeEntry) {
-                MacCodeEntryView().environmentObject(macVM)
             }
             .sheet(isPresented: $showExtensionInstructions) {
                 ExtensionInstructionsView()
@@ -149,37 +142,6 @@ struct SettingsView: View {
                 .padding(.top, 4)
             } else {
                 ConnectServicesEmptyState(onGetStarted: { showExtensionInstructions = true })
-            }
-        }
-    }
-
-    // MARK: - Mac
-
-    private var macSection: some View {
-        SettingsSection("Mac Connection") {
-            switch macVM.connectionState {
-            case .unlinked, .linking:
-                SettingsRow(icon: "laptopcomputer", title: "Connect your Mac") {
-                    Button("Connect") { showCodeEntry = true }
-                        .font(LumisTypography.captionMedium)
-                        .foregroundStyle(LumisColors.carbonBlack)
-                        .padding(.horizontal, 14).padding(.vertical, 7)
-                        .background(LumisColors.powderBlue, in: Capsule())
-                }
-            case .linkedOnline, .linkedOffline:
-                Button { route = .macDetail } label: {
-                    SettingsRow(icon: "laptopcomputer", title: macVM.macName ?? "Mac") {
-                        HStack(spacing: 6) {
-                            Circle().fill(macVM.connectionState == .linkedOnline ? LumisColors.success : LumisColors.amber)
-                                .frame(width: 8, height: 8)
-                            Text(macVM.connectionState == .linkedOnline ? "Connected" : "Offline")
-                                .font(LumisTypography.bodySmall)
-                                .foregroundStyle(macVM.connectionState == .linkedOnline ? LumisColors.powderBlue : LumisColors.amber)
-                            Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(LumisColors.textTertiary)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
             }
         }
     }
