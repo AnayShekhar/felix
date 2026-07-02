@@ -159,9 +159,11 @@ def sheets_read_sheet(args: dict, user_id: str) -> dict:
     resp = svc.spreadsheets().values().get(spreadsheetId=ss_id, range=rng).execute()
     rows = resp.get("values", [])
     summary = "\n".join(" | ".join(str(c) for c in r) for r in rows[:30])
+    url = f"https://docs.google.com/spreadsheets/d/{ss_id}"
     return {"tool": "sheets.read_sheet", "status": "success",
             "title": "Spreadsheet", "message": f"Read {len(rows)} row(s).",
-            "summary": summary, "data": {"spreadsheet_id": ss_id, "rows": rows}}
+            "summary": summary, "url": url,
+            "data": {"spreadsheet_id": ss_id, "rows": rows, "url": url}}
 
 
 def sheets_edit_cell(args: dict, user_id: str) -> dict:
@@ -176,9 +178,10 @@ def sheets_edit_cell(args: dict, user_id: str) -> dict:
         spreadsheetId=ss_id, range=cell, valueInputOption="USER_ENTERED",
         body={"values": [[value]]},
     ).execute()
+    url = f"https://docs.google.com/spreadsheets/d/{ss_id}"
     return {"tool": "sheets.edit_cell", "status": "success", "title": "Cell updated",
             "message": f"Set {cell} = {value}.", "speak": "Updated that cell.",
-            "data": {"spreadsheet_id": ss_id, "cell": cell}}
+            "url": url, "data": {"spreadsheet_id": ss_id, "cell": cell, "url": url}}
 
 
 # --------------------------------------------------------------------------- #
@@ -198,9 +201,10 @@ def gmail_draft_email(args: dict, user_id: str) -> dict:
     svc = _service(user_id, "gmail", "v1")
     draft = svc.users().drafts().create(
         userId="me", body={"message": {"raw": _gmail_raw(to, subject, body)}}).execute()
+    url = "https://mail.google.com/mail/u/0/#drafts"
     return {"tool": "gmail.draft_email", "status": "success", "title": "Draft saved",
             "message": f"Saved a draft to {to}.", "speak": "I saved that draft.",
-            "data": {"draft_id": draft.get("id"), "to": to}}
+            "url": url, "data": {"draft_id": draft.get("id"), "to": to, "url": url}}
 
 
 def gmail_send_email(args: dict, user_id: str) -> dict:
@@ -210,9 +214,10 @@ def gmail_send_email(args: dict, user_id: str) -> dict:
     svc = _service(user_id, "gmail", "v1")
     sent = svc.users().messages().send(
         userId="me", body={"raw": _gmail_raw(to, subject, body)}).execute()
+    url = "https://mail.google.com/mail/u/0/#sent"
     return {"tool": "gmail.send_email", "status": "success", "title": "Email sent",
             "message": f"Sent email to {to}.", "speak": f"Sent that email to {to}.",
-            "data": {"message_id": sent.get("id"), "to": to}}
+            "url": url, "data": {"message_id": sent.get("id"), "to": to, "url": url}}
 
 
 def gmail_read_inbox(args: dict, user_id: str) -> dict:
@@ -229,9 +234,10 @@ def gmail_read_inbox(args: dict, user_id: str) -> dict:
         items.append({"from": headers.get("From", ""), "subject": headers.get("Subject", ""),
                       "snippet": full.get("snippet", "")})
     summary = "\n".join(f"• {i['subject']} — {i['from']}" for i in items)
+    url = "https://mail.google.com/mail/u/0/#inbox"
     return {"tool": "gmail.read_inbox", "status": "success", "title": "Inbox",
             "message": f"Read {len(items)} email(s).", "summary": summary,
-            "data": {"emails": items}}
+            "url": url, "data": {"emails": items, "url": url}}
 
 
 # --------------------------------------------------------------------------- #
@@ -271,9 +277,10 @@ def calendar_read_today(args: dict, user_id: str) -> dict:
     events = resp.get("items", [])
     lines = [f"• {e.get('summary', '(no title)')} — {e.get('start', {}).get('dateTime', '')}"
              for e in events]
+    url = "https://calendar.google.com/calendar/u/0/r/day"
     return {"tool": "calendar.read_today", "status": "success", "title": "Today",
             "message": f"{len(events)} event(s) today.", "summary": "\n".join(lines),
-            "data": {"events": events}}
+            "url": url, "data": {"events": events, "url": url}}
 
 
 # --------------------------------------------------------------------------- #
@@ -296,9 +303,10 @@ def tasks_create_task(args: dict, user_id: str) -> dict:
         body["notes"] = str(args["notes"])
     svc = _service(user_id, "tasks", "v1")
     task = svc.tasks().insert(tasklist="@default", body=body).execute()
+    url = "https://tasks.google.com/embed/"
     return {"tool": "tasks.create_task", "status": "success", "title": "Task added",
             "message": f"Added task '{title}'.", "speak": f"Added {title} to your tasks.",
-            "data": {"task_id": task.get("id"), "title": title}}
+            "url": url, "data": {"task_id": task.get("id"), "title": title, "url": url}}
 
 
 def tasks_complete_task(args: dict, user_id: str) -> dict:
@@ -312,9 +320,10 @@ def tasks_complete_task(args: dict, user_id: str) -> dict:
                 "message": f"No task matching '{title}'.", "data": {}}
     svc.tasks().patch(tasklist="@default", task=match["id"],
                       body={"status": "completed"}).execute()
+    url = "https://tasks.google.com/embed/"
     return {"tool": "tasks.complete_task", "status": "success", "title": "Task completed",
             "message": f"Completed '{match.get('title')}'.", "speak": "Marked that done.",
-            "data": {"task_id": match["id"]}}
+            "url": url, "data": {"task_id": match["id"], "url": url}}
 
 
 # --------------------------------------------------------------------------- #
@@ -337,9 +346,10 @@ def people_search_contacts(args: dict, user_id: str) -> dict:
             "phone": (p.get("phoneNumbers") or [{}])[0].get("value", ""),
         })
     summary = "\n".join(f"{m['name']} — {m['email']}" for m in matches)
+    url = "https://contacts.google.com/"
     return {"tool": "people.search_contacts", "status": "success", "title": "Contacts",
             "message": f"Found {len(matches)} contact(s).", "summary": summary,
-            "data": {"contacts": matches}}
+            "url": url, "data": {"contacts": matches, "url": url}}
 
 
 # --------------------------------------------------------------------------- #
@@ -353,9 +363,13 @@ def drive_search_files(args: dict, user_id: str) -> dict:
                             fields="files(id,name,webViewLink,mimeType)").execute()
     files = resp.get("files", [])
     summary = "\n".join(f"• {f['name']}" for f in files)
+    # Link straight to the top match when there is one, else the Drive search.
+    url = (files[0].get("webViewLink") if files else None) or (
+        f"https://drive.google.com/drive/search?q={query}" if query
+        else "https://drive.google.com/drive/my-drive")
     return {"tool": "drive.search_files", "status": "success", "title": "Drive",
             "message": f"Found {len(files)} file(s).", "summary": summary,
-            "data": {"files": files}}
+            "url": url, "data": {"files": files, "url": url}}
 
 
 def drive_move_file(args: dict, user_id: str) -> dict:
@@ -369,9 +383,10 @@ def drive_move_file(args: dict, user_id: str) -> dict:
     svc.files().update(fileId=file_id, addParents=folder_id,
                        removeParents=",".join(prev.get("parents", [])),
                        fields="id,parents").execute()
+    url = f"https://drive.google.com/drive/folders/{folder_id}"
     return {"tool": "drive.move_file", "status": "success", "title": "File moved",
             "message": "Moved that file.", "speak": "Moved it.",
-            "data": {"file_id": file_id, "folder_id": folder_id}}
+            "url": url, "data": {"file_id": file_id, "folder_id": folder_id, "url": url}}
 
 
 # --------------------------------------------------------------------------- #

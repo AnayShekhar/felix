@@ -16,6 +16,9 @@ struct SettingsView: View {
 
     @StateObject private var servicesVM = ConnectedServicesViewModel()
     @State private var showExtensionInstructions = false
+    /// Per-service cookie-sync check result, keyed by service id.
+    @State private var verifyMessages: [String: String] = [:]
+    @State private var verifyingID: String?
 
     enum SettingsRoute: Hashable { case changeEmail, changePassword, deleteAccount, editProfile }
 
@@ -106,27 +109,45 @@ struct SettingsView: View {
         SettingsSection("Connected Services") {
             if servicesVM.hasAnyConnection {
                 ForEach(SUPPORTED_SERVICES) { service in
-                    HStack {
-                        Image(systemName: service.icon)
-                            .foregroundColor(LumisColors.carbonBlack.opacity(0.6))
-                            .frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(service.displayName)
-                                .font(LumisTypography.bodyMedium)
-                                .foregroundColor(LumisColors.carbonBlack)
-                            Text(service.description)
-                                .font(LumisTypography.caption)
-                                .foregroundColor(LumisColors.carbonBlack.opacity(0.5))
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Image(systemName: service.icon)
+                                .foregroundColor(LumisColors.carbonBlack.opacity(0.6))
+                                .frame(width: 28)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(service.displayName)
+                                    .font(LumisTypography.bodyMedium)
+                                    .foregroundColor(LumisColors.carbonBlack)
+                                Text(service.description)
+                                    .font(LumisTypography.caption)
+                                    .foregroundColor(LumisColors.carbonBlack.opacity(0.5))
+                            }
+                            Spacer()
+                            if servicesVM.isConnected(service.id) {
+                                Label("Connected", systemImage: "checkmark.circle.fill")
+                                    .font(LumisTypography.caption)
+                                    .foregroundColor(LumisColors.success)
+                            } else {
+                                Text("Not connected")
+                                    .font(LumisTypography.caption)
+                                    .foregroundColor(LumisColors.carbonBlack.opacity(0.3))
+                            }
                         }
-                        Spacer()
                         if servicesVM.isConnected(service.id) {
-                            Label("Connected", systemImage: "checkmark.circle.fill")
+                            HStack(spacing: 8) {
+                                Button(verifyingID == service.id ? "Checking…" : "Verify") {
+                                    Task { await verify(service.id) }
+                                }
                                 .font(LumisTypography.caption)
-                                .foregroundColor(LumisColors.success)
-                        } else {
-                            Text("Not connected")
-                                .font(LumisTypography.caption)
-                                .foregroundColor(LumisColors.carbonBlack.opacity(0.3))
+                                .foregroundColor(LumisColors.carbonBlack.opacity(0.45))
+                                .disabled(verifyingID == service.id)
+                                if let msg = verifyMessages[service.id] {
+                                    Text(msg)
+                                        .font(LumisTypography.caption)
+                                        .foregroundColor(LumisColors.carbonBlack.opacity(0.45))
+                                }
+                            }
+                            .padding(.leading, 28)
                         }
                     }
                     .padding(.vertical, 8)
@@ -216,6 +237,43 @@ struct SettingsView: View {
                 Image(systemName: "chevron.right").font(.system(size: 13)).foregroundStyle(LumisColors.textTertiary)
             }
         }.buttonStyle(.plain)
+    }
+
+    // MARK: - Cookie-sync verification
+
+    /// Ask the backend whether the Browserbase context actually has cookies for
+    /// this service, so the user can confirm the extension sync really worked.
+    private func verify(_ serviceID: String) async {
+        verifyingID = serviceID
+        defer { verifyingID = nil }
+        do {
+            let result = try await LumisAPI.request(
+                "/connect/verify/\(serviceID)",
+                token: KeychainManager.token,
+                as: VerifyResponse.self
+            )
+            verifyMessages[serviceID] = result.likelySynced
+                ? "✓ \(result.cookieCount) cookies found — should work"
+                : "⚠ No cookies — try reconnecting in the extension"
+        } catch {
+            verifyMessages[serviceID] = "Couldn't check right now"
+        }
+    }
+}
+
+/// Response of `GET /connect/verify/{service}` — cookie NAMES only, never values.
+struct VerifyResponse: Codable {
+    let service: String
+    let domain: String
+    let cookieCount: Int
+    let cookieNames: [String]
+    let likelySynced: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case service, domain
+        case cookieCount = "cookie_count"
+        case cookieNames = "cookie_names"
+        case likelySynced = "likely_synced"
     }
 }
 

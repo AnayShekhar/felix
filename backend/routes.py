@@ -222,6 +222,46 @@ async def sync_cookies(request: CookieSyncRequest, user: dict = Depends(current_
     return {"success": True, "service": request.service}
 
 
+# Domains whose cookies indicate a service is actually signed in.
+_SERVICE_DOMAINS = {
+    "gmail": "google.com",
+    "sheets": "google.com",
+    "notion": "notion.so",
+    "linkedin": "linkedin.com",
+    "slack": "slack.com",
+    "airtable": "airtable.com",
+    "spotify": "spotify.com",
+}
+
+
+@router.get("/connect/verify/{service}")
+async def verify_service_cookies(service: str, user: dict = Depends(current_user)):
+    """Check whether the user's Browserbase context actually has cookies for a
+    service's domain. Returns cookie NAMES only — never values."""
+    import browser_tools
+    from cloud_browser import CloudBrowserNotConfigured
+
+    domain = _SERVICE_DOMAINS.get(service, service)
+    try:
+        async with browser_tools.cloud_page(user["id"]) as page:
+            cookies = await page.context.cookies()
+    except CloudBrowserNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Cookie verify failed for user %s", user["id"])
+        raise HTTPException(status_code=502, detail=f"Verify failed: {exc}")
+
+    matching = [c for c in cookies if domain in c.get("domain", "")]
+    cookie_names = [c.get("name", "") for c in matching]
+    return {
+        "service": service,
+        "domain": domain,
+        "cookie_count": len(matching),
+        "cookie_names": cookie_names,  # names only — never expose values
+        "likely_synced": len(matching) > 0,
+    }
+
+
 @router.get("/health")
 async def health():
     return {"status": "ok"}

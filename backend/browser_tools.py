@@ -50,6 +50,89 @@ async def cloud_page(user_id: str):
 
 
 # --------------------------------------------------------------------------- #
+# General-purpose reliability helpers
+#
+# Every interactive browser tool goes through these so behaviour is consistent
+# on ANY site under real network conditions — not just the happy path. They wait
+# for the page/element to be genuinely ready, try several locator strategies, and
+# never raise (callers decide what a failure means).
+# --------------------------------------------------------------------------- #
+async def reliable_goto(page, url: str, timeout: int = 20000) -> None:
+    """Navigate and wait for the page to be meaningfully interactive, not just loaded."""
+    await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+    with contextlib.suppress(Exception):
+        # Some sites (YouTube, infinite-scroll pages) never go fully idle — fine.
+        await page.wait_for_load_state("networkidle", timeout=5000)
+    await page.wait_for_timeout(500)  # let any final JS-driven layout settle
+
+
+async def reliable_click(page, selector: Optional[str] = None,
+                         text: Optional[str] = None, timeout: int = 10000) -> bool:
+    """Click via fallback strategies (CSS → text → role → label); never raises.
+
+    Returns True if a click succeeded, False otherwise.
+    """
+    strategies = []
+    if selector:
+        strategies.append(lambda: page.locator(selector).first)
+    if text:
+        strategies.append(lambda: page.get_by_text(text, exact=False).first)
+        strategies.append(lambda: page.get_by_role("button", name=text).first)
+        strategies.append(lambda: page.get_by_role("link", name=text).first)
+        strategies.append(lambda: page.get_by_label(text).first)
+    if not strategies:
+        return False
+
+    per_try = max(1500, int(timeout / len(strategies)))
+    for build_locator in strategies:
+        try:
+            locator = build_locator()
+            await locator.wait_for(state="visible", timeout=per_try)
+            await locator.scroll_into_view_if_needed()
+            await locator.click(timeout=3000)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+async def reliable_fill(page, selector_or_label: str, value: str,
+                        timeout: int = 5000) -> bool:
+    """Fill a field trying selector → placeholder → label → name attribute; never raises."""
+    if not selector_or_label:
+        return False
+    attempts = [
+        lambda: page.locator(selector_or_label).first,
+        lambda: page.get_by_placeholder(selector_or_label).first,
+        lambda: page.get_by_label(selector_or_label).first,
+        lambda: page.locator(f'[name="{selector_or_label}"]').first,
+    ]
+    for build_locator in attempts:
+        try:
+            locator = build_locator()
+            await locator.wait_for(state="visible", timeout=timeout)
+            await locator.fill(str(value), timeout=timeout)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+async def verify_with_screenshot(page) -> Optional[str]:
+    """Base64 PNG of the current page so the agent can visually confirm the result.
+
+    agent.py feeds any `image_b64` in a tool result back into the loop as a vision
+    message, so the model can catch a click that "succeeded" but did the wrong thing.
+    """
+    import base64
+    try:
+        png = await page.screenshot(type="png")
+        return base64.b64encode(png).decode()
+    except Exception:  # noqa: BLE001 - a missing screenshot must never fail the tool
+        return None
+
+
+# --------------------------------------------------------------------------- #
 # Generic browser tools
 # --------------------------------------------------------------------------- #
 async def browser_open_url(args: dict, user_id: str) -> dict:
@@ -60,10 +143,10 @@ async def browser_open_url(args: dict, user_id: str) -> dict:
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
     async with cloud_page(user_id) as page:
-        await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        await reliable_goto(page, url)
         title = await page.title()
         return {"tool": "browser.open_url", "status": "success", "title": title,
-                "message": f"Opened {url}.", "url": page.url,
+                "message": f"Opened {title or url}.", "url": page.url,
                 "speak": "Opened that page.", "data": {"url": page.url, "title": title}}
 
 
@@ -73,7 +156,7 @@ async def browser_read_page(args: dict, user_id: str) -> dict:
         if url:
             if not url.startswith(("http://", "https://")):
                 url = "https://" + url
-            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            await reliable_goto(page, url)
         text = (await page.inner_text("body"))[:3000]
         links = await page.eval_on_selector_all(
             "a[href]",
@@ -91,35 +174,60 @@ async def browser_read_page(args: dict, user_id: str) -> dict:
 async def browser_click(args: dict, user_id: str) -> dict:
     text = str(args.get("text") or "").strip()
     selector = str(args.get("selector") or "").strip()
+    if not text and not selector:
+        return {"tool": "browser.click", "status": "error",
+                "message": "browser.click requires 'text' or 'selector'.", "data": {}}
     async with cloud_page(user_id) as page:
-        if selector:
-            await page.click(selector, timeout=15000)
-        elif text:
-            await page.get_by_text(text, exact=False).first.click(timeout=15000)
-        else:
+        success = await reliable_click(page, selector=selector or None, text=text or None)
+        if not success:
             return {"tool": "browser.click", "status": "error",
-                    "message": "browser.click requires 'text' or 'selector'.", "data": {}}
-        await page.wait_for_timeout(1000)
+                    "message": f"Couldn't find or click {selector or repr(text)}.",
+                    "url": page.url,
+                    "image_b64": await verify_with_screenshot(page),
+                    "data": {"url": page.url}}
+        await page.wait_for_timeout(800)  # let the click's effect (nav/popup) settle
         return {"tool": "browser.click", "status": "success", "title": "Clicked",
                 "message": f"Clicked {selector or text}.", "url": page.url,
+                "image_b64": await verify_with_screenshot(page),
                 "data": {"url": page.url}}
 
 
+def _field_key(f: dict) -> str:
+    """Locator hint for a form field — selector wins, else label/name/placeholder."""
+    return str(f.get("selector") or f.get("label") or f.get("name")
+               or f.get("placeholder") or "").strip()
+
+
 async def browser_fill_form(args: dict, user_id: str) -> dict:
-    fields = args.get("fields") or []
+    raw = args.get("fields") or []
+    # Accept both a list of {selector/label, value} and a plain {key: value} dict.
+    if isinstance(raw, dict):
+        fields = [{"selector": k, "value": v} for k, v in raw.items()]
+    else:
+        fields = list(raw)
     submit = bool(args.get("submit"))
     async with cloud_page(user_id) as page:
+        filled, failed = [], []
         for f in fields:
-            sel = f.get("selector")
-            if sel:
-                await page.fill(sel, str(f.get("value", "")), timeout=15000)
-        if submit and fields:
+            key = _field_key(f)
+            ok = await reliable_fill(page, key, f.get("value", ""))
+            (filled if ok else failed).append(key or "(unnamed)")
+        if submit and filled:
             with contextlib.suppress(Exception):
-                await page.press(fields[-1]["selector"], "Enter")
-                await page.wait_for_timeout(1500)
-        return {"tool": "browser.fill_form", "status": "success", "title": "Form filled",
-                "message": f"Filled {len(fields)} field(s).", "url": page.url,
-                "data": {"url": page.url, "submitted": submit}}
+                await page.keyboard.press("Enter")
+                await page.wait_for_timeout(800)
+        return {
+            "tool": "browser.fill_form",
+            "status": "success" if filled else "error",
+            "title": "Form filled" if filled else "Couldn't fill form",
+            "message": (f"Filled: {', '.join(filled) or 'none'}. "
+                        f"Failed: {', '.join(failed) or 'none'}."),
+            "url": page.url,
+            "speak": "Done." if filled else "I couldn't find those fields on this page.",
+            "image_b64": await verify_with_screenshot(page),
+            "data": {"url": page.url, "submitted": submit,
+                     "filled": filled, "failed": failed},
+        }
 
 
 async def browser_screenshot(args: dict, user_id: str) -> dict:
@@ -157,7 +265,8 @@ async def media_play_pause(args: dict, user_id: str) -> dict:
         with contextlib.suppress(Exception):
             await page.locator('[data-testid="control-button-playpause"]').first.click(timeout=8000)
         return {"tool": "media.play_pause", "status": "success", "title": "Spotify",
-                "message": "Toggled playback.", "data": {"url": page.url}}
+                "message": "Toggled playback.", "url": page.url,
+                "data": {"url": page.url}}
 
 
 async def _create_via_new_page(user_id: str, tool: str, url: str, service: str,

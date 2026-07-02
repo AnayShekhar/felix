@@ -8,6 +8,8 @@ struct LumisResultCard: View {
     var onOpen: (() -> Void)?
 
     @State private var dragOffset: CGFloat = 0
+    /// Show the "opens in your own browser" hint only until the user has seen it once.
+    @AppStorage("lumis.hasSeenOpenHint") private var hasSeenOpenHint = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -33,11 +35,19 @@ struct LumisResultCard: View {
             Spacer(minLength: 4)
 
             if result.deeplink != nil, let onOpen {
-                Button("Open", action: onOpen)
-                    .font(LumisTypography.captionMedium)
-                    .foregroundStyle(LumisColors.carbonBlack)
-                    .padding(.horizontal, 14).padding(.vertical, 8)
-                    .background(LumisColors.powderBlueMid, in: Capsule())
+                VStack(alignment: .trailing, spacing: 3) {
+                    Button("Open", action: onOpen)
+                        .font(LumisTypography.captionMedium)
+                        .foregroundStyle(LumisColors.carbonBlack)
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(LumisColors.powderBlueMid, in: Capsule())
+                    if !hasSeenOpenHint {
+                        Text("Opens in your own browser")
+                            .font(LumisTypography.caption)
+                            .foregroundStyle(LumisColors.carbonBlack.opacity(0.4))
+                            .onAppear { hasSeenOpenHint = true }
+                    }
+                }
             }
             Button {
                 onDismiss()
