@@ -9,6 +9,8 @@ final class WebSocketClient: ObservableObject {
     @Published var connected = false
     @Published var working = false
     @Published var activeTask: TaskState?   // live background task (Phase 5)
+    // Set when the agent asks for an account the user hasn't connected yet.
+    @Published var requiredService: String?
 
     // Lumis speaks results aloud when enabled (Fix 7). Default on; persisted.
     @Published var voiceEnabled: Bool =
@@ -91,6 +93,17 @@ final class WebSocketClient: ObservableObject {
                     openIOSAction(primary: d.url, fallback: d.fallback_url)
                 }
             }
+        case "service_required":
+            // The requested tool needs an account the user hasn't connected.
+            working = false
+            let service = env.service ?? ""
+            requiredService = service
+            let pretty = service.isEmpty ? "an account" : service.capitalized
+            let msg = env.message ?? "Connect \(pretty) in the Lumis browser extension to use that."
+            latest = StepResult(tool: "lumis.connect", status: "error", message: msg,
+                                title: "Connect \(pretty)", detail: nil, url: nil,
+                                speak: env.speak ?? msg, summary: nil)
+            speakIfEnabled(env.speak ?? msg)
         case "workflow_complete":
             working = false
             if let last = env.data?.steps?.last { latest = last }

@@ -4,7 +4,6 @@ import AVFoundation
 @main
 struct LumisApp: App {
     @StateObject private var authVM = AuthViewModel()
-    @StateObject private var macVM = MacConnectionViewModel()
     @StateObject private var lumisVM = LumisViewModel()
 
     init() {
@@ -34,7 +33,6 @@ struct LumisApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(authVM)
-                .environmentObject(macVM)
                 .environmentObject(lumisVM)
                 .preferredColorScheme(.light)   // Parchment theme is light-only
                 .onOpenURL { url in DeepLinkRouter.shared.handle(url) }

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import auth
 import connections
 import db
-import linking
+import google_oauth
 import tasks
 import websocket as ws_module
 from routes import router
@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 db.init_db()
 auth.init_auth()
 connections.init_connections()
-linking.init_linking()
+google_oauth.init_google_oauth()
 
 
 @asynccontextmanager
@@ -46,7 +46,6 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(auth.router)
-app.include_router(linking.router)
 
 
 @app.websocket("/ws")

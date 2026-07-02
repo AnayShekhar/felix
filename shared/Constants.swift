@@ -1,9 +1,7 @@
 import SwiftUI
 
-// Shared design + configuration constants for Lumis's macOS and iOS frontends.
-// This single file is referenced by BOTH the macOS app (macos-app/Lumis) and
-// the iOS app (ios/LumisApp) so the brand color and tool styling stay identical
-// across surfaces. Keep it free of platform-specific APIs so it compiles on both.
+// Shared design + configuration constants for the Lumis iOS app.
+// Keep it free of platform-specific APIs so it stays easy to reuse.
 
 enum LumisBrand {
     // MARK: Palette — the light "Parchment" theme shared with the iOS app.

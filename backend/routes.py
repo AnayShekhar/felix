@@ -177,20 +177,6 @@ async def forget_memory(key: str, user: dict = Depends(current_user)):
     return {"status": "success", "message": f"Forgot '{key}'.", "key": key}
 
 
-@router.get("/mac/status")
-async def mac_status():
-    """Whether a Mac agent (mac_agent.py) is currently connected.
-
-    The Mac agent executes all osascript/pmset/local-file tools that Railway
-    (Linux) cannot run. When `connected` is false, macOS-local tools fail with
-    a "Mac agent not connected" error.
-    """
-    return {
-        "connected": manager.mac_connected(),
-        "agents": len(manager.mac_clients),
-    }
-
-
 # --------------------------------------------------------------------------- #
 # Account connections (Chrome extension cookie sync)
 # --------------------------------------------------------------------------- #

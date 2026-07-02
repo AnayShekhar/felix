@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var vm: LumisViewModel
-    @EnvironmentObject private var macVM: MacConnectionViewModel
     @EnvironmentObject private var authVM: AuthViewModel
 
     /// Opens the sidebar (replaces the old top-left wordmark).
@@ -20,10 +19,6 @@ struct HomeView: View {
 
             VStack(spacing: 0) {
                 topBar
-                if macVM.connectionState == .linkedOffline {
-                    MacOfflineBanner { Task { await macVM.reconnect() } }
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
 
                 Spacer()
 
@@ -39,7 +34,7 @@ struct HomeView: View {
                     .accessibilityAddTraits(.isHeader)
 
                 AnimatedLumisMark(state: vm.lumisState, speech: vm.speech,
-                                  dimmed: macVM.connectionState == .linkedOffline)
+                                  dimmed: false)
 
                 TranscriptionText(state: vm.lumisState,
                                   transcript: vm.transcript,
@@ -67,7 +62,6 @@ struct HomeView: View {
                 Spacer()
             }
             .animation(.easeInOut(duration: 0.3), value: vm.lumisState)
-            .animation(.easeInOut(duration: 0.3), value: macVM.connectionState)
 
             // Result card slides up above the tab bar.
             if let result = vm.lastResult {
@@ -102,7 +96,7 @@ struct HomeView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Open menu")
             Spacer()
-            ConnectionStatusDot()
+            ConnectionStatusDot(ws: vm.ws)
         }
         .padding(.horizontal, 20)
         .padding(.top, 44)
@@ -127,26 +121,21 @@ private struct AnimatedLumisMark: View {
     }
 }
 
-/// Top-right connection status dot with popover.
+/// Top-right connection status dot with popover — reflects the live backend
+/// WebSocket connection (Lumis is a cloud service; there is no Mac to link).
 private struct ConnectionStatusDot: View {
-    @EnvironmentObject private var macVM: MacConnectionViewModel
+    @ObservedObject var ws: WebSocketClient
     @State private var showPopover = false
     @State private var pulse = false
 
-    private var color: Color {
-        switch macVM.connectionState {
-        case .linkedOnline: return LumisColors.powderBlue
-        case .linkedOffline: return LumisColors.amber
-        case .unlinked, .linking: return LumisColors.textTertiary
-        }
-    }
+    private var connected: Bool { ws.connected }
 
     var body: some View {
         Button { showPopover.toggle() } label: {
             Circle()
-                .fill(color)
+                .fill(connected ? LumisColors.powderBlue : LumisColors.textTertiary)
                 .frame(width: 10, height: 10)
-                .scaleEffect(pulse && macVM.connectionState == .linkedOnline ? 1.5 : 1)
+                .scaleEffect(pulse && connected ? 1.5 : 1)
                 .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulse)
         }
         .onAppear { pulse = true }
@@ -161,13 +150,7 @@ private struct ConnectionStatusDot: View {
     }
 
     private var statusText: String {
-        switch macVM.connectionState {
-        case .linkedOnline: return "Connected to \(macVM.macName ?? "your Mac")"
-        case .linkedOffline:
-            let seen = macVM.lastSeen.map { RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()) } ?? "a while ago"
-            return "Mac is offline — last seen \(seen)"
-        case .unlinked, .linking: return "No Mac linked — go to Settings to connect"
-        }
+        connected ? "Connected to Lumis" : "Connecting to Lumis…"
     }
 }
 

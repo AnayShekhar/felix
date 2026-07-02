@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var authVM: AuthViewModel
-    @EnvironmentObject private var macVM: MacConnectionViewModel
     @EnvironmentObject private var lumisVM: LumisViewModel
 
     /// When presented as the full-screen sheet from the sidebar, this provides
@@ -12,11 +11,13 @@ struct SettingsView: View {
     // Persisted preferences (only ones wired to real behavior).
     @AppStorage("lumis.pref.wakeWord") private var wakeWord = true
 
-    @State private var showCodeEntry = false
     @State private var showSignOut = false
     @State private var route: SettingsRoute?
 
-    enum SettingsRoute: Hashable { case macDetail, changeEmail, changePassword, deleteAccount, editProfile }
+    @StateObject private var servicesVM = ConnectedServicesViewModel()
+    @State private var showExtensionInstructions = false
+
+    enum SettingsRoute: Hashable { case changeEmail, changePassword, deleteAccount, editProfile }
 
     var body: some View {
         NavigationStack {
@@ -25,7 +26,7 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         profileCard
-                        macSection
+                        connectedServicesSection
                         voiceSection
                         MemorySection()
                         accountSection
@@ -35,6 +36,7 @@ struct SettingsView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 110)
                 }
+                .refreshable { await servicesVM.fetchStatus() }
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -51,16 +53,16 @@ struct SettingsView: View {
             }
             .navigationDestination(item: $route) { dest in
                 switch dest {
-                case .macDetail:       MacDetailView()
                 case .changeEmail:     ChangeEmailSheet()
                 case .changePassword:  ChangePasswordSheet()
                 case .deleteAccount:   DeleteAccountView()
                 case .editProfile:     EditProfileView()
                 }
             }
-            .sheet(isPresented: $showCodeEntry) {
-                MacCodeEntryView().environmentObject(macVM)
+            .sheet(isPresented: $showExtensionInstructions) {
+                ExtensionInstructionsView()
             }
+            .task { await servicesVM.fetchStatus() }
             .confirmationDialog("Sign out of Lumis?", isPresented: $showSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { authVM.logout() }
                 Button("Cancel", role: .cancel) {}
@@ -97,33 +99,49 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Mac
+    // MARK: - Connected services (Chrome extension)
 
-    private var macSection: some View {
-        SettingsSection("Mac Connection") {
-            switch macVM.connectionState {
-            case .unlinked, .linking:
-                SettingsRow(icon: "laptopcomputer", title: "Connect your Mac") {
-                    Button("Connect") { showCodeEntry = true }
-                        .font(LumisTypography.captionMedium)
-                        .foregroundStyle(LumisColors.carbonBlack)
-                        .padding(.horizontal, 14).padding(.vertical, 7)
-                        .background(LumisColors.powderBlue, in: Capsule())
-                }
-            case .linkedOnline, .linkedOffline:
-                Button { route = .macDetail } label: {
-                    SettingsRow(icon: "laptopcomputer", title: macVM.macName ?? "Mac") {
-                        HStack(spacing: 6) {
-                            Circle().fill(macVM.connectionState == .linkedOnline ? LumisColors.success : LumisColors.amber)
-                                .frame(width: 8, height: 8)
-                            Text(macVM.connectionState == .linkedOnline ? "Connected" : "Offline")
-                                .font(LumisTypography.bodySmall)
-                                .foregroundStyle(macVM.connectionState == .linkedOnline ? LumisColors.powderBlue : LumisColors.amber)
-                            Image(systemName: "chevron.right").font(.system(size: 12)).foregroundStyle(LumisColors.textTertiary)
+    @ViewBuilder
+    private var connectedServicesSection: some View {
+        SettingsSection("Connected Services") {
+            if servicesVM.hasAnyConnection {
+                ForEach(SUPPORTED_SERVICES) { service in
+                    HStack {
+                        Image(systemName: service.icon)
+                            .foregroundColor(LumisColors.carbonBlack.opacity(0.6))
+                            .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(service.displayName)
+                                .font(LumisTypography.bodyMedium)
+                                .foregroundColor(LumisColors.carbonBlack)
+                            Text(service.description)
+                                .font(LumisTypography.caption)
+                                .foregroundColor(LumisColors.carbonBlack.opacity(0.5))
+                        }
+                        Spacer()
+                        if servicesVM.isConnected(service.id) {
+                            Label("Connected", systemImage: "checkmark.circle.fill")
+                                .font(LumisTypography.caption)
+                                .foregroundColor(LumisColors.success)
+                        } else {
+                            Text("Not connected")
+                                .font(LumisTypography.caption)
+                                .foregroundColor(LumisColors.carbonBlack.opacity(0.3))
                         }
                     }
+                    .padding(.vertical, 8)
                 }
-                .buttonStyle(.plain)
+
+                Divider()
+
+                Button(action: { showExtensionInstructions = true }) {
+                    Label("Connect more accounts", systemImage: "plus.circle")
+                        .font(LumisTypography.bodyMedium)
+                        .foregroundColor(LumisColors.powderBlue)
+                }
+                .padding(.top, 4)
+            } else {
+                ConnectServicesEmptyState(onGetStarted: { showExtensionInstructions = true })
             }
         }
     }
