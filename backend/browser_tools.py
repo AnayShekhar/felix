@@ -20,33 +20,30 @@ logger = logging.getLogger("lumis.browser_tools")
 async def cloud_page(user_id: str):
     """Yield a Playwright page bound to the user's persistent Browserbase context.
 
-    Opens a session on the persisted context, connects over CDP, yields the
-    first page, and releases the session on exit so cookies/state persist.
+    Reuses the user's LIVE session (cloud_browser keeps one open per user), so
+    consecutive tool calls in an agent run see the same page — open → click →
+    fill actually operate on the page the previous step left, instead of each
+    step starting over at about:blank. The session is released when the agent
+    run finishes (release_session) or after an idle timeout, which is when the
+    persisted context (cookies/logins) is flushed back to Browserbase.
     """
-    from playwright.async_api import async_playwright
+    async with cloud_browser.user_lock(user_id):
+        await cloud_browser.reap_idle_sessions()
+        page = await cloud_browser.acquire_live_page(user_id)
+        try:
+            yield page
+        except Exception:
+            # A broken page/session must not poison the next call — discard it.
+            await cloud_browser.discard_live_session_locked(user_id)
+            raise
 
-    context_id = await cloud_browser.get_or_create_user_context(user_id)
-    bb = cloud_browser._client()
-    session = bb.sessions.create(
-        project_id=cloud_browser.PROJECT_ID,
-        browser_settings={"context": {"id": context_id, "persist": True}},
-    )
-    playwright = await async_playwright().start()
-    browser = None
+
+async def release_session(user_id: str) -> None:
+    """Flush + close the user's live browser session; never raises."""
     try:
-        browser = await playwright.chromium.connect_over_cdp(session.connect_url)
-        context = browser.contexts[0] if browser.contexts else await browser.new_context()
-        page = context.pages[0] if context.pages else await context.new_page()
-        yield page
-    finally:
-        if browser is not None:
-            with contextlib.suppress(Exception):
-                await browser.close()
-        with contextlib.suppress(Exception):
-            await playwright.stop()
-        with contextlib.suppress(Exception):
-            bb.sessions.update(session.id, project_id=cloud_browser.PROJECT_ID,
-                               status="REQUEST_RELEASE")
+        await cloud_browser.release_live_session(user_id)
+    except Exception:  # noqa: BLE001 - cleanup is best-effort
+        logger.warning("release_session failed for %s", user_id, exc_info=True)
 
 
 # --------------------------------------------------------------------------- #

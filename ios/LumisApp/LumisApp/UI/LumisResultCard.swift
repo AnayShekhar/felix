@@ -14,7 +14,7 @@ struct LumisResultCard: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle().fill(LumisColors.powderBlueLight).frame(width: 44, height: 44)
+                Circle().fill(LumisColors.tintSoft).frame(width: 44, height: 44)
                 Image(systemName: result.success ? result.actionType.symbol : "exclamationmark.triangle.fill")
                     .foregroundStyle(result.success ? result.actionType.tint : LumisColors.destructive)
             }
@@ -23,7 +23,7 @@ struct LumisResultCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.title)
                     .font(LumisTypography.titleSmall)
-                    .foregroundStyle(LumisColors.carbonBlack)
+                    .foregroundStyle(LumisColors.textPrimary)
                     .lineLimit(1)
                 if !result.description.isEmpty {
                     Text(result.description)
@@ -38,13 +38,13 @@ struct LumisResultCard: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Button("Open", action: onOpen)
                         .font(LumisTypography.captionMedium)
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.textPrimary)
                         .padding(.horizontal, 14).padding(.vertical, 8)
-                        .background(LumisColors.powderBlueMid, in: Capsule())
+                        .background(LumisColors.tintMid, in: Capsule())
                     if !hasSeenOpenHint {
                         Text("Opens in your own browser")
                             .font(LumisTypography.caption)
-                            .foregroundStyle(LumisColors.carbonBlack.opacity(0.4))
+                            .foregroundStyle(LumisColors.textPrimary.opacity(0.4))
                             .onAppear { hasSeenOpenHint = true }
                     }
                 }
@@ -63,7 +63,7 @@ struct LumisResultCard: View {
         .background(
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)
-                LumisColors.parchment.opacity(0.5)
+                LumisColors.background.opacity(0.5)
             }
         )
         .clipShape(.rect(topLeadingRadius: 16, topTrailingRadius: 16))
@@ -71,7 +71,7 @@ struct LumisResultCard: View {
             Capsule().fill(LumisColors.textTertiary)
                 .frame(width: 36, height: 4).padding(.top, 6)
         }
-        .shadow(color: LumisColors.carbonBlack.opacity(0.08), radius: 16, y: -2)
+        .shadow(color: LumisColors.shadow, radius: 16, y: -2)
         .offset(y: max(0, dragOffset))
         .gesture(
             DragGesture()

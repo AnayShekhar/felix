@@ -25,7 +25,7 @@ struct HistoryView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 header
                 filterChips
@@ -40,7 +40,7 @@ struct HistoryView: View {
         HStack {
             Text("History")
                 .font(LumisTypography.displayMedium)
-                .foregroundStyle(LumisColors.carbonBlack)
+                .foregroundStyle(LumisColors.textPrimary)
             Spacer()
         }
         .padding(.horizontal, 24)
@@ -55,10 +55,10 @@ struct HistoryView: View {
                     let active = filter == f
                     Text(f.rawValue)
                         .font(LumisTypography.captionMedium)
-                        .foregroundStyle(active ? .white : LumisColors.textSecondary)
+                        .foregroundStyle(active ? LumisColors.onTint : LumisColors.textSecondary)
                         .padding(.horizontal, 16)
                         .frame(height: 28)
-                        .background(active ? LumisColors.powderBlue : .clear, in: Capsule())
+                        .background(active ? LumisColors.tint : .clear, in: Capsule())
                         .overlay(Capsule().stroke(active ? .clear : LumisColors.divider, lineWidth: 1))
                         .onTapGesture { withAnimation { filter = f }; Haptics.light() }
                 }
@@ -125,7 +125,7 @@ private struct HistoryCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(action)
                         .font(LumisTypography.titleSmall)
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.textPrimary)
                         .lineLimit(1)
                     if !said.isEmpty {
                         Text(said)
@@ -148,7 +148,7 @@ private struct HistoryCard: View {
                     if !said.isEmpty {
                         Text(said)
                             .font(LumisTypography.bodySmall)
-                            .foregroundStyle(LumisColors.carbonBlack)
+                            .foregroundStyle(LumisColors.textPrimary)
                     }
                     if failed {
                         Text("This action failed.")
@@ -160,7 +160,7 @@ private struct HistoryCard: View {
                 .padding(14)
             }
         }
-        .background(LumisColors.parchment)
+        .background(LumisColors.background)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(LumisColors.divider, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .contentShape(Rectangle())
@@ -174,7 +174,7 @@ private struct HistoryCard: View {
             if failed {
                 Image(systemName: "xmark").foregroundStyle(LumisColors.destructive)
             } else {
-                Image(systemName: "checkmark").foregroundStyle(LumisColors.powderBlue)
+                Image(systemName: "checkmark").foregroundStyle(LumisColors.success)
             }
         }
         .font(.system(size: 14, weight: .semibold))
@@ -208,7 +208,7 @@ private struct HistorySkeletonRow: View {
             Spacer()
         }
         .padding(14)
-        .background(LumisColors.parchment)
+        .background(LumisColors.background)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(LumisColors.divider, lineWidth: 1))
         .shimmer()
     }

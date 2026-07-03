@@ -55,10 +55,10 @@ struct DeleteAccountView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 20) {
                 Text("Delete account")
-                    .font(LumisTypography.titleLarge).foregroundStyle(LumisColors.carbonBlack)
+                    .font(LumisTypography.titleLarge).foregroundStyle(LumisColors.textPrimary)
                 Text("This permanently deletes your Lumis account and unlinks your Mac. This can't be undone. Type DELETE to confirm.")
                     .font(LumisTypography.bodyMedium).foregroundStyle(LumisColors.textSecondary)
                 FloatingLabelField(title: "Type DELETE", text: $confirmation)
@@ -89,12 +89,12 @@ struct EditProfileView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             VStack(spacing: 20) {
                 ZStack {
-                    Circle().fill(LumisColors.powderBlue).frame(width: 72, height: 72)
+                    Circle().fill(LumisColors.tint).frame(width: 72, height: 72)
                     Text(authVM.currentUser?.initials ?? "?")
-                        .font(LumisTypography.titleLarge).foregroundStyle(LumisColors.carbonBlack)
+                        .font(LumisTypography.titleLarge).foregroundStyle(LumisColors.onTint)
                 }
                 FloatingLabelField(title: "Display name", text: $name)
                 LumisPrimaryButton(title: "Save") {
@@ -119,7 +119,7 @@ private struct FormScaffold<Content: View>: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LumisColors.parchment.ignoresSafeArea()
+                LumisColors.background.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         content()

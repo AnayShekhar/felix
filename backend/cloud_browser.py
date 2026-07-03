@@ -13,9 +13,11 @@ The `browserbase` SDK and Playwright are imported lazily so the rest of the
 backend still boots if they are not installed / not configured; callers get a
 clear error only when a cloud-browser operation is actually attempted.
 """
+import asyncio
 import logging
 import os
-from typing import List
+import time
+from typing import Dict, List, Optional
 
 import connections
 
@@ -23,6 +25,12 @@ logger = logging.getLogger("lumis.cloud_browser")
 
 API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
+
+# How long an idle live browser session stays open. Within a single agent run
+# (and quick follow-ups) tools share one session so page state survives between
+# steps; after this idle window the session is released so the persisted
+# context (cookies, logins) is flushed back to Browserbase.
+LIVE_IDLE_S = int(os.getenv("BROWSER_SESSION_IDLE_S", "180"))
 
 
 class CloudBrowserNotConfigured(RuntimeError):
@@ -83,6 +91,123 @@ def _to_playwright_cookies(cookies: List[dict]) -> List[dict]:
         cookie["expires"] = float(exp) if exp is not None else -1
         out.append(cookie)
     return out
+
+
+# --------------------------------------------------------------------------- #
+# Live per-user browser sessions
+#
+# One Browserbase session per user is kept open across tool calls, so a
+# multi-step flow (open → click → fill) operates on the SAME page instead of
+# each step getting a fresh session at about:blank. Browserbase allows a single
+# active session per context, so everything that opens a session on the user's
+# context (tools, cookie sync, verify) must go through / around this registry.
+# --------------------------------------------------------------------------- #
+_live: Dict[str, dict] = {}          # user_id -> {playwright, browser, page, session_id, last_used}
+_user_locks: Dict[str, asyncio.Lock] = {}
+
+
+def user_lock(user_id: str) -> asyncio.Lock:
+    """The per-user lock serializing access to that user's live session."""
+    return _user_locks.setdefault(user_id, asyncio.Lock())
+
+
+async def _open_live(user_id: str) -> dict:
+    from playwright.async_api import async_playwright
+
+    context_id = await get_or_create_user_context(user_id)
+    bb = _client()
+    session = bb.sessions.create(
+        project_id=PROJECT_ID,
+        browser_settings={"context": {"id": context_id, "persist": True}},
+    )
+    playwright = await async_playwright().start()
+    try:
+        browser = await playwright.chromium.connect_over_cdp(session.connect_url)
+        context = browser.contexts[0] if browser.contexts else await browser.new_context()
+        page = context.pages[0] if context.pages else await context.new_page()
+    except Exception:
+        with _suppress():
+            await playwright.stop()
+        with _suppress():
+            bb.sessions.update(session.id, project_id=PROJECT_ID,
+                               status="REQUEST_RELEASE")
+        raise
+    logger.info("Opened live browser session %s for user %s", session.id, user_id)
+    return {"playwright": playwright, "browser": browser, "page": page,
+            "session_id": session.id, "last_used": time.time()}
+
+
+def _suppress():
+    import contextlib
+    return contextlib.suppress(Exception)
+
+
+async def _close_record(user_id: str, rec: dict) -> None:
+    _live.pop(user_id, None)
+    with _suppress():
+        await rec["browser"].close()
+    with _suppress():
+        await rec["playwright"].stop()
+    with _suppress():
+        _client().sessions.update(rec["session_id"], project_id=PROJECT_ID,
+                                  status="REQUEST_RELEASE")
+    logger.info("Released live browser session %s for user %s",
+                rec.get("session_id"), user_id)
+
+
+async def acquire_live_page(user_id: str):
+    """Return the user's live page, opening a session if needed.
+
+    Caller MUST hold `user_lock(user_id)`.
+    """
+    rec = _live.get(user_id)
+    if rec is not None:
+        page = rec["page"]
+        alive = False
+        try:
+            alive = rec["browser"].is_connected() and not page.is_closed()
+        except Exception:  # noqa: BLE001
+            alive = False
+        if alive:
+            rec["last_used"] = time.time()
+            return page
+        await _close_record(user_id, rec)
+    rec = await _open_live(user_id)
+    _live[user_id] = rec
+    return rec["page"]
+
+
+async def discard_live_session_locked(user_id: str) -> None:
+    """Close the user's live session. Caller MUST hold `user_lock(user_id)`."""
+    rec = _live.get(user_id)
+    if rec is not None:
+        await _close_record(user_id, rec)
+
+
+async def release_live_session(user_id: str) -> None:
+    """Close the user's live session (if any), flushing the persisted context.
+
+    Safe to call from anywhere (acquires the user's lock). Called when an agent
+    run finishes and before cookie sync (one active session per context).
+    """
+    async with user_lock(user_id):
+        await discard_live_session_locked(user_id)
+
+
+async def reap_idle_sessions() -> None:
+    """Opportunistically close sessions idle past LIVE_IDLE_S."""
+    now = time.time()
+    for uid in list(_live.keys()):
+        rec = _live.get(uid)
+        if rec is None or now - rec["last_used"] <= LIVE_IDLE_S:
+            continue
+        lock = user_lock(uid)
+        if lock.locked():
+            continue  # in use — not actually idle
+        async with lock:
+            rec = _live.get(uid)
+            if rec is not None and time.time() - rec["last_used"] > LIVE_IDLE_S:
+                await _close_record(uid, rec)
 
 
 async def inject_cookies_into_context(context_id: str, cookies: List[dict]) -> None:

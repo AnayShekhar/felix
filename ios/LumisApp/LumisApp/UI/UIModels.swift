@@ -39,20 +39,10 @@ enum ActionType: String, Codable {
         }
     }
 
-    var tint: Color {
-        switch self {
-        case .spreadsheet: return LumisColors.success
-        case .email:       return LumisColors.destructive
-        case .calendar:    return LumisColors.amber
-        case .file:        return LumisColors.powderBlue
-        case .web:         return LumisColors.categoryWeb
-        case .note:        return LumisColors.categoryNote
-        case .reminder:    return LumisColors.categoryReminder
-        case .media:       return LumisColors.categoryMedia
-        case .system:      return LumisColors.textSecondary
-        case .other:       return LumisColors.powderBlue
-        }
-    }
+    /// One disciplined accent for every category — the SF Symbol already
+    /// carries the category information, so a per-category rainbow added
+    /// noise without real information value. Deliberate consolidation.
+    var tint: Color { LumisColors.tint }
 }
 
 /// A completed action, surfaced in the Home result card.

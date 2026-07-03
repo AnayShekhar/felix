@@ -14,7 +14,7 @@ struct ErrorToast: View {
                 .clipShape(Capsule())
             Text(message)
                 .font(LumisTypography.bodySmall)
-                .foregroundStyle(LumisColors.carbonBlack)
+                .foregroundStyle(LumisColors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -26,7 +26,7 @@ struct ErrorToast: View {
             RoundedRectangle(cornerRadius: 12).stroke(LumisColors.divider, lineWidth: 1)
         )
         .padding(.horizontal, 20)
-        .shadow(color: LumisColors.carbonBlack.opacity(0.08), radius: 12, y: 4)
+        .shadow(color: LumisColors.shadow, radius: 12, y: 4)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .task {
             try? await Task.sleep(nanoseconds: 4_000_000_000)

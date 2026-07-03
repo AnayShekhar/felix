@@ -15,7 +15,7 @@ struct HomeView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 topBar
@@ -25,7 +25,7 @@ struct HomeView: View {
                 Text(greeting)
                     .font(LumisTypography.greeting)
                     .tracking(-0.5)
-                    .foregroundStyle(LumisColors.carbonBlack)
+                    .foregroundStyle(LumisColors.textPrimary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
                     .padding(.bottom, 32)
@@ -50,9 +50,9 @@ struct HomeView: View {
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(LumisColors.carbonBlack)
+                            .foregroundStyle(LumisColors.onTint)
                             .frame(width: 56, height: 56)
-                            .background(LumisColors.powderBlue, in: Circle())
+                            .background(LumisColors.tint, in: Circle())
                     }
                     .padding(.top, 24)
                     .transition(.scale.combined(with: .opacity))
@@ -89,7 +89,7 @@ struct HomeView: View {
             Button { Haptics.light(); onMenu() } label: {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(LumisColors.carbonBlack)
+                    .foregroundStyle(LumisColors.textPrimary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -133,7 +133,7 @@ private struct ConnectionStatusDot: View {
     var body: some View {
         Button { showPopover.toggle() } label: {
             Circle()
-                .fill(connected ? LumisColors.powderBlue : LumisColors.textTertiary)
+                .fill(connected ? LumisColors.tint : LumisColors.textTertiary)
                 .frame(width: 10, height: 10)
                 .scaleEffect(pulse && connected ? 1.5 : 1)
                 .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulse)
@@ -143,7 +143,7 @@ private struct ConnectionStatusDot: View {
         .popover(isPresented: $showPopover, arrowEdge: .top) {
             Text(statusText)
                 .font(LumisTypography.bodySmall)
-                .foregroundStyle(LumisColors.carbonBlack)
+                .foregroundStyle(LumisColors.textPrimary)
                 .padding(14)
                 .presentationCompactAdaptation(.popover)
         }
@@ -167,14 +167,14 @@ private struct TranscriptionText: View {
             case .idle:
                 Text("Say \u{201C}Hey Lumis\u{201D}")
                     .font(.system(size: 17))
-                    .foregroundStyle(LumisColors.carbonBlack.opacity(0.4))
+                    .foregroundStyle(LumisColors.textPrimary.opacity(0.4))
             case .listening:
                 AnimatedWords(text: transcript.isEmpty ? "Listening…" : transcript)
-                    .foregroundStyle(LumisColors.carbonBlack)
+                    .foregroundStyle(LumisColors.textPrimary)
             case .thinking:
                 Text("Thinking…")
                     .font(.system(size: 17))
-                    .foregroundStyle(LumisColors.carbonBlack.opacity(thinkingPulse ? 0.7 : 0.45))
+                    .foregroundStyle(LumisColors.textPrimary.opacity(thinkingPulse ? 0.7 : 0.45))
                     .onAppear {
                         withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                             thinkingPulse = true
@@ -182,7 +182,7 @@ private struct TranscriptionText: View {
                     }
             case .speaking:
                 AnimatedWords(text: response)
-                    .foregroundStyle(LumisColors.carbonBlack)
+                    .foregroundStyle(LumisColors.textPrimary)
             }
         }
         .font(.system(size: 17))

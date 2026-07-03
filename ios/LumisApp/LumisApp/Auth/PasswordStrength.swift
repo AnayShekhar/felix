@@ -31,7 +31,7 @@ enum PasswordStrength: Int {
         case .empty:  return LumisColors.divider
         case .weak:   return LumisColors.destructive
         case .fair:   return LumisColors.amber
-        case .good:   return LumisColors.powderBlue
+        case .good:   return LumisColors.tint
         case .strong: return LumisColors.success
         }
     }

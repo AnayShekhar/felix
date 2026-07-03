@@ -33,6 +33,8 @@ class IngestPayload(BaseModel):
 
 def _set_latest(event: dict) -> None:
     ws_module.latest_result = event
+    if event.get("user_id"):
+        ws_module.latest_by_user[event["user_id"]] = event
 
 
 def _prune_agents() -> None:
@@ -92,8 +94,9 @@ async def agent_reply(payload: AgentReplyPayload, user: dict = Depends(current_u
 
 
 @router.get("/latest")
-async def latest():
-    return ws_module.latest_result or {}
+async def latest(user: dict = Depends(current_user)):
+    """The signed-in account's most recent event (never another user's)."""
+    return ws_module.latest_by_user.get(user["id"]) or {}
 
 
 @router.get("/history")
@@ -127,6 +130,7 @@ async def undo(action_id: int):
         db.mark_undone(action_id)
         await manager.broadcast({
             "session_id": action["session_id"],
+            "user_id": action.get("user_id"),
             "event": "action_undone",
             "data": {"action_id": action_id, "tool": action["tool_name"], **result},
         })
@@ -186,6 +190,18 @@ class CookieSyncRequest(BaseModel):
     cookies: list[dict]
 
 
+# Domains whose cookies indicate a service is actually signed in.
+_SERVICE_DOMAINS = {
+    "gmail": "google.com",
+    "sheets": "google.com",
+    "notion": "notion.so",
+    "linkedin": "linkedin.com",
+    "slack": "slack.com",
+    "airtable": "airtable.com",
+    "spotify": "spotify.com",
+}
+
+
 @router.get("/connect/status")
 async def connection_status(user: dict = Depends(current_user)):
     """Which services this account has connected (drives the extension's UI)."""
@@ -209,8 +225,25 @@ async def sync_cookies(request: CookieSyncRequest, user: dict = Depends(current_
     if not request.cookies:
         raise HTTPException(status_code=400, detail="No cookies to sync.")
 
+    # Don't mark a service connected off cookies that can't possibly sign it
+    # in — the synced cookies must include the service's own domain.
+    expected_domain = _SERVICE_DOMAINS.get(request.service)
+    if expected_domain and not any(
+        expected_domain in str(c.get("domain") or "") for c in request.cookies
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(f"Those cookies don't look like {request.service} cookies "
+                    f"(none are for {expected_domain}). Open {expected_domain}, "
+                    "sign in, and try connecting again."),
+        )
+
     try:
         context_id = await get_or_create_user_context(user["id"])
+        # Browserbase allows one active session per context — close any live
+        # tool session before opening the injection session.
+        import cloud_browser as cb
+        await cb.release_live_session(user["id"])
         await inject_cookies_into_context(context_id, request.cookies)
     except CloudBrowserNotConfigured as exc:
         raise HTTPException(status_code=503, detail=str(exc))
@@ -220,18 +253,6 @@ async def sync_cookies(request: CookieSyncRequest, user: dict = Depends(current_
 
     connections.add_connected_service(user["id"], request.service)
     return {"success": True, "service": request.service}
-
-
-# Domains whose cookies indicate a service is actually signed in.
-_SERVICE_DOMAINS = {
-    "gmail": "google.com",
-    "sheets": "google.com",
-    "notion": "notion.so",
-    "linkedin": "linkedin.com",
-    "slack": "slack.com",
-    "airtable": "airtable.com",
-    "spotify": "spotify.com",
-}
 
 
 @router.get("/connect/verify/{service}")

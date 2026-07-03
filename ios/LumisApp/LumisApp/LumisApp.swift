@@ -6,6 +6,9 @@ struct LumisApp: App {
     @StateObject private var authVM = AuthViewModel()
     @StateObject private var lumisVM = LumisViewModel()
 
+    /// Appearance preference from Settings: System / Light / Dark.
+    @AppStorage(LumisAppearance.storageKey) private var appearanceRaw = LumisAppearance.system.rawValue
+
     init() {
         Self.configureAudioSession()
     }
@@ -34,7 +37,7 @@ struct LumisApp: App {
             RootView()
                 .environmentObject(authVM)
                 .environmentObject(lumisVM)
-                .preferredColorScheme(.light)   // Parchment theme is light-only
+                .preferredColorScheme((LumisAppearance(rawValue: appearanceRaw) ?? .system).colorScheme)
                 .onOpenURL { url in DeepLinkRouter.shared.handle(url) }
         }
     }

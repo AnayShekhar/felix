@@ -16,12 +16,12 @@ struct SignUpView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     Text("Create your account")
                         .font(LumisTypography.titleLarge)
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.textPrimary)
                         .padding(.top, 8)
 
                     FloatingLabelField(title: "Full name", text: $name,
@@ -52,7 +52,7 @@ struct SignUpView: View {
                         Text("Already have an account?")
                             .foregroundStyle(LumisColors.textSecondary)
                         Button("Sign in") { path = [.signIn] }
-                            .foregroundStyle(LumisColors.carbonBlack)
+                            .foregroundStyle(LumisColors.textPrimary)
                             .fontWeight(.semibold)
                     }
                     .font(LumisTypography.bodySmall)

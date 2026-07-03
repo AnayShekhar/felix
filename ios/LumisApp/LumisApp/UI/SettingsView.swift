@@ -10,6 +10,7 @@ struct SettingsView: View {
 
     // Persisted preferences (only ones wired to real behavior).
     @AppStorage("lumis.pref.wakeWord") private var wakeWord = true
+    @AppStorage(LumisAppearance.storageKey) private var appearanceRaw = LumisAppearance.system.rawValue
 
     @State private var showSignOut = false
     @State private var route: SettingsRoute?
@@ -25,11 +26,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LumisColors.parchment.ignoresSafeArea()
+                LumisColors.background.ignoresSafeArea()
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: LumisSpacing.xl) {
                         profileCard
                         connectedServicesSection
+                        appearanceSection
                         voiceSection
                         MemorySection()
                         accountSection
@@ -48,7 +50,7 @@ struct SettingsView: View {
                         Button { onClose() } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(LumisColors.carbonBlack)
+                                .foregroundStyle(LumisColors.textPrimary)
                         }
                         .accessibilityLabel("Close settings")
                     }
@@ -79,15 +81,15 @@ struct SettingsView: View {
         Button { route = .editProfile } label: {
             HStack(spacing: 14) {
                 ZStack {
-                    Circle().fill(LumisColors.powderBlue).frame(width: 52, height: 52)
+                    Circle().fill(LumisColors.tint).frame(width: 52, height: 52)
                     Text(authVM.currentUser?.initials ?? "?")
                         .font(LumisTypography.titleMedium)
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.onTint)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(authVM.currentUser?.displayName ?? "Your account")
                         .font(LumisTypography.titleMedium)
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.textPrimary)
                     Text(authVM.currentUser?.email ?? "")
                         .font(LumisTypography.bodySmall)
                         .foregroundStyle(LumisColors.textSecondary)
@@ -96,7 +98,7 @@ struct SettingsView: View {
                 Image(systemName: "chevron.right").foregroundStyle(LumisColors.textTertiary)
             }
             .padding(16)
-            .background(LumisColors.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+            .background(LumisColors.surface, in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(LumisColors.divider, lineWidth: 1))
         }
         .buttonStyle(.plain)
@@ -112,15 +114,15 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Image(systemName: service.icon)
-                                .foregroundColor(LumisColors.carbonBlack.opacity(0.6))
+                                .foregroundColor(LumisColors.textPrimary.opacity(0.6))
                                 .frame(width: 28)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(service.displayName)
                                     .font(LumisTypography.bodyMedium)
-                                    .foregroundColor(LumisColors.carbonBlack)
+                                    .foregroundColor(LumisColors.textPrimary)
                                 Text(service.description)
                                     .font(LumisTypography.caption)
-                                    .foregroundColor(LumisColors.carbonBlack.opacity(0.5))
+                                    .foregroundColor(LumisColors.textPrimary.opacity(0.5))
                             }
                             Spacer()
                             if servicesVM.isConnected(service.id) {
@@ -130,7 +132,7 @@ struct SettingsView: View {
                             } else {
                                 Text("Not connected")
                                     .font(LumisTypography.caption)
-                                    .foregroundColor(LumisColors.carbonBlack.opacity(0.3))
+                                    .foregroundColor(LumisColors.textPrimary.opacity(0.3))
                             }
                         }
                         if servicesVM.isConnected(service.id) {
@@ -139,12 +141,12 @@ struct SettingsView: View {
                                     Task { await verify(service.id) }
                                 }
                                 .font(LumisTypography.caption)
-                                .foregroundColor(LumisColors.carbonBlack.opacity(0.45))
+                                .foregroundColor(LumisColors.textPrimary.opacity(0.45))
                                 .disabled(verifyingID == service.id)
                                 if let msg = verifyMessages[service.id] {
                                     Text(msg)
                                         .font(LumisTypography.caption)
-                                        .foregroundColor(LumisColors.carbonBlack.opacity(0.45))
+                                        .foregroundColor(LumisColors.textPrimary.opacity(0.45))
                                 }
                             }
                             .padding(.leading, 28)
@@ -158,12 +160,31 @@ struct SettingsView: View {
                 Button(action: { showExtensionInstructions = true }) {
                     Label("Connect more accounts", systemImage: "plus.circle")
                         .font(LumisTypography.bodyMedium)
-                        .foregroundColor(LumisColors.powderBlue)
+                        .foregroundColor(LumisColors.tint)
                 }
                 .padding(.top, 4)
             } else {
                 ConnectServicesEmptyState(onGetStarted: { showExtensionInstructions = true })
             }
+        }
+    }
+
+    // MARK: - Appearance
+
+    private var appearanceSection: some View {
+        SettingsSection("Appearance") {
+            VStack(alignment: .leading, spacing: LumisSpacing.sm) {
+                Text("Theme")
+                    .font(LumisTypography.bodyLarge)
+                    .foregroundStyle(LumisColors.textPrimary)
+                Picker("Theme", selection: $appearanceRaw) {
+                    ForEach(LumisAppearance.allCases) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            .settingsRowPadding()
         }
     }
 
@@ -173,12 +194,12 @@ struct SettingsView: View {
         SettingsSection("Voice") {
             Toggle(isOn: $wakeWord) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Hey Lumis").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.carbonBlack)
+                    Text("Hey Lumis").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.textPrimary)
                     Text("Listen for your wake word in the background")
                         .font(LumisTypography.caption).foregroundStyle(LumisColors.textSecondary)
                 }
             }
-            .tint(LumisColors.powderBlue)
+            .tint(LumisColors.tint)
             .settingsRowPadding()
             .onChange(of: wakeWord) { _, on in lumisVM.setWakeWord(on) }
         }
@@ -211,7 +232,7 @@ struct SettingsView: View {
     private var aboutSection: some View {
         SettingsSection("About") {
             HStack {
-                Text("Version").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.carbonBlack)
+                Text("Version").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.textPrimary)
                 Spacer()
                 Text("Version \(LumisConfig.appVersion) (\(LumisConfig.buildNumber))")
                     .font(LumisTypography.bodyMedium).foregroundStyle(LumisColors.textSecondary)

@@ -45,6 +45,24 @@ load_dotenv()
 
 logger = logging.getLogger("lumis.agent")
 
+
+def _debug_dump(payload: dict) -> str:
+    """Pretty-print a payload for debug logs, truncating any base64 image blob so
+    a screenshot doesn't flood the log with tens of KB of data."""
+    def _shorten(v):
+        if isinstance(v, str) and len(v) > 200:
+            return f"<{len(v)} chars: {v[:60]}…>"
+        if isinstance(v, dict):
+            return {k: _shorten(x) for k, x in v.items()}
+        if isinstance(v, list):
+            return [_shorten(x) for x in v]
+        return v
+    try:
+        return json.dumps(_shorten(payload), indent=2, default=str)
+    except Exception:  # noqa: BLE001 - logging must never raise
+        return repr(payload)
+
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 
@@ -449,6 +467,9 @@ class LumisAgent:
                 None, google_tools.execute_google_tool, tool, args, self.user_id)
         elif meta["runs_on"] == "cloud_browser":
             result = await browser_tools.execute_browser_tool(tool, args, self.user_id)
+            # DEBUG: full browser tool result (image_b64 truncated so logs stay readable).
+            logger.info("DEBUG execute_browser_tool(%s) result: %s",
+                        tool, _debug_dump(result))
         elif meta["runs_on"] == "ios_native":
             result = await self._loop.run_in_executor(
                 None, tools.execute_ios_tool, tool, args, self.user_id)
@@ -555,11 +576,14 @@ class LumisAgent:
         url = decision.get("url")
         _append_turn(self.session_id, "lumis", summary)
 
-        await self._emit({
+        agent_done_payload = {
             "event": "agent_done",
             "session_id": self.session_id,
             "title": title, "summary": summary, "speak": speak, "url": url,
-        })
+        }
+        # DEBUG: full agent_done payload right before it's broadcast.
+        logger.info("DEBUG agent_done payload: %s", _debug_dump(agent_done_payload))
+        await self._emit(agent_done_payload)
         final = {"tool": "lumis.finish", "status": "success", "title": title,
                  "message": summary, "summary": summary, "speak": speak}
         if url:
@@ -582,6 +606,9 @@ class LumisAgent:
     # ----- emit helpers ------------------------------------------------------
 
     async def _emit(self, event: dict) -> None:
+        # Route events to this user's clients only (websocket.manager filters
+        # on user_id, so one phone never hears another account's results).
+        event.setdefault("user_id", self.user_id)
         await self.broadcast(event)
 
     async def _emit_step_executed(
@@ -589,6 +616,7 @@ class LumisAgent:
     ) -> None:
         event = {
             "session_id": self.session_id,
+            "user_id": self.user_id,
             "event": "step_executed",
             "data": {
                 "index": self.steps_taken, "total": self.steps_taken,
@@ -602,11 +630,16 @@ class LumisAgent:
     async def _complete(self, steps: list) -> None:
         event = {
             "session_id": self.session_id,
+            "user_id": self.user_id,
             "event": "workflow_complete",
             "data": {"total": len(steps), "steps": steps},
         }
         self.set_latest(event)
         await self.broadcast(event)
+        # The run is over — flush + close the live cloud-browser session so the
+        # persisted context (logins picked up during the run) is saved. A paused
+        # ask_user run also lands here; the resumed run just reopens a session.
+        asyncio.create_task(browser_tools.release_session(self.user_id))
 
     # ----- initial message ---------------------------------------------------
 

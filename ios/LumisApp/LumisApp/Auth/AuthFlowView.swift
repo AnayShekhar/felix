@@ -20,7 +20,7 @@ struct AuthFlowView: View {
                     }
                 }
         }
-        .tint(LumisColors.carbonBlack)
+        .tint(LumisColors.textPrimary)
         .overlay(alignment: .bottom) {
             if let error = authVM.error {
                 ErrorToast(message: error) { authVM.error = nil }
@@ -34,10 +34,11 @@ private struct WelcomeView: View {
     @EnvironmentObject private var authVM: AuthViewModel
     @Binding var path: [AuthFlowView.AuthRoute]
     @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 Spacer()
                 LumisShapeView(state: .idle, containerSize: 120)
@@ -58,7 +59,10 @@ private struct WelcomeView: View {
                     } onCompletion: { result in
                         authVM.handleAppleCompletion(result)
                     }
-                    .signInWithAppleButtonStyle(.black)
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                    // ASAuthorizationAppleIDButton only reads its style at
+                    // creation — re-create it when the scheme flips live.
+                    .id(colorScheme)
                     .frame(height: 54)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
 
@@ -81,7 +85,7 @@ private struct WelcomeView: View {
         Text("By continuing you agree to our [Terms](\(LumisConfig.termsURL)) and [Privacy Policy](\(LumisConfig.privacyPolicyURL)).")
             .font(LumisTypography.caption)
             .foregroundStyle(LumisColors.textTertiary)
-            .tint(LumisColors.powderBlue)
+            .tint(LumisColors.tint)
             .multilineTextAlignment(.center)
             .environment(\.openURL, OpenURLAction { url in openURL(url); return .handled })
     }

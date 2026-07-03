@@ -68,6 +68,7 @@ async def _run_task(task_id: str) -> None:
 
     await manager.broadcast({
         "session_id": task["session_id"],
+        "user_id": task.get("user_id"),
         "event": "task_started",
         "data": {"task_id": task_id, "instruction": task["instruction"],
                  "status": "running"},
@@ -90,6 +91,7 @@ async def _run_task(task_id: str) -> None:
             task["progress_pct"] = min(95, task["progress_pct"] + 10)
             await manager.broadcast({
                 "session_id": task["session_id"],
+                "user_id": task.get("user_id"),
                 "event": "task_progress",
                 "data": {"task_id": task_id, "progress_pct": task["progress_pct"],
                          "index": len(task["steps"]) - 1, "total": len(task["steps"]),
@@ -116,6 +118,7 @@ async def _run_task(task_id: str) -> None:
 async def _broadcast_complete(task: dict) -> None:
     await manager.broadcast({
         "session_id": task["session_id"],
+        "user_id": task.get("user_id"),
         "event": "task_complete",
         "data": {"task_id": task["task_id"], "status": task["status"],
                  "progress_pct": task["progress_pct"], "steps": task["steps"]},

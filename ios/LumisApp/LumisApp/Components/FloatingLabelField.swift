@@ -21,7 +21,7 @@ struct FloatingLabelField: View {
             // Floating label.
             Text(title)
                 .font(floated ? LumisTypography.caption : LumisTypography.bodyMedium)
-                .foregroundStyle(focused ? LumisColors.powderBlue : LumisColors.textSecondary)
+                .foregroundStyle(focused ? LumisColors.tint : LumisColors.textSecondary)
                 .offset(y: floated ? -20 : 0)
                 .animation(.easeInOut(duration: 0.18), value: floated)
                 .allowsHitTesting(false)
@@ -35,8 +35,8 @@ struct FloatingLabelField: View {
                     }
                 }
                 .font(LumisTypography.bodyLarge)
-                .foregroundStyle(LumisColors.carbonBlack)
-                .tint(LumisColors.powderBlue)
+                .foregroundStyle(LumisColors.textPrimary)
+                .tint(LumisColors.tint)
                 .focused($focused)
                 .keyboardType(keyboard)
                 .textContentType(contentType)
@@ -59,10 +59,10 @@ struct FloatingLabelField: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
-        .background(LumisColors.parchment)
+        .background(LumisColors.background)
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(focused ? LumisColors.powderBlue : LumisColors.divider,
+                .stroke(focused ? LumisColors.tint : LumisColors.divider,
                         lineWidth: focused ? 1.5 : 1)
         )
         .animation(.easeInOut(duration: 0.18), value: focused)

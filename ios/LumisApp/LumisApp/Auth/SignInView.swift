@@ -11,12 +11,12 @@ struct SignInView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     Text("Welcome back")
                         .font(LumisTypography.titleLarge)
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.textPrimary)
                         .padding(.top, 8)
 
                     FloatingLabelField(title: "Email address", text: $email,
@@ -27,7 +27,7 @@ struct SignInView: View {
 
                     Button("Forgot password?") { path.append(.forgot) }
                         .font(LumisTypography.bodySmall)
-                        .foregroundStyle(LumisColors.powderBlue)
+                        .foregroundStyle(LumisColors.tint)
                         .frame(maxWidth: .infinity, alignment: .trailing)
 
                     LumisPrimaryButton(title: "Sign in",
@@ -39,7 +39,7 @@ struct SignInView: View {
                         Text("Don't have an account?")
                             .foregroundStyle(LumisColors.textSecondary)
                         Button("Sign up") { path = [.signUp] }
-                            .foregroundStyle(LumisColors.carbonBlack)
+                            .foregroundStyle(LumisColors.textPrimary)
                             .fontWeight(.semibold)
                     }
                     .font(LumisTypography.bodySmall)

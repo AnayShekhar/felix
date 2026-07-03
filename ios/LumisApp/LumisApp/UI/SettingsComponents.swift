@@ -12,13 +12,13 @@ struct SettingsSection<Content: View>: View {
             Text(title.uppercased())
                 .font(LumisTypography.caption)
                 .tracking(0.8)
-                .foregroundStyle(LumisColors.carbonBlack.opacity(0.5))
+                .foregroundStyle(LumisColors.textPrimary.opacity(0.5))
                 .padding(.leading, 4)
                 .padding(.bottom, 8)
             VStack(spacing: 0) {
                 content()
             }
-            .background(LumisColors.cardBackground, in: RoundedRectangle(cornerRadius: 14))
+            .background(LumisColors.surface, in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(LumisColors.divider, lineWidth: 1))
         }
     }
@@ -32,9 +32,9 @@ struct SettingsRow<Accessory: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             if let icon {
-                Image(systemName: icon).foregroundStyle(LumisColors.powderBlue).frame(width: 22)
+                Image(systemName: icon).foregroundStyle(LumisColors.tint).frame(width: 22)
             }
-            Text(title).font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.carbonBlack)
+            Text(title).font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.textPrimary)
             Spacer()
             accessory()
         }

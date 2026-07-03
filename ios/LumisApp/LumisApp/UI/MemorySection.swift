@@ -9,7 +9,7 @@ struct MemorySection: View {
     var body: some View {
         SettingsSection("Memory") {
             if loading {
-                HStack { ProgressView().tint(LumisColors.powderBlue); Spacer() }
+                HStack { ProgressView().tint(LumisColors.tint); Spacer() }
                     .settingsRowPadding()
             } else if memory.isEmpty {
                 Text("Lumis hasn’t learned anything yet. As you use it, your preferences show up here.")
@@ -22,7 +22,7 @@ struct MemorySection: View {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(prettyKey(key))
                                 .font(LumisTypography.bodyMedium)
-                                .foregroundStyle(LumisColors.carbonBlack)
+                                .foregroundStyle(LumisColors.textPrimary)
                             Text(prettyValue(value))
                                 .font(LumisTypography.bodySmall)
                                 .foregroundStyle(LumisColors.textSecondary)

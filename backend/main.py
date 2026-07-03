@@ -50,15 +50,24 @@ app.include_router(auth.router)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    # Send the latest stored result immediately on connect.
-    if ws_module.latest_result is not None:
-        await websocket.send_json(ws_module.latest_result)
+    # Scope the socket to an account via ?token=… so it only receives its own
+    # events. An invalid/missing token still connects but receives nothing
+    # user-scoped (all agent events are user-scoped).
+    user_id = None
+    token = websocket.query_params.get("token")
+    if token:
+        try:
+            user_id = auth.verify_token(token).get("sub")
+        except Exception:  # noqa: BLE001 - treat as anonymous
+            user_id = None
+    await manager.connect(websocket, user_id)
+    # Replay this account's latest result immediately on connect.
+    if user_id and (latest := ws_module.latest_by_user.get(user_id)):
+        await websocket.send_json(latest)
     try:
         while True:
             raw = await websocket.receive_text()
-            # Inbound frames are control messages from the Mac agent
-            # (register / mac_result); input clients only ever receive.
+            # Inbound frames from clients are ignored — receive-only stream.
             await manager.handle_message(websocket, raw)
     except WebSocketDisconnect:
         manager.disconnect(websocket)

@@ -13,17 +13,17 @@ struct ExtensionInstructionsView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Connect your accounts")
                         .font(LumisTypography.displayMedium)
-                        .foregroundColor(LumisColors.carbonBlack)
+                        .foregroundColor(LumisColors.textPrimary)
 
                     if let service = highlightService, !service.isEmpty {
                         Text("Lumis needs \(service.capitalized) to do that. Connect it below and try again.")
                             .font(LumisTypography.bodyMedium)
-                            .foregroundColor(LumisColors.powderBlue)
+                            .foregroundColor(LumisColors.tint)
                     }
 
                     Text("Lumis uses a small Chrome extension on your computer to securely connect your accounts. Your phone tells Lumis what to do — the extension is just how it gets access.")
                         .font(LumisTypography.bodyMedium)
-                        .foregroundColor(LumisColors.carbonBlack.opacity(0.7))
+                        .foregroundColor(LumisColors.textPrimary.opacity(0.7))
 
                     stepRow(number: 1, text: "On your computer, open Chrome and load the Lumis extension")
                     stepRow(number: 2, text: "Sign in with the same account you used on your phone")
@@ -32,12 +32,12 @@ struct ExtensionInstructionsView: View {
 
                     Text("This extension isn't on the Chrome Web Store yet — ask for the install file directly.")
                         .font(LumisTypography.caption)
-                        .foregroundColor(LumisColors.carbonBlack.opacity(0.5))
+                        .foregroundColor(LumisColors.textPrimary.opacity(0.5))
                         .padding(.top, 8)
                 }
                 .padding(24)
             }
-            .background(LumisColors.parchment)
+            .background(LumisColors.background)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
@@ -50,13 +50,13 @@ struct ExtensionInstructionsView: View {
         HStack(alignment: .top, spacing: 12) {
             Text("\(number)")
                 .font(LumisTypography.bodyMedium.bold())
-                .foregroundColor(.white)
+                .foregroundColor(LumisColors.onTint)
                 .frame(width: 24, height: 24)
-                .background(LumisColors.powderBlue)
+                .background(LumisColors.tint)
                 .clipShape(Circle())
             Text(text)
                 .font(LumisTypography.bodyMedium)
-                .foregroundColor(LumisColors.carbonBlack)
+                .foregroundColor(LumisColors.textPrimary)
         }
     }
 }

@@ -7,7 +7,7 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             VStack(spacing: 28) {
                 LumisShapeView(state: .thinking, containerSize: 180)
                     .scaleEffect(appear ? 1 : 0.85)

@@ -13,7 +13,7 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Lumis")
                 .font(LumisTypography.titleLarge)
-                .foregroundStyle(LumisColors.carbonBlack)
+                .foregroundStyle(LumisColors.textPrimary)
                 .padding(.horizontal, 22)
                 .padding(.top, 64)
                 .padding(.bottom, 18)
@@ -50,14 +50,14 @@ struct SidebarView: View {
                 HStack(spacing: 12) {
                     Text(initials)
                         .font(LumisTypography.titleSmall)
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.textPrimary)
                         .frame(width: 46, height: 46)
                         .glassEffect(.regular, in: Circle())
                         .contentShape(Circle())
                     VStack(alignment: .leading, spacing: 1) {
                         Text(name.isEmpty ? "Settings" : name)
                             .font(LumisTypography.titleSmall)
-                            .foregroundStyle(LumisColors.carbonBlack)
+                            .foregroundStyle(LumisColors.textPrimary)
                             .lineLimit(1)
                         if !email.isEmpty {
                             Text(email)
@@ -81,7 +81,7 @@ struct SidebarView: View {
         )
         .clipShape(.rect(bottomTrailingRadius: 28, topTrailingRadius: 28))
         .ignoresSafeArea()
-        .shadow(color: .black.opacity(0.12), radius: 24, x: 8, y: 0)
+        .shadow(color: LumisColors.shadow, radius: 24, x: 8, y: 0)
     }
 }
 
@@ -96,7 +96,7 @@ private struct RecentActionRow: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(LumisTypography.bodyMedium)
-                .foregroundStyle(failed ? LumisColors.destructive : LumisColors.carbonBlack)
+                .foregroundStyle(failed ? LumisColors.destructive : LumisColors.textPrimary)
                 .lineLimit(1)
             Text(RelativeTime.friendly(item.timestamp))
                 .font(LumisTypography.caption)

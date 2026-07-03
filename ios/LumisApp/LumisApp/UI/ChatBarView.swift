@@ -26,7 +26,7 @@ struct ChatBarView: View {
                 Button { Haptics.light(); onCamera() } label: {
                     Image(systemName: "camera.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(LumisColors.carbonBlack)
+                        .foregroundStyle(LumisColors.textPrimary)
                         .frame(width: 56, height: 56)
                         .glassEffect(.regular, in: Circle())
                     .contentShape(Circle())
@@ -39,15 +39,15 @@ struct ChatBarView: View {
                     PhotosPicker(selection: $photoItem, matching: .images) {
                         Image(systemName: "plus")
                             .font(.system(size: 19, weight: .semibold))
-                            .foregroundStyle(LumisColors.carbonBlack)
+                            .foregroundStyle(LumisColors.textPrimary)
                     }
                     .accessibilityLabel("Upload photo")
 
                     TextField("Talk to Lumis", text: $text)
                         .textFieldStyle(.plain)
                         .font(LumisTypography.bodyLarge)
-                        .foregroundStyle(LumisColors.carbonBlack)
-                        .tint(LumisColors.powderBlue)
+                        .foregroundStyle(LumisColors.textPrimary)
+                        .tint(LumisColors.tint)
                         .focused($focused)
                         .submitLabel(.send)
                         .autocorrectionDisabled()
@@ -58,9 +58,9 @@ struct ChatBarView: View {
                         Button(action: send) {
                             Image(systemName: "arrow.up")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(LumisColors.carbonBlack)
+                                .foregroundStyle(LumisColors.onTint)
                                 .frame(width: 32, height: 32)
-                                .background(LumisColors.powderBlue, in: Circle())
+                                .background(LumisColors.tint, in: Circle())
                         }
                         .buttonStyle(.plain)
                         .transition(.scale.combined(with: .opacity))

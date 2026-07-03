@@ -10,7 +10,7 @@ struct ForgotPasswordView: View {
 
     var body: some View {
         ZStack {
-            LumisColors.parchment.ignoresSafeArea()
+            LumisColors.background.ignoresSafeArea()
             if sent {
                 successState
             } else {
@@ -25,7 +25,7 @@ struct ForgotPasswordView: View {
         VStack(alignment: .leading, spacing: 22) {
             Text("Reset your password")
                 .font(LumisTypography.titleLarge)
-                .foregroundStyle(LumisColors.carbonBlack)
+                .foregroundStyle(LumisColors.textPrimary)
                 .padding(.top, 8)
             Text("Enter your email and we'll send you a reset link.")
                 .font(LumisTypography.bodyMedium)
@@ -48,7 +48,7 @@ struct ForgotPasswordView: View {
     private var successState: some View {
         VStack(spacing: 20) {
             ZStack {
-                Circle().fill(LumisColors.powderBlueLight).frame(width: 96, height: 96)
+                Circle().fill(LumisColors.tintSoft).frame(width: 96, height: 96)
                 Image(systemName: "checkmark")
                     .font(.system(size: 40, weight: .semibold))
                     .foregroundStyle(LumisColors.success)
@@ -57,7 +57,7 @@ struct ForgotPasswordView: View {
             }
             Text("Check your email")
                 .font(LumisTypography.titleMedium)
-                .foregroundStyle(LumisColors.carbonBlack)
+                .foregroundStyle(LumisColors.textPrimary)
             Text("We sent a reset link to \(email).")
                 .font(LumisTypography.bodyMedium)
                 .foregroundStyle(LumisColors.textSecondary)

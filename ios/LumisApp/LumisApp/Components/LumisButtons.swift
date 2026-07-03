@@ -11,15 +11,15 @@ struct LumisPrimaryButton: View {
         Button(action: { if enabled && !loading { action() } }) {
             ZStack {
                 if loading {
-                    ProgressView().tint(LumisColors.parchment)
+                    ProgressView().tint(LumisColors.background)
                 } else {
                     Text(title).font(LumisTypography.titleMedium)
                 }
             }
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .background(LumisColors.carbonBlack)
-            .foregroundStyle(LumisColors.parchment)
+            .background(LumisColors.textPrimary)
+            .foregroundStyle(LumisColors.background)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .opacity(enabled ? 1 : 0.4)
         }
@@ -42,10 +42,10 @@ struct LumisSecondaryButton<Leading: View>: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .foregroundStyle(LumisColors.carbonBlack)
+            .foregroundStyle(LumisColors.textPrimary)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(LumisColors.carbonBlack, lineWidth: 1)
+                    .stroke(LumisColors.textPrimary, lineWidth: 1)
             )
         }
         .accessibilityLabel(title)
@@ -64,7 +64,7 @@ struct LumisWordmark: View {
     var body: some View {
         Text("lumis")
             .font(.system(size: size, weight: .semibold))
-            .foregroundStyle(LumisColors.carbonBlack)
+            .foregroundStyle(LumisColors.textPrimary)
             .accessibilityLabel("Lumis")
     }
 }
