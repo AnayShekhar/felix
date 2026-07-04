@@ -105,10 +105,40 @@ function renderSyncBanner(status) {
 async function renderServicesList() {
   const res = await sendMessage("GET_CONNECTED_SERVICES");
   const connected = res.services || [];
-  renderSyncBanner(res.status || { ever_synced: connected.length > 0, last_synced_at: null });
+  const status = res.status || { ever_synced: connected.length > 0, last_synced_at: null };
+  renderSyncBanner(status);
 
   const container = document.getElementById("services-list");
   container.innerHTML = "";
+
+  // Google APIs row — the OAuth grant that Gmail/Sheets/Calendar tools run on.
+  // Distinct from the cookie rows below: cookies sign the cloud browser in,
+  // this signs the Google REST API layer in.
+  const googleRow = document.createElement("div");
+  googleRow.className = "service-row";
+  googleRow.innerHTML = `
+    <span class="service-name">Google account<br>
+      <small style="opacity:.6">Gmail, Sheets, Calendar, Docs, Drive</small></span>
+    ${status.google_api
+      ? `<span class="connected-badge">${ICONS.check} Connected</span>`
+      : `<button class="btn-small" id="connect-google-api-btn">Connect</button>`}
+  `;
+  container.appendChild(googleRow);
+  const gBtn = googleRow.querySelector("#connect-google-api-btn");
+  if (gBtn) {
+    gBtn.addEventListener("click", async () => {
+      gBtn.textContent = "Opening…";
+      gBtn.disabled = true;
+      const result = await sendMessage("CONNECT_GOOGLE_API");
+      if (!result.success) {
+        showSyncStatus(result.error, true);
+        gBtn.textContent = "Connect";
+        gBtn.disabled = false;
+      } else {
+        showSyncStatus("Finish signing in on the Google tab, then reopen this popup.");
+      }
+    });
+  }
 
   SUPPORTED_SERVICES.forEach(service => {
     const isConnected = connected.includes(service.id);

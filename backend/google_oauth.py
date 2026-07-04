@@ -1,27 +1,33 @@
-"""Per-user Google OAuth token store for the Google-API tool layer.
+"""Per-user Google OAuth token store + consent flow for the Google-API tools.
 
 The Google REST APIs (Docs, Sheets, Gmail, Calendar, Tasks, People, Drive) need
 OAuth 2.0 credentials with a refresh token — not the browser cookies the Chrome
 extension syncs. This module is where those credentials live, keyed by Lumis
-user_id, and where a googleapiclient is built from them.
+user_id, where the authorization-code consent flow that populates them is
+implemented (build_consent_url / exchange_code, driven by the
+/connect/google/* routes), and where a googleapiclient is built from them.
 
-IMPORTANT — connection gap: the current account-connection mechanism
-(chrome-extension → /connect/cookies/sync) captures *cookies*, which cannot be
-exchanged for API tokens. Until a proper Google OAuth consent flow is added
-(authorization-code + offline access, populating this store via save_tokens),
-`has_google()` returns False and every Google-API tool returns a clean
-"Google isn't connected for API access yet" error rather than crashing.
+Cookie sync signs the *cloud browser* in; THIS flow is what makes
+`has_google()` true and unlocks the google_api tool family.
 
-Config (Railway env vars), required only to refresh tokens:
-  GOOGLE_OAUTH_CLIENT_ID
+Config (Railway env vars):
+  GOOGLE_OAUTH_CLIENT_ID       — Web-application OAuth client
   GOOGLE_OAUTH_CLIENT_SECRET
+  PUBLIC_BASE_URL (optional)   — e.g. https://lumis-production-b878.up.railway.app;
+                                 the OAuth client must list
+                                 {PUBLIC_BASE_URL}/connect/google/callback as an
+                                 authorized redirect URI.
 """
+import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
 import sqlite3
 import time
 from typing import Optional
+from urllib.parse import urlencode
 
 import db
 
@@ -30,6 +36,7 @@ logger = logging.getLogger("lumis.google_oauth")
 CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
 TOKEN_URI = "https://oauth2.googleapis.com/token"
+AUTH_URI = "https://accounts.google.com/o/oauth2/v2/auth"
 
 # All scopes the tool layer may use. A real consent flow must request these.
 GOOGLE_SCOPES = [
@@ -53,6 +60,117 @@ CREATE TABLE IF NOT EXISTS google_tokens (
 
 class GoogleNotConnected(RuntimeError):
     """Raised when a user has no usable Google API credentials."""
+
+
+class GoogleOAuthNotConfigured(RuntimeError):
+    """Raised when GOOGLE_OAUTH_CLIENT_ID/SECRET are missing."""
+
+
+# --------------------------------------------------------------------------- #
+# Consent flow (authorization code + offline access)
+# --------------------------------------------------------------------------- #
+# The OAuth `state` is a short-lived signed token carrying the Lumis user_id
+# through Google's redirect. It is signed with a key DERIVED from the JWT
+# secret (domain-separated), so a state token can never be replayed as a Lumis
+# session token or vice versa.
+_STATE_TTL_S = 10 * 60
+_STATE_KEY = hashlib.sha256(
+    os.getenv("LUMIS_JWT_SECRET", "lumis-dev-secret-change-me").encode()
+    + b"|google-oauth-state"
+).digest()
+
+
+def _b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _b64url_decode(seg: str) -> bytes:
+    return base64.urlsafe_b64decode(seg + "=" * (-len(seg) % 4))
+
+
+def make_state(user_id: str) -> str:
+    payload = _b64url(json.dumps(
+        {"sub": user_id, "exp": int(time.time()) + _STATE_TTL_S},
+        separators=(",", ":")).encode())
+    sig = _b64url(hmac.new(_STATE_KEY, payload.encode(), hashlib.sha256).digest())
+    return f"{payload}.{sig}"
+
+
+def verify_state(state: str) -> str:
+    """Return the user_id carried by a valid, unexpired state token."""
+    try:
+        payload_seg, sig_seg = state.rsplit(".", 1)
+        expected = hmac.new(_STATE_KEY, payload_seg.encode(), hashlib.sha256).digest()
+        if not hmac.compare_digest(expected, _b64url_decode(sig_seg)):
+            raise ValueError("bad signature")
+        payload = json.loads(_b64url_decode(payload_seg))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("Invalid state token") from exc
+    if payload.get("exp", 0) < int(time.time()):
+        raise ValueError("State token expired — start the connect flow again.")
+    return payload["sub"]
+
+
+def _require_client() -> None:
+    if not CLIENT_ID or not CLIENT_SECRET:
+        raise GoogleOAuthNotConfigured(
+            "Google OAuth is not configured. Set GOOGLE_OAUTH_CLIENT_ID and "
+            "GOOGLE_OAUTH_CLIENT_SECRET on the server."
+        )
+
+
+def build_consent_url(user_id: str, redirect_uri: str) -> str:
+    """The Google consent screen URL for this user.
+
+    access_type=offline + prompt=consent guarantees Google returns a refresh
+    token (the thing has_google() requires) even on re-connects.
+    """
+    _require_client()
+    return AUTH_URI + "?" + urlencode({
+        "client_id": CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": " ".join(GOOGLE_SCOPES),
+        "access_type": "offline",
+        "prompt": "consent",
+        "include_granted_scopes": "true",
+        "state": make_state(user_id),
+    })
+
+
+def exchange_code(code: str, redirect_uri: str) -> dict:
+    """Exchange an authorization code for tokens and return the dict that
+    save_tokens() persists. Raises RuntimeError with Google's error on failure.
+    """
+    _require_client()
+    import requests
+
+    resp = requests.post(TOKEN_URI, data={
+        "code": code,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }, timeout=30)
+    body = resp.json() if resp.content else {}
+    if resp.status_code != 200 or "access_token" not in body:
+        raise RuntimeError(
+            f"Google token exchange failed: "
+            f"{body.get('error_description') or body.get('error') or resp.status_code}"
+        )
+    if not body.get("refresh_token"):
+        raise RuntimeError(
+            "Google didn't return a refresh token. Remove Lumis from "
+            "https://myaccount.google.com/permissions and connect again."
+        )
+    return {
+        "access_token": body["access_token"],
+        "refresh_token": body["refresh_token"],
+        "token_uri": TOKEN_URI,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "scopes": (body.get("scope") or " ".join(GOOGLE_SCOPES)).split(),
+    }
 
 
 def _connect() -> sqlite3.Connection:

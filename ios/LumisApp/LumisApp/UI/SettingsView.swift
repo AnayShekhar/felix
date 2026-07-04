@@ -120,6 +120,11 @@ struct SettingsView: View {
             Divider().overlay(LumisColors.divider)
             ExtensionSyncBanner(state: servicesVM.syncState)
             Divider().overlay(LumisColors.divider)
+            // Google OAuth (API access) — what Gmail/Sheets/Calendar tools run
+            // on. Separate from the cookie rows: cookies sign the cloud
+            // browser in; this grants Lumis the Google APIs themselves.
+            googleAPIRow
+            Divider().overlay(LumisColors.divider)
             if servicesVM.hasAnyConnection {
                 ForEach(SUPPORTED_SERVICES) { service in
                     VStack(alignment: .leading, spacing: LumisSpacing.sm) {
@@ -186,6 +191,60 @@ struct SettingsView: View {
     /// Live link between this phone and the Lumis backend, stated plainly.
     private var serverStatusRow: some View {
         ServerStatusRow(ws: lumisVM.ws)
+    }
+
+    // MARK: - Google API access (OAuth consent)
+
+    @State private var googleConnectError: String?
+
+    private var googleAPIRow: some View {
+        VStack(alignment: .leading, spacing: LumisSpacing.sm) {
+            HStack(spacing: LumisSpacing.md) {
+                Image(systemName: "key")
+                    .font(.body.weight(.medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundColor(LumisColors.textSecondary)
+                    .frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Google account")
+                        .font(LumisTypography.bodyMedium)
+                        .foregroundColor(LumisColors.textPrimary)
+                    Text("Gmail, Sheets, Calendar, Docs, Drive")
+                        .font(LumisTypography.caption)
+                        .foregroundColor(LumisColors.textSecondary)
+                }
+                Spacer()
+                if servicesVM.googleAPIConnected {
+                    Label("Connected", systemImage: "checkmark.circle")
+                        .font(LumisTypography.captionMedium)
+                        .foregroundColor(LumisColors.tintStrong)
+                } else {
+                    Button("Connect") { connectGoogle() }
+                        .font(LumisTypography.captionMedium)
+                        .foregroundColor(LumisColors.tintStrong)
+                }
+            }
+            if let googleConnectError {
+                Text(googleConnectError)
+                    .font(LumisTypography.caption)
+                    .foregroundColor(LumisColors.destructive)
+                    .padding(.leading, 40)
+            }
+        }
+        .padding(.vertical, LumisSpacing.md)
+    }
+
+    /// Fetch the consent URL and open it in-app; status refreshes when the
+    /// Safari sheet is dismissed after the user finishes the Google flow.
+    private func connectGoogle() {
+        googleConnectError = nil
+        Task {
+            do {
+                safariURL = try await APIClient.googleConnectURL(baseURL: LumisConfig.backendURL)
+            } catch {
+                googleConnectError = (error as NSError).localizedDescription
+            }
+        }
     }
 
     // MARK: - Appearance
@@ -260,7 +319,12 @@ struct SettingsView: View {
             navRow("Terms of Service") { safariURL = URL(string: LumisConfig.termsURL) }
             navRow("Send feedback") { showFeedback = true }
         }
-        .sheet(item: $safariURL) { url in SafariView(url: url).ignoresSafeArea() }
+        // Refresh connection status on dismiss — the user may have just
+        // finished the Google consent flow in this sheet.
+        .sheet(item: $safariURL,
+               onDismiss: { Task { await servicesVM.fetchStatus() } }) { url in
+            SafariView(url: url).ignoresSafeArea()
+        }
         .sheet(isPresented: $showFeedback) {
             if MailView.canSend {
                 MailView(recipient: LumisConfig.supportEmail, subject: "Lumis Feedback")

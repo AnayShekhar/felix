@@ -451,8 +451,15 @@ class LumisAgent:
         elif not await self._service_ready(meta):
             # The tool needs a connected account that this user hasn't linked.
             service = meta.get("requires_service")
-            msg = f"{service.capitalize()} isn't connected yet."
-            speak = f"You'll need to connect {service} first."
+            if service == "google":
+                # Cookie sync is NOT enough for Google REST tools — point the
+                # user at the OAuth consent flow in Settings specifically.
+                msg = ("Google isn't connected for API access yet. Open Lumis "
+                       "Settings and tap Connect next to Google to grant access.")
+                speak = "Connect Google in Lumis Settings first."
+            else:
+                msg = f"{service.capitalize()} isn't connected yet."
+                speak = f"You'll need to connect {service} first."
             result = {
                 "tool": tool, "status": "error", "title": "Connect an account",
                 "message": msg, "speak": speak,

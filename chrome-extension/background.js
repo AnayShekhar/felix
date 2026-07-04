@@ -111,7 +111,24 @@ async function fetchConnectStatus() {
     services: data.services || [],
     ever_synced: data.ever_synced ?? (data.connected || []).length > 0,
     last_synced_at: data.last_synced_at ?? null,
+    google_api: data.google_api ?? false,
   };
+}
+
+// Start the Google OAuth consent flow (the credential Gmail/Sheets/Calendar
+// tools actually run on — separate from cookie sync). Opens Google's consent
+// page in a new tab; the backend's callback stores the tokens.
+async function connectGoogleAPI() {
+  const { token } = await getStoredAuth();
+  if (!token) throw new Error("Not signed into Lumis");
+  const res = await fetch(`${API_BASE}/connect/google/start`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(await errorDetail(res, "Couldn't start Google connect"));
+  const { url } = await res.json();
+  await chrome.tabs.create({ url });
+  return true;
 }
 
 // Pull the backend's specific error detail out of a failed response so the
@@ -241,6 +258,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: true, services: status.connected, status });
           break;
         }
+        case "CONNECT_GOOGLE_API":
+          sendResponse({ success: true, opened: await connectGoogleAPI() });
+          break;
         case "SYNC_SERVICE":
           sendResponse({ success: true, result: await syncServiceCookies(message.service) });
           break;

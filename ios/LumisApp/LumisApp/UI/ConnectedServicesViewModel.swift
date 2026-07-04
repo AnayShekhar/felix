@@ -29,6 +29,10 @@ struct ConnectStatusResponse: Codable {
     let services: [ServiceSync]?
     let everSynced: Bool?
     let lastSyncedAt: Double?
+    /// True once the Google OAuth consent flow has stored API tokens — the
+    /// credential Gmail/Sheets/Calendar tools actually run on. Separate from
+    /// cookie sync (which only signs the cloud browser in).
+    let googleApi: Bool?
 
     struct ServiceSync: Codable {
         let service: String
@@ -43,6 +47,7 @@ struct ConnectStatusResponse: Codable {
         case connected, services
         case everSynced = "ever_synced"
         case lastSyncedAt = "last_synced_at"
+        case googleApi = "google_api"
     }
 }
 
@@ -107,6 +112,8 @@ enum ExtensionSyncState: Equatable {
 final class ConnectedServicesViewModel: ObservableObject {
     @Published var connectedServiceIds: Set<String> = []
     @Published var syncState: ExtensionSyncState = .neverConnected
+    /// Google OAuth (API) connection — what Gmail/Sheets/Calendar tools need.
+    @Published var googleAPIConnected = false
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -120,6 +127,7 @@ final class ConnectedServicesViewModel: ObservableObject {
                 as: ConnectStatusResponse.self
             )
             connectedServiceIds = Set(response.connected)
+            googleAPIConnected = response.googleApi ?? false
             syncState = ExtensionSyncState.from(
                 everSynced: response.everSynced ?? !response.connected.isEmpty,
                 lastSyncedAt: response.lastSyncedAt

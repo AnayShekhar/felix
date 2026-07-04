@@ -211,8 +211,14 @@ async def connection_status(user: dict = Depends(current_user)):
       - ever_synced=False               → never connected
       - last_synced_at within a day     → connected + recently synced
       - last_synced_at older than that  → connected but stale (nudge a re-sync)
+
+    `google_api` is SEPARATE from cookie sync: it is true only after the Google
+    OAuth consent flow (/connect/google/start) — the credential that Gmail /
+    Sheets / Calendar / Docs tools actually run on. A service can be
+    cookie-connected (cloud browser signed in) while google_api is still false.
     """
     import connections
+    import google_oauth
 
     details = connections.get_connection_details(user["id"])
     last = max((d["last_synced_at"] for d in details), default=None)
@@ -221,7 +227,88 @@ async def connection_status(user: dict = Depends(current_user)):
         "services": details,
         "ever_synced": bool(details),
         "last_synced_at": last,
+        "google_api": google_oauth.has_google(user["id"]),
     }
+
+
+# --------------------------------------------------------------------------- #
+# Google OAuth consent flow (populates the google_api credential store)
+# --------------------------------------------------------------------------- #
+def _public_base_url(http_request: Request) -> str:
+    """The externally reachable base URL, for building the OAuth redirect URI.
+
+    Prefers PUBLIC_BASE_URL; otherwise derives from the request, honoring the
+    Railway proxy's x-forwarded-proto so the URI is https in production.
+    """
+    import os
+
+    configured = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+    if configured:
+        return configured
+    base = str(http_request.base_url).rstrip("/")
+    if http_request.headers.get("x-forwarded-proto", "").lower() == "https":
+        base = "https://" + base.split("://", 1)[1]
+    return base
+
+
+@router.post("/connect/google/start")
+async def google_oauth_start(http_request: Request, user: dict = Depends(current_user)):
+    """Return the Google consent URL for the signed-in account. The client
+    (extension popup or iOS Settings) opens it in a browser; Google redirects
+    back to /connect/google/callback, which stores the tokens."""
+    import google_oauth
+
+    redirect_uri = _public_base_url(http_request) + "/connect/google/callback"
+    try:
+        url = google_oauth.build_consent_url(user["id"], redirect_uri)
+    except google_oauth.GoogleOAuthNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return {"url": url}
+
+
+@router.get("/connect/google/callback")
+async def google_oauth_callback(http_request: Request, code: str = "", state: str = "",
+                                error: str = ""):
+    """Google's redirect target. Exchanges the code, stores the per-user tokens
+    (unlocking the google_api tool family), and shows a small close-this-tab
+    page. Unauthenticated by design — identity comes from the signed `state`."""
+    from fastapi.responses import HTMLResponse
+
+    import google_oauth
+
+    def page(title: str, detail: str, ok: bool) -> HTMLResponse:
+        return HTMLResponse(
+            f"""<!doctype html><meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>{title}</title>
+            <body style="font-family: -apple-system, system-ui, sans-serif;
+                         display: grid; place-items: center; min-height: 90vh;
+                         background: #DBDDDE; color: #212222;">
+              <div style="text-align: center; max-width: 26rem; padding: 1rem;">
+                <h1 style="font-size: 1.25rem;">{title}</h1>
+                <p style="opacity: .7;">{detail}</p>
+              </div>
+            </body>""",
+            status_code=200 if ok else 400,
+        )
+
+    if error:
+        return page("Google sign-in was cancelled",
+                    "You can close this tab and try again from Lumis.", ok=False)
+    try:
+        user_id = google_oauth.verify_state(state)
+        redirect_uri = _public_base_url(http_request) + "/connect/google/callback"
+        loop = asyncio.get_event_loop()
+        token = await loop.run_in_executor(
+            None, google_oauth.exchange_code, code, redirect_uri)
+        google_oauth.save_tokens(user_id, token)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Google OAuth callback failed")
+        return page("Couldn't connect Google", str(exc), ok=False)
+    logger.info("Google API connected for user %s", user_id)
+    return page("Google connected",
+                "Gmail, Sheets, Calendar, Docs and Drive now work in Lumis. "
+                "You can close this tab.", ok=True)
 
 
 @router.post("/connect/cookies/sync")
