@@ -493,6 +493,13 @@ class LumisAgent:
             memory.learn_from_action(tool, args, result)
         except Exception:  # noqa: BLE001 - learning is best-effort
             logger.warning("learn_from_action failed for %s", tool, exc_info=True)
+        try:
+            # Short-term working memory: remember what was just created/touched
+            # so follow-ups ("send that draft") can act on the real artifact.
+            import recent_activity
+            recent_activity.record_from_result(self.user_id, tool, args, result)
+        except Exception:  # noqa: BLE001 - recording is best-effort
+            logger.warning("recent_activity record failed for %s", tool, exc_info=True)
 
         self.results.append(result)
         self._observe(tool, args, reasoning, result)
@@ -665,9 +672,17 @@ class LumisAgent:
             "\n\nWHAT LUMIS KNOWS ABOUT THIS USER (use as defaults; never override "
             f"what the user explicitly says):\n{ctx}" if ctx else ""
         )
+        # Working memory of just-created artifacts, so "send that draft" /
+        # "add to it" resolves to the real thing instead of a new duplicate.
+        try:
+            import recent_activity
+            recent_block = recent_activity.context_block(self.user_id)
+        except Exception:  # noqa: BLE001 - context is best-effort
+            recent_block = ""
         content.append({
             "type": "text",
-            "text": f"{conversation_block}User command: {voice_text}{memory_block}",
+            "text": f"{conversation_block}User command: {voice_text}"
+                    f"{memory_block}{recent_block}",
         })
         return content
 

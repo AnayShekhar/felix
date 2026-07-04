@@ -10,6 +10,7 @@ import auth
 import connections
 import db
 import google_oauth
+import recent_activity
 import tasks
 import websocket as ws_module
 from routes import router
@@ -22,6 +23,7 @@ db.init_db()
 auth.init_auth()
 connections.init_connections()
 google_oauth.init_google_oauth()
+recent_activity.init_recent_activity()
 
 
 @asynccontextmanager

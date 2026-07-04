@@ -452,6 +452,8 @@ TOOL_REGISTRY = {
     "sheets.read_sheet":        {"runs_on": "google_api", "irreversible": False, "requires_service": "google"},
     "sheets.edit_cell":         {"runs_on": "google_api", "irreversible": False, "requires_service": "google"},
     "gmail.draft_email":        {"runs_on": "google_api", "irreversible": False, "requires_service": "google"},
+    "gmail.update_draft":       {"runs_on": "google_api", "irreversible": False, "requires_service": "google"},
+    "gmail.send_draft":         {"runs_on": "google_api", "irreversible": True,  "requires_service": "google"},
     "gmail.send_email":         {"runs_on": "google_api", "irreversible": True,  "requires_service": "google"},
     "gmail.read_inbox":         {"runs_on": "google_api", "irreversible": False, "requires_service": "google"},
     "calendar.create_event":    {"runs_on": "google_api", "irreversible": False, "requires_service": "google"},

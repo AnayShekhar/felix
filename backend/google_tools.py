@@ -207,6 +207,66 @@ def gmail_draft_email(args: dict, user_id: str) -> dict:
             "url": url, "data": {"draft_id": draft.get("id"), "to": to, "url": url}}
 
 
+def gmail_update_draft(args: dict, user_id: str) -> dict:
+    """Update an EXISTING draft (fill in a recipient, change subject/body).
+    Fields not passed are kept from the current draft."""
+    draft_id = str(args.get("draft_id") or "").strip()
+    if not draft_id:
+        return {"tool": "gmail.update_draft", "status": "error",
+                "message": "draft_id is required — take it from RECENT ACTIVITY "
+                           "or draft a new email instead.", "data": {}}
+    svc = _service(user_id, "gmail", "v1")
+    current = svc.users().drafts().get(userId="me", id=draft_id, format="full").execute()
+    headers = {h["name"].lower(): h["value"]
+               for h in current.get("message", {}).get("payload", {}).get("headers", [])}
+    import base64 as _b64
+    body_data = ""
+    payload = current.get("message", {}).get("payload", {})
+    part = payload if payload.get("body", {}).get("data") else next(
+        (p for p in payload.get("parts", []) or [] if p.get("body", {}).get("data")), {})
+    if part.get("body", {}).get("data"):
+        body_data = _b64.urlsafe_b64decode(part["body"]["data"]).decode(errors="replace")
+
+    to = str(args.get("to") or headers.get("to") or "").strip()
+    subject = str(args.get("subject") or headers.get("subject") or "").strip()
+    body = str(args.get("body") if args.get("body") is not None else body_data)
+    updated = svc.users().drafts().update(
+        userId="me", id=draft_id,
+        body={"message": {"raw": _gmail_raw(to, subject, body)}}).execute()
+    url = "https://mail.google.com/mail/u/0/#drafts"
+    return {"tool": "gmail.update_draft", "status": "success", "title": "Draft updated",
+            "message": f"Updated the draft (to: {to or 'still no recipient'}).",
+            "speak": "I updated that draft.",
+            "url": url, "data": {"draft_id": updated.get("id", draft_id),
+                                 "to": to, "subject": subject, "url": url}}
+
+
+def gmail_send_draft(args: dict, user_id: str) -> dict:
+    """Send an EXISTING draft by id. IRREVERSIBLE. Refuses drafts without a
+    real recipient — never send to a placeholder."""
+    draft_id = str(args.get("draft_id") or "").strip()
+    if not draft_id:
+        return {"tool": "gmail.send_draft", "status": "error",
+                "message": "draft_id is required — take it from RECENT ACTIVITY.",
+                "data": {}}
+    svc = _service(user_id, "gmail", "v1")
+    current = svc.users().drafts().get(userId="me", id=draft_id, format="metadata").execute()
+    headers = {h["name"].lower(): h["value"]
+               for h in current.get("message", {}).get("payload", {}).get("headers", [])}
+    to = str(headers.get("to") or "").strip()
+    if "@" not in to:
+        return {"tool": "gmail.send_draft", "status": "error",
+                "message": "That draft has no real recipient yet. Add one with "
+                           "gmail.update_draft (resolve the address via "
+                           "people.search_contacts or ask the user) before sending.",
+                "data": {"draft_id": draft_id}}
+    sent = svc.users().drafts().send(userId="me", body={"id": draft_id}).execute()
+    url = "https://mail.google.com/mail/u/0/#sent"
+    return {"tool": "gmail.send_draft", "status": "success", "title": "Email sent",
+            "message": f"Sent the draft to {to}.", "speak": f"Sent that to {to}.",
+            "url": url, "data": {"message_id": sent.get("id"), "to": to, "url": url}}
+
+
 def gmail_send_email(args: dict, user_id: str) -> dict:
     to = str(args.get("to") or "").strip()
     subject = str(args.get("subject") or "").strip()
@@ -400,6 +460,8 @@ _GOOGLE_TOOLS = {
     "sheets.read_sheet": sheets_read_sheet,
     "sheets.edit_cell": sheets_edit_cell,
     "gmail.draft_email": gmail_draft_email,
+    "gmail.update_draft": gmail_update_draft,
+    "gmail.send_draft": gmail_send_draft,
     "gmail.send_email": gmail_send_email,
     "gmail.read_inbox": gmail_read_inbox,
     "calendar.create_event": calendar_create_event,
