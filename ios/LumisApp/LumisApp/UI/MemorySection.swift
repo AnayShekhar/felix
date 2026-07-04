@@ -30,11 +30,12 @@ struct MemorySection: View {
                         }
                         Spacer(minLength: 4)
                         Button { forget(key) } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 18))
+                            Image(systemName: "xmark.circle")
+                                .font(.body.weight(.medium))
+                                .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(LumisColors.textTertiary)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.lumisPress)
                         .accessibilityLabel("Forget \(prettyKey(key))")
                     }
                     .settingsRowPadding()

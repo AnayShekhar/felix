@@ -6,9 +6,18 @@ struct RootView: View {
     @EnvironmentObject private var authVM: AuthViewModel
     @State private var minSplashElapsed = false
 
+    #if DEBUG
+    /// UI-screenshot hook (like LUMIS_NO_MIC): jump straight to the main app.
+    private var uiPreview: Bool { ProcessInfo.processInfo.environment["LUMIS_UI_PREVIEW"] != nil }
+    #else
+    private var uiPreview: Bool { false }
+    #endif
+
     var body: some View {
         Group {
-            if authVM.isLoading || !minSplashElapsed {
+            if uiPreview {
+                MainTabView()
+            } else if authVM.isLoading || !minSplashElapsed {
                 SplashView()
                     .transition(.opacity)
             } else if !authVM.isAuthenticated {

@@ -18,12 +18,12 @@ struct ExtensionInstructionsView: View {
                     if let service = highlightService, !service.isEmpty {
                         Text("Lumis needs \(service.capitalized) to do that. Connect it below and try again.")
                             .font(LumisTypography.bodyMedium)
-                            .foregroundColor(LumisColors.tint)
+                            .foregroundColor(LumisColors.tintStrong)
                     }
 
                     Text("Lumis uses a small Chrome extension on your computer to securely connect your accounts. Your phone tells Lumis what to do — the extension is just how it gets access.")
                         .font(LumisTypography.bodyMedium)
-                        .foregroundColor(LumisColors.textPrimary.opacity(0.7))
+                        .foregroundColor(LumisColors.textSecondary)
 
                     stepRow(number: 1, text: "On your computer, open Chrome and load the Lumis extension")
                     stepRow(number: 2, text: "Sign in with the same account you used on your phone")
@@ -32,10 +32,10 @@ struct ExtensionInstructionsView: View {
 
                     Text("This extension isn't on the Chrome Web Store yet — ask for the install file directly.")
                         .font(LumisTypography.caption)
-                        .foregroundColor(LumisColors.textPrimary.opacity(0.5))
-                        .padding(.top, 8)
+                        .foregroundColor(LumisColors.textSecondary)
+                        .padding(.top, LumisSpacing.sm)
                 }
-                .padding(24)
+                .padding(LumisSpacing.xl)
             }
             .background(LumisColors.background)
             .toolbar {
@@ -47,9 +47,9 @@ struct ExtensionInstructionsView: View {
     }
 
     private func stepRow(number: Int, text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: LumisSpacing.md) {
             Text("\(number)")
-                .font(LumisTypography.bodyMedium.bold())
+                .font(LumisTypography.titleSmall)
                 .foregroundColor(LumisColors.onTint)
                 .frame(width: 24, height: 24)
                 .background(LumisColors.tint)

@@ -41,7 +41,7 @@ private struct WelcomeView: View {
             LumisColors.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 Spacer()
-                LumisShapeView(state: .idle, containerSize: 120)
+                ScribbleView(state: .idle, containerSize: 120)
                 LumisWordmark(size: 28).padding(.top, 20)
                 Text("Your world, automated.")
                     .font(LumisTypography.bodyMedium)
@@ -64,7 +64,7 @@ private struct WelcomeView: View {
                     // creation — re-create it when the scheme flips live.
                     .id(colorScheme)
                     .frame(height: 54)
-                    .clipShape(RoundedRectangle(cornerRadius: LumisRadius.lg))
+                    .clipShape(LumisRadius.rect(LumisRadius.lg))
 
                     LumisSecondaryButton(title: "Continue with Google") {
                         GoogleLogo()

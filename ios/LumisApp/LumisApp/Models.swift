@@ -52,7 +52,9 @@ struct UndoResponse: Codable {
 }
 
 // WebSocket envelope: { session_id, event, data }
-// Events: "step_started", "step_executed", "workflow_complete", "action_undone"
+// Agent events: "agent_start", "agent_step", "agent_question", "agent_done",
+// "agent_error", "service_required" — plus the backward-compatible
+// "step_started" / "step_executed" / "workflow_complete" stream.
 struct WSEnvelope: Codable {
     let session_id: String?
     let event: String?
@@ -62,6 +64,14 @@ struct WSEnvelope: Codable {
     let service: String?
     let message: String?
     let speak: String?
+    // Top-level fields carried by the agent_* events.
+    let step: Int?          // agent_step
+    let tool: String?       // agent_step
+    let reasoning: String?  // agent_step
+    let question: String?   // agent_question
+    let title: String?      // agent_done
+    let summary: String?    // agent_done
+    let url: String?        // agent_done
 }
 
 // Flexible payload covering per-step, workflow_complete, and task_* events.

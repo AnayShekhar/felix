@@ -6,10 +6,11 @@ struct ConnectServicesEmptyState: View {
     var onGetStarted: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: LumisSpacing.md) {
             Image(systemName: "laptopcomputer.and.iphone")
-                .font(.system(size: 32))
-                .foregroundColor(LumisColors.tint)
+                .font(.largeTitle.weight(.medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundColor(LumisColors.tintStrong)
 
             Text("No accounts connected yet")
                 .font(LumisTypography.titleSmall)
@@ -17,22 +18,22 @@ struct ConnectServicesEmptyState: View {
 
             Text("Install the Lumis Chrome extension on your computer to connect Gmail, Sheets, Notion, and more.")
                 .font(LumisTypography.bodySmall)
-                .foregroundColor(LumisColors.textPrimary.opacity(0.6))
+                .foregroundColor(LumisColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: onGetStarted) {
                 Text("How to connect")
-                    .font(LumisTypography.bodyMedium)
+                    .font(LumisTypography.titleSmall)
                     .foregroundColor(LumisColors.background)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, LumisSpacing.screenMargin)
                     .padding(.vertical, 10)
-                    .background(LumisColors.textPrimary)
-                    .cornerRadius(20)
+                    .background(LumisColors.textPrimary, in: Capsule())
             }
-            .padding(.top, 4)
+            .buttonStyle(.lumisPress)
+            .padding(.top, LumisSpacing.xs)
         }
-        .padding(24)
+        .padding(LumisSpacing.xl)
         .frame(maxWidth: .infinity)
     }
 }

@@ -61,7 +61,7 @@ struct FloatingLabelField: View {
         .frame(height: 52)
         .background(LumisColors.background)
         .overlay(
-            RoundedRectangle(cornerRadius: LumisRadius.lg)
+            LumisRadius.rect(LumisRadius.lg)
                 .stroke(focused ? LumisColors.tint : LumisColors.divider,
                         lineWidth: focused ? 1.5 : 1)
         )

@@ -26,13 +26,16 @@ enum PasswordStrength: Int {
         }
     }
 
+    // Single-accent discipline: red only for "weak" (an error state), neutral
+    // for "fair", and the brand tint — deepening with confidence — for good
+    // and strong. No third hue.
     var color: Color {
         switch self {
         case .empty:  return LumisColors.divider
         case .weak:   return LumisColors.destructive
-        case .fair:   return LumisColors.amber
+        case .fair:   return LumisColors.textTertiary
         case .good:   return LumisColors.tint
-        case .strong: return LumisColors.success
+        case .strong: return LumisColors.tintStrong
         }
     }
 }

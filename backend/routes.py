@@ -3,7 +3,7 @@ import asyncio
 import logging
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 import db
@@ -225,10 +225,28 @@ async def connection_status(user: dict = Depends(current_user)):
 
 
 @router.post("/connect/cookies/sync")
-async def sync_cookies(request: CookieSyncRequest, user: dict = Depends(current_user)):
+async def sync_cookies(
+    request: CookieSyncRequest,
+    http_request: Request,
+    user: dict = Depends(current_user),
+):
     """Receive cookies captured by the Chrome extension and inject them into the
     user's persistent Browserbase context so future cloud-browser sessions are
-    already signed in."""
+    already signed in.
+
+    Security invariants (keep these true):
+      * Cookie values are held in memory only for the duration of this request —
+        they are NEVER written to the database, disk, or logs. The only things
+        persisted are the Browserbase context id and the service name.
+      * In production the request must arrive over TLS (Railway terminates
+        HTTPS and sets x-forwarded-proto); plaintext syncs are refused.
+    """
+    proto = http_request.headers.get("x-forwarded-proto")
+    if proto and proto.lower() != "https":
+        raise HTTPException(
+            status_code=403,
+            detail="Cookie sync is only accepted over HTTPS.",
+        )
     import connections
     from cloud_browser import (
         CloudBrowserNotConfigured,

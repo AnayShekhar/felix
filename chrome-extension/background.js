@@ -126,9 +126,14 @@ async function errorDetail(res, fallback) {
 
 // ── Cookie sync ───────────────────────────────────────────────────────────
 
+// The domain whose cookies actually carry the service's login session.
+// IMPORTANT: chrome.cookies.getAll({domain}) matches that domain and its
+// SUBDOMAINS only — passing "mail.google.com" would miss the real Google
+// session cookies (SID, HSID, SAPISID, …), which are set on ".google.com".
+// Always use the registrable domain here.
 const SERVICE_DOMAINS = {
-  gmail:     "mail.google.com",
-  sheets:    "docs.google.com",
+  gmail:     "google.com",
+  sheets:    "google.com",
   notion:    "notion.so",
   linkedin:  "linkedin.com",
   slack:     "slack.com",

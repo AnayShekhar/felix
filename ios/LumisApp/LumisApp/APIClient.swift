@@ -41,8 +41,29 @@ enum APIClient {
         authorize(&req)
         req.httpBody = try JSONEncoder().encode(payload)
 
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            // Surface the backend's own explanation (e.g. "Not signed in")
+            // instead of silently pretending the request was accepted.
+            struct Detail: Codable { let detail: String? }
+            let detail = (try? JSONDecoder().decode(Detail.self, from: data))?.detail
+            throw NSError(domain: "Lumis", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey:
+                                     detail ?? "Server returned HTTP \(http.statusCode)."])
+        }
+        // Current backend replies {"status":"accepted"} and streams the run
+        // over the WebSocket — steps is empty then. Older backends returned
+        // the finished steps inline; pass those through when present.
         return (try? JSONDecoder().decode(IngestResponse.self, from: data))?.steps ?? []
+    }
+
+    /// GET /latest — the signed-in account's most recent agent event. Used as
+    /// the honest fallback when the WebSocket missed a run's conclusion.
+    static func latest(baseURL: String) async throws -> WSEnvelope? {
+        var req = URLRequest(url: URL(string: "\(baseURL)/latest")!)
+        authorize(&req)
+        let (data, _) = try await URLSession.shared.data(for: req)
+        return try? JSONDecoder().decode(WSEnvelope.self, from: data)
     }
 
     /// Fetches the last 50 actions for the signed-in account (GET /history).

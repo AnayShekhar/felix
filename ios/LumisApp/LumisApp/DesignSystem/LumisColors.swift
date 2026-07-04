@@ -19,9 +19,11 @@ struct LumisColors {
 
     /// Primary screen background.
     static let background = adaptive(light: alabaster, dark: carbon)
-    /// Card / grouped-section surface, one step off the background.
-    static let surface = adaptive(light: carbon.withAlphaComponent(0.05),
-                                  dark: alabaster.withAlphaComponent(0.07))
+    /// Elevated surface (cards, the chat bar, sheets) — a solid step *cleaner*
+    /// than the background: near-white in light mode, a clearly lifted grey in
+    /// dark, so surfaces separate instead of washing into one flat grey.
+    static let surface = adaptive(light: blend(alabaster, .white, 0.72),
+                                  dark: blend(carbon, alabaster, 0.09))
     /// Primary text and icons.
     static let textPrimary = adaptive(light: carbon, dark: alabaster)
     /// Secondary text (supporting copy, subtitles).
@@ -35,6 +37,12 @@ struct LumisColors {
 
     /// The single brand accent. Identical in light and dark.
     static let tint = Color(uiColor: coolSteel)
+    /// The accent at full confidence — deepened toward Carbon in light mode
+    /// (raw Cool Steel is too close to Alabaster to hold a line), lifted
+    /// toward Alabaster in dark. For linework and emphasis (the scribble,
+    /// the active spinner), not fills.
+    static let tintStrong = adaptive(light: blend(coolSteel, carbon, 0.38),
+                                     dark: blend(coolSteel, alabaster, 0.22))
     /// Subtle tint wash (icon chips, selected rows).
     static let tintSoft = tint.opacity(0.16)
     /// Mid-strength tint (secondary fills).
@@ -47,16 +55,18 @@ struct LumisColors {
 
     /// Dimming layer behind the sidebar / modals — always dark.
     static let scrim = Color(uiColor: carbon).opacity(0.40)
-    /// Soft drop shadow color.
-    static let shadow = Color.black.opacity(0.10)
+    /// Drop shadow color — almost invisible (HIG: depth is suggested, never
+    /// drawn). Use with small radii (8–12) and a 4pt Y offset.
+    static let shadow = Color.black.opacity(0.04)
     /// Skeleton shimmer highlight (screen-blended, works on both modes).
     static let shimmer = Color(uiColor: alabaster).opacity(0.55)
 
     // MARK: Status colors (functional, not decorative)
 
+    /// The one semantic exception to the single accent: errors and destructive
+    /// actions only. Success/connected states use the tint (with a checkmark
+    /// glyph carrying the meaning) — never a second hue.
     static let destructive = Color(hex: "#E05252")
-    static let success     = Color(hex: "#4CAF7D")
-    static let amber       = Color(hex: "#E8A838")
 
     // MARK: -
 
@@ -64,6 +74,16 @@ struct LumisColors {
         Color(uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark ? dark : light
         })
+    }
+
+    /// Linear blend of two raw palette colors (t = 0 → a, t = 1 → b).
+    private static func blend(_ a: UIColor, _ b: UIColor, _ t: CGFloat) -> UIColor {
+        var (r1, g1, b1, a1): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
+        var (r2, g2, b2, a2): (CGFloat, CGFloat, CGFloat, CGFloat) = (0, 0, 0, 0)
+        a.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        b.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        return UIColor(red: r1 + (r2 - r1) * t, green: g1 + (g2 - g1) * t,
+                       blue: b1 + (b2 - b1) * t, alpha: a1 + (a2 - a1) * t)
     }
 }
 

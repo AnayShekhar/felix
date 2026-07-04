@@ -49,7 +49,7 @@ struct SettingsView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { onClose() } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(LumisColors.textPrimary)
                         }
                         .accessibilityLabel("Close settings")
@@ -83,25 +83,31 @@ struct SettingsView: View {
                 ZStack {
                     Circle().fill(LumisColors.tint).frame(width: 52, height: 52)
                     Text(authVM.currentUser?.initials ?? "?")
-                        .font(LumisTypography.titleMedium)
+                        .font(LumisTypography.bodyLargeEmphasized)
                         .foregroundStyle(LumisColors.onTint)
                 }
                 VStack(alignment: .leading, spacing: 2) {
+                    // Medium, not semibold — the "Settings" large title is this
+                    // screen's one dominant heading.
                     Text(authVM.currentUser?.displayName ?? "Your account")
-                        .font(LumisTypography.titleMedium)
+                        .font(LumisTypography.bodyLargeEmphasized)
                         .foregroundStyle(LumisColors.textPrimary)
                     Text(authVM.currentUser?.email ?? "")
                         .font(LumisTypography.bodySmall)
                         .foregroundStyle(LumisColors.textSecondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").foregroundStyle(LumisColors.textTertiary)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(LumisColors.textTertiary)
             }
             .padding(LumisSpacing.lg)
-            .background(LumisColors.surface, in: RoundedRectangle(cornerRadius: LumisRadius.lg))
-            .overlay(RoundedRectangle(cornerRadius: LumisRadius.lg).stroke(LumisColors.divider, lineWidth: 1))
+            // Material card, continuous corners, no drawn border — depth
+            // through blur and a near-invisible shadow.
+            .background(.ultraThinMaterial, in: LumisRadius.rect(LumisRadius.card))
+            .shadow(color: LumisColors.shadow, radius: 8, y: 4)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.lumisPress)
     }
 
     // MARK: - Connected services (Chrome extension)
@@ -109,14 +115,19 @@ struct SettingsView: View {
     @ViewBuilder
     private var connectedServicesSection: some View {
         SettingsSection("Connected Services") {
+            // Connection status lives exclusively here — never on the main screen.
+            serverStatusRow
+            Divider().overlay(LumisColors.divider)
             ExtensionSyncBanner(state: servicesVM.syncState)
             Divider().overlay(LumisColors.divider)
             if servicesVM.hasAnyConnection {
                 ForEach(SUPPORTED_SERVICES) { service in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
+                    VStack(alignment: .leading, spacing: LumisSpacing.sm) {
+                        HStack(spacing: LumisSpacing.md) {
                             Image(systemName: service.icon)
-                                .foregroundColor(LumisColors.textPrimary.opacity(0.6))
+                                .font(.body.weight(.medium))
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundColor(LumisColors.textSecondary)
                                 .frame(width: 28)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(service.displayName)
@@ -124,51 +135,57 @@ struct SettingsView: View {
                                     .foregroundColor(LumisColors.textPrimary)
                                 Text(service.description)
                                     .font(LumisTypography.caption)
-                                    .foregroundColor(LumisColors.textPrimary.opacity(0.5))
+                                    .foregroundColor(LumisColors.textSecondary)
                             }
                             Spacer()
                             if servicesVM.isConnected(service.id) {
-                                Label("Connected", systemImage: "checkmark.circle.fill")
-                                    .font(LumisTypography.caption)
-                                    .foregroundColor(LumisColors.success)
+                                Label("Connected", systemImage: "checkmark.circle")
+                                    .font(LumisTypography.captionMedium)
+                                    .foregroundColor(LumisColors.tintStrong)
                             } else {
                                 Text("Not connected")
                                     .font(LumisTypography.caption)
-                                    .foregroundColor(LumisColors.textPrimary.opacity(0.3))
+                                    .foregroundColor(LumisColors.textTertiary)
                             }
                         }
                         if servicesVM.isConnected(service.id) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: LumisSpacing.sm) {
                                 Button(verifyingID == service.id ? "Checking…" : "Verify") {
                                     Task { await verify(service.id) }
                                 }
-                                .font(LumisTypography.caption)
-                                .foregroundColor(LumisColors.textPrimary.opacity(0.45))
+                                .font(LumisTypography.captionMedium)
+                                .foregroundColor(LumisColors.textSecondary)
                                 .disabled(verifyingID == service.id)
                                 if let msg = verifyMessages[service.id] {
                                     Text(msg)
                                         .font(LumisTypography.caption)
-                                        .foregroundColor(LumisColors.textPrimary.opacity(0.45))
+                                        .foregroundColor(LumisColors.textTertiary)
                                 }
                             }
-                            .padding(.leading, 28)
+                            // Aligns with the text column (28pt icon + 12pt gap).
+                            .padding(.leading, 40)
                         }
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, LumisSpacing.md)
                 }
 
-                Divider()
+                Divider().overlay(LumisColors.divider)
 
                 Button(action: { showExtensionInstructions = true }) {
                     Label("Connect more accounts", systemImage: "plus.circle")
                         .font(LumisTypography.bodyMedium)
-                        .foregroundColor(LumisColors.tint)
+                        .foregroundColor(LumisColors.tintStrong)
                 }
-                .padding(.top, 4)
+                .padding(.top, LumisSpacing.sm)
             } else {
                 ConnectServicesEmptyState(onGetStarted: { showExtensionInstructions = true })
             }
         }
+    }
+
+    /// Live link between this phone and the Lumis backend, stated plainly.
+    private var serverStatusRow: some View {
+        ServerStatusRow(ws: lumisVM.ws)
     }
 
     // MARK: - Appearance
@@ -220,7 +237,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Delete account").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.destructive)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 13)).foregroundStyle(LumisColors.textTertiary)
+                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(LumisColors.textTertiary)
                 }.settingsRowPadding()
             }.buttonStyle(.plain)
         }
@@ -257,7 +274,7 @@ struct SettingsView: View {
     private func navRow(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             SettingsRow(icon: nil, title: title) {
-                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundStyle(LumisColors.textTertiary)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(LumisColors.textTertiary)
             }
         }.buttonStyle(.plain)
     }
@@ -303,6 +320,34 @@ struct VerifyResponse: Codable {
 extension URL: @retroactive Identifiable { public var id: String { absoluteString } }
 
 
+/// The phone ↔ backend link, observed directly so the row updates live.
+private struct ServerStatusRow: View {
+    @ObservedObject var ws: WebSocketClient
+
+    var body: some View {
+        HStack(spacing: LumisSpacing.md) {
+            Image(systemName: ws.connected ? "checkmark.circle" : "circle.dashed")
+                .font(.title3.weight(.medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(ws.connected ? LumisColors.tintStrong : LumisColors.textTertiary)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ws.connected ? "Connected to Lumis" : "Connecting to Lumis…")
+                    .font(LumisTypography.titleSmall)
+                    .foregroundStyle(LumisColors.textPrimary)
+                Text(ws.connected
+                     ? "This phone is receiving live updates."
+                     : "Trying to reach the Lumis server.")
+                    .font(LumisTypography.caption)
+                    .foregroundStyle(LumisColors.textSecondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .settingsRowPadding()
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// The honest phone ↔ extension link status shown at the top of Connected
 /// Services (never / recently synced / stale). Same wording as the extension.
 struct ExtensionSyncBanner: View {
@@ -311,7 +356,8 @@ struct ExtensionSyncBanner: View {
     var body: some View {
         HStack(spacing: LumisSpacing.md) {
             Image(systemName: state.icon)
-                .font(.system(size: 20))
+                .font(.title3.weight(.medium))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(state.color)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 2) {

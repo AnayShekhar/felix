@@ -9,7 +9,7 @@ struct SplashView: View {
         ZStack {
             LumisColors.background.ignoresSafeArea()
             VStack(spacing: 28) {
-                LumisShapeView(state: .thinking, containerSize: 180)
+                ScribbleView(state: .thinking, containerSize: 180)
                     .scaleEffect(appear ? 1 : 0.85)
                     .opacity(appear ? 1 : 0)
                 LumisWordmark(size: 28)

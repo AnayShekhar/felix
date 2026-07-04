@@ -29,20 +29,3 @@ struct ShimmerModifier: ViewModifier {
 extension View {
     func shimmer() -> some View { modifier(ShimmerModifier()) }
 }
-
-/// Full-screen working overlay: blurred material + small Lumis shape + label.
-struct WorkingOverlay: View {
-    var label: String = "Working on it…"
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial).ignoresSafeArea()
-            VStack(spacing: 16) {
-                LumisShapeView(state: .thinking, containerSize: 80)
-                Text(label)
-                    .font(LumisTypography.bodyMedium)
-                    .foregroundStyle(LumisColors.textSecondary)
-            }
-        }
-        .accessibilityLabel(label)
-    }
-}

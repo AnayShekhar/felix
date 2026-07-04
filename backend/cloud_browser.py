@@ -71,12 +71,11 @@ def _to_playwright_cookies(cookies: List[dict]) -> List[dict]:
     """Map extension-captured cookies into Playwright's add_cookies() shape."""
     out = []
     for c in cookies:
-        same = c.get("sameSite")
-        same = (
-            same.capitalize()
-            if isinstance(same, str) and same.lower() in ("lax", "strict", "none")
-            else "Lax"
-        )
+        # Chrome's cookies API reports "no_restriction" for SameSite=None —
+        # mapping that to Lax would break cross-site auth cookies.
+        raw = str(c.get("sameSite") or "").lower()
+        same = {"lax": "Lax", "strict": "Strict",
+                "none": "None", "no_restriction": "None"}.get(raw, "Lax")
         cookie = {
             "name": c["name"],
             "value": c["value"],

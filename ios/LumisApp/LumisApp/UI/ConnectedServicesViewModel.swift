@@ -10,13 +10,16 @@ struct ServiceDefinition: Identifiable {
     let description: String
 }
 
+// One icon language app-wide: outline SF Symbols only (no .fill variants),
+// rendered at a shared size/weight where they appear, so every glyph carries
+// the same stroke weight and visual density.
 let SUPPORTED_SERVICES: [ServiceDefinition] = [
-    ServiceDefinition(id: "gmail",    displayName: "Gmail",         icon: "envelope.fill",         description: "Read and draft emails"),
-    ServiceDefinition(id: "sheets",   displayName: "Google Sheets", icon: "tablecells.fill",       description: "Track expenses and data"),
-    ServiceDefinition(id: "notion",   displayName: "Notion",        icon: "doc.text.fill",         description: "Create and edit pages"),
-    ServiceDefinition(id: "linkedin", displayName: "LinkedIn",      icon: "person.crop.circle",    description: "Search and post updates"),
-    ServiceDefinition(id: "slack",    displayName: "Slack",         icon: "message.fill",          description: "Send messages"),
-    ServiceDefinition(id: "airtable", displayName: "Airtable",      icon: "square.grid.3x3.fill",  description: "Manage records"),
+    ServiceDefinition(id: "gmail",    displayName: "Gmail",         icon: "envelope",          description: "Read and draft emails"),
+    ServiceDefinition(id: "sheets",   displayName: "Google Sheets", icon: "tablecells",        description: "Track expenses and data"),
+    ServiceDefinition(id: "notion",   displayName: "Notion",        icon: "doc.text",          description: "Create and edit pages"),
+    ServiceDefinition(id: "linkedin", displayName: "LinkedIn",      icon: "person.crop.circle", description: "Search and post updates"),
+    ServiceDefinition(id: "slack",    displayName: "Slack",         icon: "message",           description: "Send messages"),
+    ServiceDefinition(id: "airtable", displayName: "Airtable",      icon: "square.grid.3x3",   description: "Manage records"),
 ]
 
 /// Response of `GET /connect/status`.
@@ -81,18 +84,20 @@ enum ExtensionSyncState: Equatable {
         }
     }
 
+    // One accent: state is carried by the glyph, not a second hue. The tint
+    // marks the healthy state; neutral greys mark everything short of it.
     var color: Color {
         switch self {
         case .neverConnected:  return LumisColors.textTertiary
-        case .recentlySynced:  return LumisColors.success
-        case .stale:           return LumisColors.amber
+        case .recentlySynced:  return LumisColors.tintStrong
+        case .stale:           return LumisColors.textSecondary
         }
     }
 
     var icon: String {
         switch self {
         case .neverConnected:  return "circle.dashed"
-        case .recentlySynced:  return "checkmark.circle.fill"
+        case .recentlySynced:  return "checkmark.circle"
         case .stale:           return "clock.arrow.circlepath"
         }
     }

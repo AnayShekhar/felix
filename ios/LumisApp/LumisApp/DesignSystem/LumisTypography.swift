@@ -1,29 +1,35 @@
 import SwiftUI
 
-/// Type scale for the app. SF Pro for everything, with New York (the system
-/// serif on iOS, reached via `design: .serif`) reserved for the hero greeting.
+/// Type scale for the app, built exclusively on Apple's semantic text styles
+/// so every string scales with Dynamic Type. Hierarchy comes from the
+/// semantic style plus at most a `.semibold`/`.medium` weight — never fixed
+/// pixel sizes, never heavy bolding. New York (the system serif) is reserved
+/// for the hero greeting.
 struct LumisTypography {
     // Greeting — New York serif, hero moments only (the home greeting).
-    static let greeting      = Font.system(size: 34, weight: .regular, design: .serif)
+    static let greeting      = Font.system(.largeTitle, design: .serif)
 
-    // Display
-    static let displayLarge  = Font.system(size: 34, weight: .semibold, design: .default)
-    static let displayMedium = Font.system(size: 28, weight: .semibold, design: .default)
+    // Display — one per screen at most.
+    static let displayLarge  = Font.system(.largeTitle).weight(.semibold)
+    static let displayMedium = Font.system(.title).weight(.semibold)
 
     // Title
-    static let titleLarge    = Font.system(size: 22, weight: .semibold, design: .default)
-    static let titleMedium   = Font.system(size: 17, weight: .semibold, design: .default)
-    static let titleSmall    = Font.system(size: 15, weight: .medium, design: .default)
+    static let titleLarge    = Font.system(.title2).weight(.semibold)
+    static let titleMedium   = Font.headline                       // 17 semibold
+    static let titleSmall    = Font.subheadline.weight(.medium)    // 15 medium
 
     // Body
-    static let bodyLarge     = Font.system(size: 17, weight: .regular, design: .default)
-    static let bodyMedium    = Font.system(size: 15, weight: .regular, design: .default)
-    static let bodySmall     = Font.system(size: 13, weight: .regular, design: .default)
+    static let bodyLarge     = Font.body                           // 17
+    /// Body-size emphasis (row labels, names). Medium — reserved so semibold
+    /// stays exclusive to real titles and one heading can dominate per screen.
+    static let bodyLargeEmphasized = Font.body.weight(.medium)
+    static let bodyMedium    = Font.subheadline                    // 15
+    static let bodySmall     = Font.footnote                       // 13
 
     // Caption
-    static let caption       = Font.system(size: 12, weight: .regular, design: .default)
-    static let captionMedium = Font.system(size: 12, weight: .medium, design: .default)
+    static let caption       = Font.caption                        // 12
+    static let captionMedium = Font.caption.weight(.medium)
 
     // Mono
-    static let mono          = Font.system(size: 13, weight: .regular, design: .monospaced)
+    static let mono          = Font.system(.footnote, design: .monospaced)
 }

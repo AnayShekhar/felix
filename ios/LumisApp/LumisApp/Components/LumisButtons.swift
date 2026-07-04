@@ -20,9 +20,10 @@ struct LumisPrimaryButton: View {
             .frame(height: 54)
             .background(LumisColors.textPrimary)
             .foregroundStyle(LumisColors.background)
-            .clipShape(RoundedRectangle(cornerRadius: LumisRadius.lg))
+            .clipShape(LumisRadius.rect(LumisRadius.lg))
             .opacity(enabled ? 1 : 0.4)
         }
+        .buttonStyle(.lumisPress)
         .disabled(!enabled || loading)
         .accessibilityLabel(title)
     }
@@ -44,10 +45,11 @@ struct LumisSecondaryButton<Leading: View>: View {
             .frame(height: 54)
             .foregroundStyle(LumisColors.textPrimary)
             .overlay(
-                RoundedRectangle(cornerRadius: LumisRadius.lg)
-                    .stroke(LumisColors.textPrimary, lineWidth: 1)
+                LumisRadius.rect(LumisRadius.lg)
+                    .stroke(LumisColors.divider, lineWidth: 1)
             )
         }
+        .buttonStyle(.lumisPress)
         .accessibilityLabel(title)
     }
 }
