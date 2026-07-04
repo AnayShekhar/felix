@@ -20,7 +20,7 @@ struct LumisPrimaryButton: View {
             .frame(height: 54)
             .background(LumisColors.textPrimary)
             .foregroundStyle(LumisColors.background)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .clipShape(RoundedRectangle(cornerRadius: LumisRadius.lg))
             .opacity(enabled ? 1 : 0.4)
         }
         .disabled(!enabled || loading)
@@ -44,7 +44,7 @@ struct LumisSecondaryButton<Leading: View>: View {
             .frame(height: 54)
             .foregroundStyle(LumisColors.textPrimary)
             .overlay(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: LumisRadius.lg)
                     .stroke(LumisColors.textPrimary, lineWidth: 1)
             )
         }

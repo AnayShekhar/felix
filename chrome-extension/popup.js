@@ -10,6 +10,25 @@ const SUPPORTED_SERVICES = [
   { id: "airtable", name: "Airtable" },
 ];
 
+// Inline vector icons (no emoji anywhere in this UI).
+const ICONS = {
+  check: `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.15"/>
+    <path d="M4.8 8.2l2.1 2.1 4.3-4.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  checkFilled: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="10" cy="10" r="9" fill="currentColor"/>
+    <path d="M6.2 10.3l2.5 2.5 5.1-5.6" stroke="var(--background)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  clock: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M10 5.5V10l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  dashedCircle: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3"/>
+  </svg>`,
+};
+
 function sendMessage(type, payload = {}) {
   return chrome.runtime.sendMessage({ type, ...payload });
 }
@@ -37,8 +56,57 @@ async function showConnectedView(user) {
   await renderCurrentSite();
 }
 
+// ── Sync status banner (mirrors the iOS tri-state + wording) ──────────────
+
+const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+function relativeTime(tsSeconds) {
+  const diff = Date.now() - tsSeconds * 1000;
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function renderSyncBanner(status) {
+  const icon = document.getElementById("sync-banner-icon");
+  const title = document.getElementById("sync-banner-title");
+  const detail = document.getElementById("sync-banner-detail");
+
+  const everSynced = status.ever_synced && status.last_synced_at;
+  if (!everSynced) {
+    icon.innerHTML = ICONS.dashedCircle;
+    icon.className = "status-icon status-never";
+    title.textContent = "Extension not connected";
+    detail.textContent = "Connect an account below so Lumis on your phone can use it.";
+    return;
+  }
+  const fresh = Date.now() - status.last_synced_at * 1000 < STALE_AFTER_MS;
+  if (fresh) {
+    icon.innerHTML = ICONS.checkFilled;
+    icon.className = "status-icon status-recent";
+    title.textContent = "Extension connected";
+    detail.textContent = `Last synced ${relativeTime(status.last_synced_at)}.`;
+  } else {
+    icon.innerHTML = ICONS.clock;
+    icon.className = "status-icon status-stale";
+    title.textContent = "Extension needs a refresh";
+    detail.textContent =
+      `Last synced ${relativeTime(status.last_synced_at)}. ` +
+      "Re-connect your accounts below so your sessions stay fresh.";
+  }
+}
+
+// ── Services list ──────────────────────────────────────────────────────────
+
 async function renderServicesList() {
-  const { services: connected } = await sendMessage("GET_CONNECTED_SERVICES");
+  const res = await sendMessage("GET_CONNECTED_SERVICES");
+  const connected = res.services || [];
+  renderSyncBanner(res.status || { ever_synced: connected.length > 0, last_synced_at: null });
+
   const container = document.getElementById("services-list");
   container.innerHTML = "";
 
@@ -49,7 +117,7 @@ async function renderServicesList() {
     row.innerHTML = `
       <span class="service-name">${service.name}</span>
       ${isConnected
-        ? `<span class="connected-badge">✓ Connected</span>`
+        ? `<span class="connected-badge">${ICONS.check} Connected</span>`
         : `<button class="btn-small connect-btn" data-service="${service.id}">Connect</button>`}
     `;
     container.appendChild(row);
@@ -82,7 +150,7 @@ function showSyncStatus(message, isError = false) {
   const el = document.getElementById("sync-status");
   el.textContent = message;
   el.className = isError ? "sync-status error" : "sync-status success";
-  setTimeout(() => { el.textContent = ""; el.className = "sync-status"; }, 4000);
+  setTimeout(() => { el.textContent = ""; el.className = "sync-status"; }, 6000);
 }
 
 // ── Event listeners ─────────────────────────────────────────────────────
@@ -122,10 +190,11 @@ document.getElementById("sync-current-tab-btn").addEventListener("click", async 
   const result = await sendMessage("SYNC_CURRENT_TAB");
   if (result.success) {
     showSyncStatus(`Connected ${result.domain}`);
+    await renderServicesList();   // refresh the sync banner timestamp
   } else {
     showSyncStatus(result.error, true);
   }
-  e.target.textContent = "Connect current site";
+  e.target.textContent = "Connect";
   e.target.disabled = false;
 });
 

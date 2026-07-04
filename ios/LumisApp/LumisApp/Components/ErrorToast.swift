@@ -21,9 +21,9 @@ struct ErrorToast: View {
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LumisRadius.md))
         .overlay(
-            RoundedRectangle(cornerRadius: 12).stroke(LumisColors.divider, lineWidth: 1)
+            RoundedRectangle(cornerRadius: LumisRadius.md).stroke(LumisColors.divider, lineWidth: 1)
         )
         .padding(.horizontal, 20)
         .shadow(color: LumisColors.shadow, radius: 12, y: 4)

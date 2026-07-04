@@ -68,7 +68,7 @@ struct DeleteAccountView: View {
                         .font(LumisTypography.titleMedium).foregroundStyle(.white)
                         .frame(maxWidth: .infinity).frame(height: 54)
                         .background(confirmation == "DELETE" ? LumisColors.destructive : LumisColors.destructive.opacity(0.35))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .clipShape(RoundedRectangle(cornerRadius: LumisRadius.lg))
                 }
                 .disabled(confirmation != "DELETE")
             }

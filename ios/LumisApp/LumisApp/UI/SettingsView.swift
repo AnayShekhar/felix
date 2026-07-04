@@ -37,8 +37,8 @@ struct SettingsView: View {
                         accountSection
                         aboutSection
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
+                    .padding(.horizontal, LumisSpacing.screenMargin)
+                    .padding(.top, LumisSpacing.sm)
                     .padding(.bottom, 110)
                 }
                 .refreshable { await servicesVM.fetchStatus() }
@@ -97,9 +97,9 @@ struct SettingsView: View {
                 Spacer()
                 Image(systemName: "chevron.right").foregroundStyle(LumisColors.textTertiary)
             }
-            .padding(16)
-            .background(LumisColors.surface, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(LumisColors.divider, lineWidth: 1))
+            .padding(LumisSpacing.lg)
+            .background(LumisColors.surface, in: RoundedRectangle(cornerRadius: LumisRadius.lg))
+            .overlay(RoundedRectangle(cornerRadius: LumisRadius.lg).stroke(LumisColors.divider, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -109,6 +109,8 @@ struct SettingsView: View {
     @ViewBuilder
     private var connectedServicesSection: some View {
         SettingsSection("Connected Services") {
+            ExtensionSyncBanner(state: servicesVM.syncState)
+            Divider().overlay(LumisColors.divider)
             if servicesVM.hasAnyConnection {
                 ForEach(SUPPORTED_SERVICES) { service in
                     VStack(alignment: .leading, spacing: 6) {
@@ -299,3 +301,31 @@ struct VerifyResponse: Codable {
 }
 
 extension URL: @retroactive Identifiable { public var id: String { absoluteString } }
+
+
+/// The honest phone ↔ extension link status shown at the top of Connected
+/// Services (never / recently synced / stale). Same wording as the extension.
+struct ExtensionSyncBanner: View {
+    let state: ExtensionSyncState
+
+    var body: some View {
+        HStack(spacing: LumisSpacing.md) {
+            Image(systemName: state.icon)
+                .font(.system(size: 20))
+                .foregroundStyle(state.color)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.title)
+                    .font(LumisTypography.titleSmall)
+                    .foregroundStyle(LumisColors.textPrimary)
+                Text(state.detail)
+                    .font(LumisTypography.caption)
+                    .foregroundStyle(LumisColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .settingsRowPadding()
+        .accessibilityElement(children: .combine)
+    }
+}

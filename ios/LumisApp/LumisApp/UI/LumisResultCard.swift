@@ -58,7 +58,7 @@ struct LumisResultCard: View {
             }
             .accessibilityLabel("Dismiss")
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, LumisSpacing.lg)
         .padding(.vertical, 14)
         .background(
             ZStack {
@@ -66,7 +66,7 @@ struct LumisResultCard: View {
                 LumisColors.background.opacity(0.5)
             }
         )
-        .clipShape(.rect(topLeadingRadius: 16, topTrailingRadius: 16))
+        .clipShape(.rect(topLeadingRadius: LumisRadius.lg, topTrailingRadius: LumisRadius.lg))
         .overlay(alignment: .top) {
             Capsule().fill(LumisColors.textTertiary)
                 .frame(width: 36, height: 4).padding(.top, 6)

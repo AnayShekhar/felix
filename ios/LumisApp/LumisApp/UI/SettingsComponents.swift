@@ -18,8 +18,8 @@ struct SettingsSection<Content: View>: View {
             VStack(spacing: 0) {
                 content()
             }
-            .background(LumisColors.surface, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(LumisColors.divider, lineWidth: 1))
+            .background(LumisColors.surface, in: RoundedRectangle(cornerRadius: LumisRadius.lg))
+            .overlay(RoundedRectangle(cornerRadius: LumisRadius.lg).stroke(LumisColors.divider, lineWidth: 1))
         }
     }
 }
@@ -38,10 +38,10 @@ struct SettingsRow<Accessory: View>: View {
             Spacer()
             accessory()
         }
-        .padding(.horizontal, 16).padding(.vertical, 13)
+        .padding(.horizontal, LumisSpacing.lg).padding(.vertical, 13)
     }
 }
 
 extension View {
-    func settingsRowPadding() -> some View { self.padding(.horizontal, 16).padding(.vertical, 13) }
+    func settingsRowPadding() -> some View { self.padding(.horizontal, LumisSpacing.lg).padding(.vertical, 13) }
 }

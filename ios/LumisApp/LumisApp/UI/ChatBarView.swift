@@ -73,7 +73,7 @@ struct ChatBarView: View {
                 .glassEffect(.regular, in: Capsule())
             }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, LumisSpacing.lg)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: canSend)
         .onChange(of: photoItem) { _, item in loadPhoto(item) }
     }

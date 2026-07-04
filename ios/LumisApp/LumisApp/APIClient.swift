@@ -17,9 +17,16 @@ enum APIClient {
         sessionID: String,
         baseURL: String
     ) async throws -> [StepResult] {
-        let base64 = image?
-            .jpegData(compressionQuality: 0.85)?
-            .base64EncodedString() ?? ""
+        // JPEG-encode off the main actor (the app defaults to MainActor
+        // isolation, and encoding a full camera frame there drops frames).
+        let base64: String
+        if let image {
+            base64 = await Task.detached(priority: .userInitiated) {
+                image.jpegData(compressionQuality: 0.85)?.base64EncodedString() ?? ""
+            }.value
+        } else {
+            base64 = ""
+        }
 
         let payload = IngestPayload(
             session_id: sessionID,

@@ -27,8 +27,8 @@ struct HomeView: View {
                     .tracking(-0.5)
                     .foregroundStyle(LumisColors.textPrimary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                    .padding(.bottom, 32)
+                    .padding(.horizontal, LumisSpacing.xxl)
+                    .padding(.bottom, LumisSpacing.xxl)
                     .opacity(vm.lumisState == .idle ? 1 : 0)
                     .animation(.easeInOut(duration: 0.4), value: vm.lumisState)
                     .accessibilityAddTraits(.isHeader)
@@ -39,8 +39,8 @@ struct HomeView: View {
                 TranscriptionText(state: vm.lumisState,
                                   transcript: vm.transcript,
                                   response: vm.responseText)
-                    .padding(.top, 24)
-                    .padding(.horizontal, 32)
+                    .padding(.top, LumisSpacing.xl)
+                    .padding(.horizontal, LumisSpacing.xxl)
 
                 // Capture button: send the spoken command (visible once we have text).
                 if vm.lumisState == .listening && !vm.transcript.isEmpty {
@@ -54,7 +54,7 @@ struct HomeView: View {
                             .frame(width: 56, height: 56)
                             .background(LumisColors.tint, in: Circle())
                     }
-                    .padding(.top, 24)
+                    .padding(.top, LumisSpacing.xl)
                     .transition(.scale.combined(with: .opacity))
                     .accessibilityLabel("Send command")
                 }
@@ -98,7 +98,7 @@ struct HomeView: View {
             Spacer()
             ConnectionStatusDot(ws: vm.ws)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, LumisSpacing.screenMargin)
         .padding(.top, 44)
     }
 }
@@ -121,36 +121,56 @@ private struct AnimatedLumisMark: View {
     }
 }
 
-/// Top-right connection status dot with popover — reflects the live backend
-/// WebSocket connection (Lumis is a cloud service; there is no Mac to link).
+/// Top-right status dot with popover. Reflects the REAL account link status:
+/// the backend WebSocket, plus the Chrome-extension cookie-sync freshness
+/// (never / recent / stale) fetched from /connect/status.
 private struct ConnectionStatusDot: View {
     @ObservedObject var ws: WebSocketClient
+    @StateObject private var servicesVM = ConnectedServicesViewModel()
     @State private var showPopover = false
     @State private var pulse = false
 
     private var connected: Bool { ws.connected }
 
+    private var dotColor: Color {
+        guard connected else { return LumisColors.textTertiary }
+        switch servicesVM.syncState {
+        case .recentlySynced: return LumisColors.success
+        case .stale:          return LumisColors.amber
+        case .neverConnected: return LumisColors.tint
+        }
+    }
+
     var body: some View {
         Button { showPopover.toggle() } label: {
             Circle()
-                .fill(connected ? LumisColors.tint : LumisColors.textTertiary)
+                .fill(dotColor)
                 .frame(width: 10, height: 10)
                 .scaleEffect(pulse && connected ? 1.5 : 1)
                 .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulse)
         }
         .onAppear { pulse = true }
+        .task { await servicesVM.fetchStatus() }
         .accessibilityLabel(statusText)
         .popover(isPresented: $showPopover, arrowEdge: .top) {
-            Text(statusText)
-                .font(LumisTypography.bodySmall)
-                .foregroundStyle(LumisColors.textPrimary)
-                .padding(14)
-                .presentationCompactAdaptation(.popover)
+            VStack(alignment: .leading, spacing: LumisSpacing.xs) {
+                Text(statusText)
+                    .font(LumisTypography.bodySmall)
+                    .foregroundStyle(LumisColors.textPrimary)
+                Text(servicesVM.syncState.detail)
+                    .font(LumisTypography.caption)
+                    .foregroundStyle(LumisColors.textSecondary)
+            }
+            .padding(14)
+            .frame(maxWidth: 280)
+            .presentationCompactAdaptation(.popover)
+            .task { await servicesVM.fetchStatus() }
         }
     }
 
     private var statusText: String {
-        connected ? "Connected to Lumis" : "Connecting to Lumis…"
+        guard connected else { return "Connecting to Lumis…" }
+        return servicesVM.syncState.title
     }
 }
 

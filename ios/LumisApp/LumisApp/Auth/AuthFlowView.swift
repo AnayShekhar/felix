@@ -64,7 +64,7 @@ private struct WelcomeView: View {
                     // creation — re-create it when the scheme flips live.
                     .id(colorScheme)
                     .frame(height: 54)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: LumisRadius.lg))
 
                     LumisSecondaryButton(title: "Continue with Google") {
                         GoogleLogo()

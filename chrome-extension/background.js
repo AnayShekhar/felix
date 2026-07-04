@@ -97,15 +97,31 @@ async function logout() {
 
 // ── Service connection status ────────────────────────────────────────────
 
-async function fetchConnectedServices() {
+async function fetchConnectStatus() {
   const { token } = await getStoredAuth();
-  if (!token) return [];
+  const empty = { connected: [], services: [], ever_synced: false, last_synced_at: null };
+  if (!token) return empty;
   const res = await fetch(`${API_BASE}/connect/status`, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  if (!res.ok) return [];
+  if (!res.ok) return empty;
   const data = await res.json();
-  return data.connected || [];
+  return {
+    connected: data.connected || [],
+    services: data.services || [],
+    ever_synced: data.ever_synced ?? (data.connected || []).length > 0,
+    last_synced_at: data.last_synced_at ?? null,
+  };
+}
+
+// Pull the backend's specific error detail out of a failed response so the
+// user sees "Those cookies don't look like…" instead of a generic message.
+async function errorDetail(res, fallback) {
+  try {
+    const body = await res.json();
+    if (body && body.detail) return String(body.detail);
+  } catch (_) { /* not JSON */ }
+  return fallback;
 }
 
 // ── Cookie sync ───────────────────────────────────────────────────────────
@@ -156,7 +172,7 @@ async function syncServiceCookies(serviceName) {
     })
   });
 
-  if (!res.ok) throw new Error("Failed to sync — try again");
+  if (!res.ok) throw new Error(await errorDetail(res, "Failed to sync — try again"));
   return await res.json();
 }
 
@@ -192,7 +208,7 @@ async function syncCurrentTabCookies() {
     })
   });
 
-  if (!res.ok) throw new Error("Failed to sync — try again");
+  if (!res.ok) throw new Error(await errorDetail(res, "Failed to sync — try again"));
   return { domain, result: await res.json() };
 }
 
@@ -215,9 +231,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case "GET_AUTH":
           sendResponse({ success: true, ...(await getStoredAuth()) });
           break;
-        case "GET_CONNECTED_SERVICES":
-          sendResponse({ success: true, services: await fetchConnectedServices() });
+        case "GET_CONNECTED_SERVICES": {
+          const status = await fetchConnectStatus();
+          sendResponse({ success: true, services: status.connected, status });
           break;
+        }
         case "SYNC_SERVICE":
           sendResponse({ success: true, result: await syncServiceCookies(message.service) });
           break;

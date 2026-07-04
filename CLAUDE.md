@@ -24,11 +24,17 @@ chrome-extension/  "Connect your accounts" browser extension (auth + cookie sync
   providers. GROQ_API_KEY is the only required AI key. Never add Gemini
   dependencies. (google-* packages are for Google service APIs / auth, NOT AI.)
 - All API errors must surface in UI, no silent console-only failures
-- Light "Parchment" theme across frontends (background #F8F3EE). iOS uses
-  `LumisColors`; the shared palette in shared/Constants.swift (`LumisBrand`)
-  mirrors the same hex values.
-- SF Pro font, single brand accent color: Powder Blue (#B0BFD1) on Carbon
-  (#212222) ink. iOS tab bar is the iOS 26 native Liquid Glass `TabView`.
+- Adaptive light/dark theme across frontends from three raw colors: Carbon
+  #212222, Alabaster #DBDDDE, Cool Steel #99ACBE. Light: Alabaster bg / Carbon
+  text; dark: swapped; the tint (Cool Steel) is constant in both modes. iOS
+  uses semantic `LumisColors` tokens (never raw hex outside that file) plus
+  `LumisSpacing`/`LumisRadius`; the extension mirrors them as CSS custom
+  properties with `prefers-color-scheme`. Users can override System/Light/Dark
+  in iOS Settings (`LumisAppearance`). shared/Constants.swift (`LumisBrand`)
+  mirrors the light-mode hex values.
+- SF Pro font everywhere except the New York serif home greeting; single brand
+  accent (Cool Steel). The app shell is Home + slide-in sidebar + Settings
+  sheet (no tab bar).
 - Backend deployed on Railway with a permanent public URL; ngrok is for local
   development only
 - "ios_action" is a valid result status: the tool returns a phone-side URL

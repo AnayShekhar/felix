@@ -81,6 +81,21 @@ def add_connected_service(user_id: str, service: str) -> None:
         conn.commit()
 
 
+def get_connection_details(user_id: str) -> List[dict]:
+    """Each connected service with when its cookies were last synced.
+
+    `connected_at` is refreshed on every successful cookie sync, so it is the
+    honest "last synced" timestamp the status endpoint reports.
+    """
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT service, connected_at FROM connected_services "
+            "WHERE user_id = ? ORDER BY connected_at",
+            (user_id,),
+        ).fetchall()
+    return [{"service": r["service"], "last_synced_at": r["connected_at"]} for r in rows]
+
+
 def get_connected_services(user_id: str) -> List[str]:
     with _connect() as conn:
         rows = conn.execute(

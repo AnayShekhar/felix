@@ -1,88 +1,139 @@
+/* Lumis extension — same design system as the iOS app.
+   Three raw colors define the palette (Carbon #212222, Alabaster #DBDDDE,
+   Cool Steel #99ACBE). Light mode: Alabaster background / Carbon text.
+   Dark mode: swapped. The tint (Cool Steel) is constant in both modes.
+   Everything below references the semantic tokens — never a raw hex. */
+
+:root {
+  --carbon: #212222;
+  --alabaster: #DBDDDE;
+  --cool-steel: #99ACBE;
+
+  --background: var(--alabaster);
+  --surface: rgba(33, 34, 34, 0.05);
+  --text-primary: var(--carbon);
+  --text-secondary: rgba(33, 34, 34, 0.55);
+  --text-tertiary: rgba(33, 34, 34, 0.35);
+  --divider: rgba(33, 34, 34, 0.10);
+  --tint: var(--cool-steel);
+  --tint-soft: rgba(153, 172, 190, 0.16);
+  --on-tint: var(--carbon);
+  --on-primary: var(--alabaster);
+
+  --destructive: #E05252;
+  --success: #4CAF7D;
+  --amber: #E8A838;
+
+  /* Spacing scale (xs–xxl) and radii, mirroring the iOS constants. */
+  --space-xs: 4px; --space-sm: 8px; --space-md: 12px;
+  --space-lg: 16px; --space-xl: 24px;
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--carbon);
+    --surface: rgba(219, 221, 222, 0.07);
+    --text-primary: var(--alabaster);
+    --text-secondary: rgba(219, 221, 222, 0.55);
+    --text-tertiary: rgba(219, 221, 222, 0.35);
+    --divider: rgba(219, 221, 222, 0.10);
+    --on-primary: var(--carbon);
+  }
+}
+
 body {
   width: 320px;
   margin: 0;
-  font-family: -apple-system, "SF Pro Text", sans-serif;
-  background: #F8F3EE;
-  color: #212222;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  background: var(--background);
+  color: var(--text-primary);
 }
 
-.view { padding: 20px; }
+.view { padding: var(--space-lg) var(--space-lg) var(--space-xl); }
 .hidden { display: none !important; }
 
+/* ── Header ─────────────────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
-/* Lumis petal mark: brand color filled through the flower silhouette mask. */
+/* Lumis petal mark: tint filled through the flower silhouette mask. */
 .logo-mark {
   width: 28px;
   height: 28px;
-  background: #B0BFD1;
+  background: var(--tint);
   -webkit-mask: url(icons/petal-mask.svg) no-repeat center / contain;
   mask: url(icons/petal-mask.svg) no-repeat center / contain;
 }
 .logo-mark.small { width: 20px; height: 20px; }
 
-h1 { font-size: 20px; font-weight: 600; margin: 0; }
+h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.2px; }
 .app-name { font-size: 15px; font-weight: 600; }
 
 .subtitle {
   font-size: 13px;
-  color: #21222299;
-  margin: 8px 0 20px 0;
+  color: var(--text-secondary);
+  margin: var(--space-sm) 0 var(--space-xl) 0;
   line-height: 1.4;
 }
 
-form { display: flex; flex-direction: column; gap: 10px; }
+/* ── Inputs & buttons ───────────────────────────────────────────────── */
+form { display: flex; flex-direction: column; gap: var(--space-sm); }
 
 input {
-  height: 40px;
-  border: 1px solid #21222215;
-  border-radius: 10px;
-  padding: 0 12px;
+  height: 44px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  padding: 0 var(--space-md);
   font-size: 14px;
-  background: white;
+  background: var(--surface);
+  color: var(--text-primary);
   outline: none;
+  box-sizing: border-box;
 }
-input:focus { border-color: #B0BFD1; }
+input::placeholder { color: var(--text-tertiary); }
+input:focus { border-color: var(--tint); border-width: 1.5px; }
 
 .btn-primary {
-  height: 42px;
-  background: #212222;
-  color: #F8F3EE;
+  height: 44px;
+  background: var(--text-primary);
+  color: var(--on-primary);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 4px;
+  margin-top: var(--space-xs);
 }
 .btn-primary:hover { opacity: 0.9; }
 
 .btn-outline {
-  height: 42px;
-  background: white;
-  color: #212222;
-  border: 1px solid #21222220;
-  border-radius: 10px;
+  height: 44px;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--text-primary);
+  border-radius: var(--radius-lg);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-sm);
   width: 100%;
+  box-sizing: border-box;
 }
+.btn-outline:hover { background: var(--surface); }
 
 .divider {
   text-align: center;
-  margin: 16px 0;
+  margin: var(--space-lg) 0;
   position: relative;
-  color: #21222260;
+  color: var(--text-tertiary);
   font-size: 12px;
 }
 .divider::before, .divider::after {
@@ -91,104 +142,141 @@ input:focus { border-color: #B0BFD1; }
   top: 50%;
   width: 40%;
   height: 1px;
-  background: #21222215;
+  background: var(--divider);
 }
 .divider::before { left: 0; }
 .divider::after { right: 0; }
 
 .error-text {
-  color: #E05252;
+  color: var(--destructive);
   font-size: 12px;
-  margin-top: 8px;
+  margin-top: var(--space-sm);
   min-height: 16px;
 }
 
+/* ── Signed-in header ───────────────────────────────────────────────── */
 .header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 
 .btn-text {
   background: none;
   border: none;
-  color: #21222299;
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
 }
+.btn-text:hover { color: var(--text-primary); }
 
 .user-email {
   font-size: 12px;
-  color: #21222260;
-  margin: 0 0 20px 0;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-lg) 0;
 }
 
-.section { margin-bottom: 20px; }
+/* ── Sync status banner (same tri-state + wording as iOS Settings) ──── */
+.sync-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+.sync-banner .status-icon { flex: none; width: 20px; height: 20px; margin-top: 1px; }
+.sync-banner .status-icon svg { display: block; width: 20px; height: 20px; }
+.sync-banner-title { font-size: 13px; font-weight: 600; margin: 0; }
+.sync-banner-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 2px 0 0 0;
+  line-height: 1.35;
+}
+.status-never  { color: var(--text-tertiary); }
+.status-recent { color: var(--success); }
+.status-stale  { color: var(--amber); }
+
+/* ── Sections & service rows ────────────────────────────────────────── */
+.section { margin-bottom: var(--space-xl); }
 
 .section-label {
   font-size: 11px;
   font-weight: 600;
-  color: #21222260;
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 10px;
+  letter-spacing: 0.8px;
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-lg);
+  padding: 0 var(--space-md);
 }
 
 .service-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 40px;
-  border-bottom: 1px solid #21222210;
+  height: 44px;
+  border-bottom: 1px solid var(--divider);
 }
 .service-row:last-child { border-bottom: none; }
 
 .service-name { font-size: 14px; }
 
 .connected-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   font-size: 12px;
-  color: #4CAF7D;
+  color: var(--success);
   font-weight: 500;
 }
+.connected-badge svg { width: 14px; height: 14px; }
 
 .btn-small {
   height: 28px;
-  padding: 0 12px;
-  background: #B0BFD1;
-  color: white;
+  padding: 0 var(--space-md);
+  background: var(--tint);
+  color: var(--on-tint);
   border: none;
   border-radius: 14px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
+.btn-small:hover { filter: brightness(1.05); }
 .btn-small:disabled { opacity: 0.5; cursor: default; }
-
-.current-site-section {
-  background: white;
-  border-radius: 10px;
-  padding: 12px;
-  border: 1px solid #21222210;
-}
 
 .current-site-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: 44px;
 }
 
 #current-site-name {
   font-size: 13px;
   font-weight: 500;
-  color: #212222;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: var(--space-sm);
 }
 
 .sync-status {
   font-size: 12px;
   text-align: center;
   min-height: 16px;
-  margin-top: 8px;
+  margin-top: var(--space-sm);
 }
-.sync-status.success { color: #4CAF7D; }
-.sync-status.error { color: #E05252; }
+.sync-status.success { color: var(--success); }
+.sync-status.error { color: var(--destructive); }

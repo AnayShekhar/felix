@@ -43,9 +43,9 @@ struct HistoryView: View {
                 .foregroundStyle(LumisColors.textPrimary)
             Spacer()
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, LumisSpacing.xl)
         .padding(.top, 44)
-        .padding(.bottom, 8)
+        .padding(.bottom, LumisSpacing.sm)
     }
 
     private var filterChips: some View {
@@ -88,7 +88,7 @@ struct HistoryView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, LumisSpacing.screenMargin)
                 .padding(.bottom, 100)
             }
         }
@@ -160,9 +160,9 @@ private struct HistoryCard: View {
                 .padding(14)
             }
         }
-        .background(LumisColors.background)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(LumisColors.divider, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .background(LumisColors.surface)
+        .overlay(RoundedRectangle(cornerRadius: LumisRadius.md).stroke(LumisColors.divider, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: LumisRadius.md))
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
         .accessibilityElement(children: .combine)
@@ -208,8 +208,8 @@ private struct HistorySkeletonRow: View {
             Spacer()
         }
         .padding(14)
-        .background(LumisColors.background)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(LumisColors.divider, lineWidth: 1))
+        .background(LumisColors.surface)
+        .overlay(RoundedRectangle(cornerRadius: LumisRadius.md).stroke(LumisColors.divider, lineWidth: 1))
         .shimmer()
     }
 }

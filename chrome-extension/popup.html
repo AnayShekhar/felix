@@ -24,7 +24,7 @@
       <div class="divider"><span>or</span></div>
 
       <button id="google-signin-btn" class="btn-outline">
-        <img src="icons/google-logo.svg" width="16" height="16" />
+        <img src="icons/google-logo.svg" width="16" height="16" alt="" />
         Sign in with Google
       </button>
 
@@ -42,16 +42,27 @@
       </div>
       <p id="user-email" class="user-email"></p>
 
-      <div class="section">
-        <p class="section-label">Connect your accounts</p>
-        <div id="services-list"></div>
+      <!-- Phone ↔ extension sync status (same tri-state as iOS Settings) -->
+      <div id="sync-banner" class="sync-banner">
+        <span id="sync-banner-icon" class="status-icon"></span>
+        <div>
+          <p id="sync-banner-title" class="sync-banner-title"></p>
+          <p id="sync-banner-detail" class="sync-banner-detail"></p>
+        </div>
       </div>
 
-      <div class="section current-site-section">
+      <div class="section">
+        <p class="section-label">Connect your accounts</p>
+        <div id="services-list" class="card"></div>
+      </div>
+
+      <div class="section">
         <p class="section-label">Current site</p>
-        <div class="current-site-row">
-          <span id="current-site-name">—</span>
-          <button id="sync-current-tab-btn" class="btn-small">Connect current site</button>
+        <div class="card">
+          <div class="current-site-row">
+            <span id="current-site-name">—</span>
+            <button id="sync-current-tab-btn" class="btn-small">Connect</button>
+          </div>
         </div>
       </div>
 

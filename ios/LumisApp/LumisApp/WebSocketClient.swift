@@ -34,6 +34,9 @@ final class WebSocketClient: ObservableObject {
     private var task: URLSessionWebSocketTask?
     private var wantConnection = false
     private var currentURL: URL?
+    /// Reconnect backoff: 2s doubling to a 30s cap, reset on a live connection —
+    /// never a tight retry loop against a struggling backend.
+    private var reconnectDelay: TimeInterval = 2
 
     func connect(to wsURL: URL) {
         if currentURL == wsURL, task != nil { return }
@@ -55,6 +58,7 @@ final class WebSocketClient: ObservableObject {
                     self.handleDisconnect()
                 } else {
                     self.connected = true
+                    self.reconnectDelay = 2   // healthy again — reset backoff
                 }
             }
         }
@@ -166,8 +170,10 @@ final class WebSocketClient: ObservableObject {
         connected = false
         task = nil
         guard wantConnection, let url = currentURL else { return }
+        let delay = reconnectDelay
+        reconnectDelay = min(reconnectDelay * 2, 30)
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             if self.wantConnection, self.currentURL == url {
                 self.connect(to: url)
             }

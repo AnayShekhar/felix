@@ -15,6 +15,8 @@ enum LumisSpacing {
     static let xl: CGFloat = 24
     /// 32 — hero padding, large vertical rhythm.
     static let xxl: CGFloat = 32
+    /// 20 — horizontal screen-edge margin (one value app-wide).
+    static let screenMargin: CGFloat = 20
 }
 
 /// Corner radius scale.

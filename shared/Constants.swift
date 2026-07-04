@@ -4,26 +4,28 @@ import SwiftUI
 // Keep it free of platform-specific APIs so it stays easy to reuse.
 
 enum LumisBrand {
-    // MARK: Palette — the light "Parchment" theme shared with the iOS app.
-    // (Hex values mirror iOS `LumisColors` so both surfaces read identically.)
+    // MARK: Palette — mirrors iOS `LumisColors` raw palette (Carbon #212222,
+    // Alabaster #DBDDDE, Cool Steel #99ACBE). These are the LIGHT-mode
+    // resolutions; in-app use should go through the adaptive `LumisColors`
+    // tokens, which handle dark mode.
 
-    /// Primary background. Parchment, #F8F3EE.
-    static let parchment = Color(red: 0.973, green: 0.953, blue: 0.933)
+    /// Primary light-mode background. Alabaster, #DBDDDE.
+    static let alabaster = Color(red: 0.859, green: 0.867, blue: 0.871)
 
-    /// The single brand accent — Powder Blue, #B0BFD1. Active states + glows.
-    static let accent = Color(red: 0.690, green: 0.749, blue: 0.820)
+    /// The single brand accent — Cool Steel, #99ACBE. Identical in both modes.
+    static let accent = Color(red: 0.600, green: 0.675, blue: 0.745)
 
-    /// A softer powder blue used for gradients, glows, and hover states.
-    static let accentSoft = Color(red: 0.792, green: 0.835, blue: 0.882)
+    /// A softer steel used for gradients, glows, and hover states.
+    static let accentSoft = Color(red: 0.600, green: 0.675, blue: 0.745).opacity(0.55)
 
     /// Primary text / icon ink. Carbon, #212222.
     static let ink = Color(red: 0.129, green: 0.133, blue: 0.133)
-    static let inkSecondary = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.5)
+    static let inkSecondary = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.55)
 
-    // Card + hairline surfaces tuned for a light background.
-    static let surface = Color.white.opacity(0.62)
+    // Card + hairline surfaces tuned for the light background.
+    static let surface = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.05)
     static let surfaceHover = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.04)
-    static let hairline = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.08)
+    static let hairline = Color(red: 0.129, green: 0.133, blue: 0.133).opacity(0.10)
 
     /// Status colors used for connection + tool result dots.
     static let online = Color(red: 0.298, green: 0.686, blue: 0.490)   // #4CAF7D

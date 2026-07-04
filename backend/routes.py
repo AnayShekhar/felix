@@ -204,10 +204,24 @@ _SERVICE_DOMAINS = {
 
 @router.get("/connect/status")
 async def connection_status(user: dict = Depends(current_user)):
-    """Which services this account has connected (drives the extension's UI)."""
+    """Which services this account has connected, and how fresh the extension's
+    cookie sync is. Drives the status indicator on BOTH the iOS app and the
+    extension popup:
+
+      - ever_synced=False               → never connected
+      - last_synced_at within a day     → connected + recently synced
+      - last_synced_at older than that  → connected but stale (nudge a re-sync)
+    """
     import connections
 
-    return {"connected": connections.get_connected_services(user["id"])}
+    details = connections.get_connection_details(user["id"])
+    last = max((d["last_synced_at"] for d in details), default=None)
+    return {
+        "connected": [d["service"] for d in details],
+        "services": details,
+        "ever_synced": bool(details),
+        "last_synced_at": last,
+    }
 
 
 @router.post("/connect/cookies/sync")
