@@ -35,6 +35,13 @@ final class LumisViewModel: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        #if DEBUG
+        // UI-screenshot hook: skip auto-listen so no mic prompt covers the shot.
+        if ProcessInfo.processInfo.environment["LUMIS_NO_MIC"] != nil {
+            if let url = URL(string: LumisConfig.websocketURL) { ws.connect(to: url) }
+            return
+        }
+        #endif
         // The socket is scoped to this account (?token=…) so the backend only
         // streams this user's events to it.
         var comps = URLComponents(string: LumisConfig.websocketURL)

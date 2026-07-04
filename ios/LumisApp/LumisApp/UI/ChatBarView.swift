@@ -43,7 +43,7 @@ struct ChatBarView: View {
                     }
                     .accessibilityLabel("Upload photo")
 
-                    TextField("Talk to Lumis", text: $text)
+                    TextField("Continue conversation", text: $text)
                         .textFieldStyle(.plain)
                         .font(LumisTypography.bodyLarge)
                         .foregroundStyle(LumisColors.textPrimary)
@@ -65,10 +65,26 @@ struct ChatBarView: View {
                         .buttonStyle(.plain)
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityLabel("Send")
+                    } else {
+                        // Mic (mockup's trailing glyph) — starts voice capture.
+                        Button {
+                            Haptics.light()
+                            vm.speech.requestPermission()
+                            vm.speech.startListening()
+                        } label: {
+                            Image(systemName: "mic")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(LumisColors.textSecondary)
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.scale.combined(with: .opacity))
+                        .accessibilityLabel("Start listening")
                     }
                 }
                 .padding(.leading, 16)
-                .padding(.trailing, canSend ? 8 : 16)
+                .padding(.trailing, 8)
                 .frame(height: 56)
                 .glassEffect(.regular, in: Capsule())
             }

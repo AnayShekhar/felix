@@ -21,6 +21,18 @@ final class AuthViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
+        #if DEBUG
+        // Simulator/UI-verification hook: `simctl launch --setenv LUMIS_E2E_LOGIN
+        // email:password` signs straight in so screenshots can reach Home.
+        if currentUser == nil, KeychainManager.token == nil,
+           let combo = ProcessInfo.processInfo.environment["LUMIS_E2E_LOGIN"],
+           let sep = combo.firstIndex(of: ":") {
+            await login(email: String(combo[..<sep]),
+                        password: String(combo[combo.index(after: sep)...]))
+            if isAuthenticated { return }
+        }
+        #endif
+
         guard let token else { return }
         // Optimistically show cached user while we validate.
         currentUser = KeychainManager.loadUser()

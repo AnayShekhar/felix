@@ -10,6 +10,11 @@ struct LumisApp: App {
     @AppStorage(LumisAppearance.storageKey) private var appearanceRaw = LumisAppearance.system.rawValue
 
     init() {
+        #if DEBUG
+        // UI-screenshot hook: skip audio-session activation (which triggers the
+        // mic permission prompt) so verification shots aren't covered by it.
+        if ProcessInfo.processInfo.environment["LUMIS_NO_MIC"] != nil { return }
+        #endif
         Self.configureAudioSession()
     }
 
