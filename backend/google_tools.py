@@ -10,6 +10,7 @@ Requires: google-api-python-client, google-auth (see requirements.txt).
 """
 import base64
 import logging
+import re
 from email.mime.text import MIMEText
 from typing import Optional
 
@@ -187,6 +188,63 @@ def sheets_edit_cell(args: dict, user_id: str) -> dict:
 # --------------------------------------------------------------------------- #
 # Gmail
 # --------------------------------------------------------------------------- #
+
+# Unfilled template markers that must never appear in email content the user
+# will send — bracketed blanks, "insert X" instructions, template variables,
+# and "your name"-style sign-offs. The model is told not to emit these, but
+# llama-4-scout still does, so the tools enforce it deterministically.
+_PLACEHOLDER_PATTERNS = [
+    re.compile(r"\[[^\]\n]{0,60}\]"),                       # [Your Name], [insert date]
+    re.compile(r"\{\{[^}\n]{0,60}\}\}"),                    # {{name}}
+    re.compile(r"<[^>\n]{0,30}(?:name|email|recipient|date|company|address)"
+               r"[^>\n]{0,30}>", re.I),                     # <your name>
+    re.compile(r"\binsert\s+(?:the\s+|your\s+|a\s+)?(?:recipient|name|email|"
+               r"date|company|contact|address|subject|details?|here)\b", re.I),
+    re.compile(r"\byour\s+name\s+here\b", re.I),
+    re.compile(r"\brecipient(?:'s)?\s+name\b", re.I),
+    re.compile(r"(?:regards|sincerely|best|thanks|thank\s+you|cheers|warmly)"
+               r"\s*,?\s*\n+\s*your\s+name\b", re.I),       # "Best regards,\nyour name"
+    re.compile(r"\b[\w.+-]*@example\.(?:com|org|net)\b", re.I),
+]
+
+
+def _placeholder_hit(*chunks: str) -> str:
+    """First placeholder-looking fragment found in any chunk, or ''. """
+    for chunk in chunks:
+        text = str(chunk or "")
+        for pattern in _PLACEHOLDER_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                return match.group(0)
+    return ""
+
+
+def _placeholder_error(tool: str, hit: str) -> dict:
+    return {
+        "tool": tool, "status": "error", "title": "Unfilled placeholder",
+        "message": (
+            f"The email content contains unfilled placeholder text ({hit!r}). "
+            "Rewrite it as complete, real prose: greet the recipient by their "
+            "real name (from the resolved contact) or use a neutral greeting, "
+            "and if the sender's name isn't known, end with just 'Best regards' "
+            "— no name — instead of a placeholder. Never include bracketed or "
+            "'insert …' filler in an email."
+        ),
+        "data": {"error": "placeholder_content", "placeholder": hit},
+    }
+
+
+def _draft_body_text(draft: dict) -> str:
+    """Decoded plain-text body of a Gmail draft resource (format='full')."""
+    payload = draft.get("message", {}).get("payload", {})
+    part = payload if payload.get("body", {}).get("data") else next(
+        (p for p in payload.get("parts", []) or [] if p.get("body", {}).get("data")), {})
+    data = part.get("body", {}).get("data")
+    if not data:
+        return ""
+    return base64.urlsafe_b64decode(data).decode(errors="replace")
+
+
 def _gmail_raw(to: str, subject: str, body: str) -> str:
     msg = MIMEText(body)
     msg["to"] = to
@@ -198,6 +256,9 @@ def gmail_draft_email(args: dict, user_id: str) -> dict:
     to = str(args.get("to") or "").strip()
     subject = str(args.get("subject") or "").strip()
     body = str(args.get("body") or "")
+    hit = _placeholder_hit(subject, body)
+    if hit:
+        return _placeholder_error("gmail.draft_email", hit)
     svc = _service(user_id, "gmail", "v1")
     draft = svc.users().drafts().create(
         userId="me", body={"message": {"raw": _gmail_raw(to, subject, body)}}).execute()
@@ -219,17 +280,17 @@ def gmail_update_draft(args: dict, user_id: str) -> dict:
     current = svc.users().drafts().get(userId="me", id=draft_id, format="full").execute()
     headers = {h["name"].lower(): h["value"]
                for h in current.get("message", {}).get("payload", {}).get("headers", [])}
-    import base64 as _b64
-    body_data = ""
-    payload = current.get("message", {}).get("payload", {})
-    part = payload if payload.get("body", {}).get("data") else next(
-        (p for p in payload.get("parts", []) or [] if p.get("body", {}).get("data")), {})
-    if part.get("body", {}).get("data"):
-        body_data = _b64.urlsafe_b64decode(part["body"]["data"]).decode(errors="replace")
+    body_data = _draft_body_text(current)
 
     to = str(args.get("to") or headers.get("to") or "").strip()
     subject = str(args.get("subject") or headers.get("subject") or "").strip()
     body = str(args.get("body") if args.get("body") is not None else body_data)
+    # Check the FINAL merged content: if the existing draft still carries
+    # placeholder text, the agent must supply a clean body in this update
+    # rather than leave the blanks in place for a later send.
+    hit = _placeholder_hit(subject, body)
+    if hit:
+        return _placeholder_error("gmail.update_draft", hit)
     updated = svc.users().drafts().update(
         userId="me", id=draft_id,
         body={"message": {"raw": _gmail_raw(to, subject, body)}}).execute()
@@ -250,7 +311,7 @@ def gmail_send_draft(args: dict, user_id: str) -> dict:
                 "message": "draft_id is required — take it from RECENT ACTIVITY.",
                 "data": {}}
     svc = _service(user_id, "gmail", "v1")
-    current = svc.users().drafts().get(userId="me", id=draft_id, format="metadata").execute()
+    current = svc.users().drafts().get(userId="me", id=draft_id, format="full").execute()
     headers = {h["name"].lower(): h["value"]
                for h in current.get("message", {}).get("payload", {}).get("headers", [])}
     to = str(headers.get("to") or "").strip()
@@ -260,6 +321,18 @@ def gmail_send_draft(args: dict, user_id: str) -> dict:
                            "gmail.update_draft (resolve the address via "
                            "people.search_contacts or ask the user) before sending.",
                 "data": {"draft_id": draft_id}}
+    hit = _placeholder_hit(headers.get("subject", ""), _draft_body_text(current))
+    if hit:
+        return {"tool": "gmail.send_draft", "status": "error",
+                "title": "Unfilled placeholder",
+                "message": (
+                    f"That draft still contains unfilled placeholder text ({hit!r}). "
+                    "Rewrite it with gmail.update_draft first — complete, real prose, "
+                    "the recipient's real name in the greeting, and no sign-off name "
+                    "at all if the sender's name isn't known — then send."
+                ),
+                "data": {"error": "placeholder_content", "draft_id": draft_id,
+                         "placeholder": hit}}
     sent = svc.users().drafts().send(userId="me", body={"id": draft_id}).execute()
     url = "https://mail.google.com/mail/u/0/#sent"
     return {"tool": "gmail.send_draft", "status": "success", "title": "Email sent",
@@ -271,6 +344,9 @@ def gmail_send_email(args: dict, user_id: str) -> dict:
     to = str(args.get("to") or "").strip()
     subject = str(args.get("subject") or "").strip()
     body = str(args.get("body") or "")
+    hit = _placeholder_hit(subject, body)
+    if hit:
+        return _placeholder_error("gmail.send_email", hit)
     svc = _service(user_id, "gmail", "v1")
     sent = svc.users().messages().send(
         userId="me", body={"raw": _gmail_raw(to, subject, body)}).execute()

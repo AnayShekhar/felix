@@ -122,11 +122,14 @@ def context_block(user_id: str) -> str:
         for e in entries
     ]
     return (
-        "\n\nRECENT ACTIVITY (things Lumis just created or touched for this user — "
-        "when the command references one of these ambiguously ('that draft', 'the "
-        "doc I just made', 'add to it'), act on the EXISTING artifact via its real "
-        "id instead of creating a new one; ignore entries that clearly don't "
-        "match):\n" + "\n".join(lines)
+        "\n\nRECENT ACTIVITY (background context, NOT part of the command — "
+        "things Lumis recently created or touched for this user. Consult this "
+        "list ONLY if the current command contains an ambiguous back-reference "
+        "('that draft', 'the doc I just made', 'add to it') that needs "
+        "resolving; then act on the EXISTING artifact via its real id instead "
+        "of creating a new one. If the command is self-contained and describes "
+        "a new action, IGNORE this list entirely — do not connect the command "
+        "to any of these just because they are recent):\n" + "\n".join(lines)
     )
 
 
