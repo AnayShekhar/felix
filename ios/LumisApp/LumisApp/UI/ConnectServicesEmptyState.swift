@@ -10,7 +10,7 @@ struct ConnectServicesEmptyState: View {
             Image(systemName: "laptopcomputer.and.iphone")
                 .font(.largeTitle.weight(.medium))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundColor(LumisColors.tintStrong)
+                .foregroundColor(LumisColors.textSecondary)
 
             Text("No accounts connected yet")
                 .font(LumisTypography.titleSmall)
@@ -23,7 +23,7 @@ struct ConnectServicesEmptyState: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Button(action: onGetStarted) {
-                Text("How to connect")
+                Text("Get started")
                     .font(LumisTypography.titleSmall)
                     .foregroundColor(LumisColors.background)
                     .padding(.horizontal, LumisSpacing.screenMargin)

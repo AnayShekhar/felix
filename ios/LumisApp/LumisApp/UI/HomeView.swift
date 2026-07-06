@@ -2,8 +2,10 @@ import SwiftUI
 
 /// The main screen. Three states under one persistent branding top bar:
 ///
-///   • Dormant   — the scribble mark idling, a mic affordance, and a "+"
-///                 that unfolds into the text input. Nothing else.
+///   • Dormant   — the scribble mark idling and a "+" that unfolds into the
+///                 text input. Nothing else. There is deliberately NO mic
+///                 button: the wake word is the only way to start listening,
+///                 and the scribble's two states are that entire interface.
 ///   • Listening — the scribble reacting to the user's live voice. No
 ///                 transcript, no spoken reply — the response is visual.
 ///   • Panels    — the request's live panel stack, filling everything
@@ -14,10 +16,14 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var vm: LumisViewModel
 
-    /// Opens the sidebar (Past Chats).
+    /// Opens the sidebar (past chats).
     var onMenu: () -> Void = {}
     /// Opens the live camera (from the text bar's "+").
     var onCamera: () -> Void = {}
+    /// The signed-in user's initials, shown in the profile button.
+    var initials: String = "?"
+    /// Opens Settings (the profile button is its sole entry point).
+    var onProfile: () -> Void = {}
 
     private enum Mode: Equatable { case dormant, listening, panels }
 
@@ -33,23 +39,40 @@ struct HomeView: View {
             VStack(spacing: 0) {
                 BrandingTopBar()
 
-                // Sidebar toggle sits just beneath the wordmark bar, top-left.
+                // Liquid Glass controls sit just beneath the wordmark bar:
+                // sidebar toggle top-left, profile (opens Settings) top-right.
                 HStack {
                     Button {
                         Haptics.light()
                         onMenu()
                     } label: {
                         Image(systemName: "line.3.horizontal")
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(LumisColors.textSecondary)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(LumisColors.textPrimary)
                             .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Open Past Chats")
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    .accessibilityLabel("Open past chats")
+
                     Spacer()
+
+                    Button {
+                        Haptics.light()
+                        onProfile()
+                    } label: {
+                        Text(initials)
+                            .font(LumisTypography.titleSmall)
+                            .foregroundStyle(LumisColors.textPrimary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    .accessibilityLabel("Open settings")
                 }
-                .padding(.horizontal, LumisSpacing.sm)
+                .padding(.horizontal, LumisSpacing.screenMargin)
 
                 // The content beneath the fixed header changes between states.
                 ZStack {
@@ -93,6 +116,9 @@ struct HomeView: View {
     }
 
     /// Dormant + listening: the scribble mark, centered, voice-reactive.
+    /// Waking on the wake word pops the whole mark up with a snappy,
+    /// slightly-overshooting spring — paired with the Canvas-level energy
+    /// surge and activation ring, the state change is impossible to miss.
     private var scribbleStage: some View {
         VStack(spacing: LumisSpacing.xl) {
             Spacer()
@@ -101,6 +127,9 @@ struct HomeView: View {
                 containerSize: 240,
                 audioLevel: vm.lumisState == .listening ? vm.speech.inputLevel : 0
             )
+            .scaleEffect(vm.lumisState == .listening ? 1.12 : 1)
+            .animation(.spring(response: 0.32, dampingFraction: 0.6),
+                       value: vm.lumisState == .listening)
             Spacer()
             Spacer().frame(height: 60)   // breathing room above the input bar
         }
@@ -108,16 +137,13 @@ struct HomeView: View {
     }
 }
 
-/// The persistent branding bar: a reserved slot for the logo mark (no asset
-/// yet) followed by the wordmark, SF Pro. Purely branding — no status, no
-/// functional chrome — and it never scrolls.
+/// The persistent branding bar: the comet mark followed by the wordmark,
+/// SF Pro. Purely branding — no status, no functional chrome — and it never
+/// scrolls.
 private struct BrandingTopBar: View {
     var body: some View {
         HStack(spacing: LumisSpacing.sm) {
-            // Logo slot — clearly defined, quiet, awaiting the real mark.
-            LumisRadius.rect(LumisRadius.sm)
-                .stroke(LumisColors.divider, lineWidth: 1)
-                .frame(width: 26, height: 26)
+            LumisLogoMark(size: 26)
 
             Text("Lumis")
                 .font(LumisTypography.titleMedium)
@@ -133,88 +159,53 @@ private struct BrandingTopBar: View {
     }
 }
 
-/// The bottom affordances. Collapsed: a mic affordance and a "+". Tapping the
-/// "+" unfolds the "Message Lumis." text bar (with its own "+" for the live
-/// camera). Every path resolves into the same panel stack.
+/// The bottom affordance: a single glass "+" that unfolds into the
+/// "Message Lumis." text bar (whose leading "+" opens the live camera).
+/// Voice never starts here — the wake word is the only listening trigger.
+///
+/// The expansion is one continuous surface, not a view swap: the same glass
+/// capsule morphs from a 52pt circle into the full-width bar (a capsule at
+/// 52×52 IS a circle), so the material and geometry carry through the whole
+/// gesture — the Dynamic-Island family of transition. The "+" stays anchored
+/// at the leading edge and simply changes role (expand → camera), giving the
+/// eye one element to track; the field and trailing control fade/scale in
+/// behind the surface so the shape leads and the content follows.
 private struct LumisInputBar: View {
     @EnvironmentObject private var vm: LumisViewModel
     var onCamera: () -> Void
 
+    #if DEBUG
+    // UI-screenshot hook: start with the bar already expanded.
+    @State private var expanded =
+        ProcessInfo.processInfo.environment["LUMIS_UI_BAR_EXPANDED"] != nil
+    #else
     @State private var expanded = false
+    #endif
     @State private var text = ""
     @FocusState private var focused: Bool
-    @Namespace private var barSpace
+
+    /// Opening: eager, with a touch of overshoot — the bar should feel like
+    /// it wants to open. Closing: same spring family, more damped, so it
+    /// settles cleanly without wobble. Never a plain ease curve.
+    private static let openSpring = Animation.spring(response: 0.42, dampingFraction: 0.78)
+    private static let closeSpring = Animation.spring(response: 0.38, dampingFraction: 0.88)
 
     private var canSend: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
-        Group {
-            if expanded {
-                textBar
-                    .matchedGeometryEffect(id: "bar", in: barSpace)
-            } else {
-                collapsedControls
-                    .matchedGeometryEffect(id: "bar", in: barSpace)
-            }
-        }
-        .padding(.horizontal, LumisSpacing.screenMargin)
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: expanded)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: canSend)
-    }
-
-    // MARK: Collapsed — mic + "+"
-
-    private var collapsedControls: some View {
-        HStack(spacing: LumisSpacing.lg) {
-            Spacer()
-
-            // Mic affordance: makes sure Lumis is listening for the wake word.
-            Button {
-                Haptics.light()
-                vm.speech.requestPermission()
-                vm.speech.startListening()
-            } label: {
-                Image(systemName: "mic")
-                    .font(.title2.weight(.medium))
-                    .foregroundStyle(LumisColors.onTint)
-                    .frame(width: 64, height: 64)
-                    .background(LumisColors.tint, in: Circle())
-            }
-            .buttonStyle(.lumisPress)
-            .accessibilityLabel("Listen for a voice request")
-
-            // "+" — unfolds into the text input.
-            Button {
-                Haptics.light()
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                    expanded = true
-                }
-                focused = true
-            } label: {
-                Image(systemName: "plus")
-                    .font(.title3.weight(.medium))
-                    .foregroundStyle(LumisColors.textPrimary)
-                    .frame(width: 52, height: 52)
-                    .glassEffect(.regular, in: Circle())
-                    .contentShape(Circle())
-            }
-            .buttonStyle(.lumisPress)
-            .accessibilityLabel("Type a message")
-
-            Spacer()
-        }
-    }
-
-    // MARK: Expanded — "Message Lumis." bar
-
-    private var textBar: some View {
         HStack(spacing: LumisSpacing.sm) {
-            // The bar's own "+": opens the live camera view.
+            // The one anchored element: "+" expands the bar; once expanded,
+            // the same button opens the live camera.
             Button {
                 Haptics.light()
-                onCamera()
+                if expanded {
+                    onCamera()
+                } else {
+                    withAnimation(Self.openSpring) { expanded = true }
+                    focused = true
+                }
             } label: {
                 Image(systemName: "plus")
                     .font(.title3.weight(.medium))
@@ -223,51 +214,60 @@ private struct LumisInputBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open camera")
+            .accessibilityLabel(expanded ? "Open camera" : "Type a message")
 
-            TextField("Message Lumis.", text: $text)
-                .textFieldStyle(.plain)
-                .font(LumisTypography.bodyLarge)
-                .foregroundStyle(LumisColors.textPrimary)
-                .tint(LumisColors.tint)
-                .focused($focused)
-                .submitLabel(.send)
-                .onSubmit(send)
+            if expanded {
+                TextField("Message Lumis.", text: $text)
+                    .textFieldStyle(.plain)
+                    .font(LumisTypography.bodyLarge)
+                    .foregroundStyle(LumisColors.textPrimary)
+                    .tint(LumisColors.tint)
+                    .focused($focused)
+                    .submitLabel(.send)
+                    .onSubmit(send)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
 
-            if canSend {
-                Button(action: send) {
-                    Image(systemName: "arrow.up")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(LumisColors.onTint)
-                        .frame(width: 34, height: 34)
-                        .background(LumisColors.tint, in: Circle())
-                }
-                .buttonStyle(.lumisPress)
-                .transition(.scale.combined(with: .opacity))
-                .accessibilityLabel("Send")
-            } else {
-                Button {
-                    Haptics.light()
-                    focused = false
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                        expanded = false
+                if canSend {
+                    Button(action: send) {
+                        Image(systemName: "arrow.up")
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(LumisColors.onTint)
+                            .frame(width: 34, height: 34)
+                            .background(LumisColors.tint, in: Circle())
                     }
-                } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(LumisColors.textSecondary)
-                        .frame(width: 34, height: 34)
-                        .contentShape(Rectangle())
+                    .buttonStyle(.lumisPress)
+                    .transition(.scale.combined(with: .opacity))
+                    .accessibilityLabel("Send")
+                } else {
+                    Button {
+                        Haptics.light()
+                        collapse()
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(LumisColors.textSecondary)
+                            .frame(width: 34, height: 34)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.scale.combined(with: .opacity))
+                    .accessibilityLabel("Close the message bar")
                 }
-                .buttonStyle(.plain)
-                .transition(.scale.combined(with: .opacity))
-                .accessibilityLabel("Close the message bar")
             }
         }
-        .padding(.leading, LumisSpacing.md)
-        .padding(.trailing, LumisSpacing.sm)
-        .frame(height: 56)
+        .padding(.horizontal, LumisSpacing.sm)
+        .frame(height: expanded ? 56 : 52)
+        .frame(maxWidth: expanded ? .infinity : 52)
         .glassEffect(.regular, in: Capsule())
+        .contentShape(Capsule())
+        .padding(.horizontal, LumisSpacing.screenMargin)
+        .animation(expanded ? Self.openSpring : Self.closeSpring, value: expanded)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: canSend)
+    }
+
+    private func collapse() {
+        focused = false
+        withAnimation(Self.closeSpring) { expanded = false }
     }
 
     private func send() {
@@ -276,9 +276,6 @@ private struct LumisInputBar: View {
         Haptics.medium()
         vm.send(image: nil, text: t)
         text = ""
-        focused = false
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-            expanded = false
-        }
+        collapse()
     }
 }

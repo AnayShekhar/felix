@@ -306,6 +306,11 @@ async def google_oauth_callback(http_request: Request, code: str = "", state: st
         logger.exception("Google OAuth callback failed")
         return page("Couldn't connect Google", str(exc), ok=False)
     logger.info("Google API connected for user %s", user_id)
+    await manager.broadcast({
+        "user_id": user_id,
+        "event": "connect_status_changed",
+        "service": "google",
+    })
     return page("Google connected",
                 "Gmail, Sheets, Calendar, Docs and Drive now work in Lumis. "
                 "You can close this tab.", ok=True)
@@ -371,6 +376,13 @@ async def sync_cookies(
         raise HTTPException(status_code=502, detail=f"Cookie sync failed: {exc}")
 
     connections.add_connected_service(user["id"], request.service)
+    # Push the change so the iOS app reflects the new connection immediately
+    # instead of waiting for its next manual refresh.
+    await manager.broadcast({
+        "user_id": user["id"],
+        "event": "connect_status_changed",
+        "service": request.service,
+    })
     return {"success": True, "service": request.service}
 
 

@@ -2,12 +2,12 @@
 // delegated to background.js via chrome.runtime messaging.
 
 const SUPPORTED_SERVICES = [
-  { id: "gmail",    name: "Gmail" },
-  { id: "sheets",   name: "Google Sheets" },
-  { id: "notion",   name: "Notion" },
-  { id: "linkedin", name: "LinkedIn" },
-  { id: "slack",    name: "Slack" },
-  { id: "airtable", name: "Airtable" },
+  { id: "gmail",    name: "Gmail",         sub: "Read and draft emails" },
+  { id: "sheets",   name: "Google Sheets", sub: "Track expenses and data" },
+  { id: "notion",   name: "Notion",        sub: "Create and edit pages" },
+  { id: "linkedin", name: "LinkedIn",      sub: "Search and post updates" },
+  { id: "slack",    name: "Slack",         sub: "Send messages" },
+  { id: "airtable", name: "Airtable",      sub: "Manage records" },
 ];
 
 // Inline vector icons (no emoji anywhere in this UI).
@@ -26,6 +26,11 @@ const ICONS = {
   </svg>`,
   dashedCircle: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 3"/>
+  </svg>`,
+  question: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M7.8 8a2.2 2.2 0 1 1 3.1 2c-.6.35-.9.7-.9 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="10" cy="14" r="0.9" fill="currentColor"/>
   </svg>`,
 };
 
@@ -52,6 +57,7 @@ async function showConnectedView(user) {
   document.getElementById("connected-view").classList.remove("hidden");
   document.getElementById("user-email").textContent = user.email;
 
+  setSyncBanner("unknown", "Checking status…", "Asking the Lumis server which accounts are linked.");
   await renderServicesList();
   await renderCurrentSite();
 }
@@ -71,32 +77,37 @@ function relativeTime(tsSeconds) {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-function renderSyncBanner(status) {
-  const icon = document.getElementById("sync-banner-icon");
-  const title = document.getElementById("sync-banner-title");
-  const detail = document.getElementById("sync-banner-detail");
+function setSyncBanner(kind, title, detail) {
+  const iconEl = document.getElementById("sync-banner-icon");
+  const icons = { never: ICONS.dashedCircle, recent: ICONS.checkFilled,
+                  stale: ICONS.clock, unknown: ICONS.question };
+  iconEl.innerHTML = icons[kind];
+  iconEl.className = `status-icon status-${kind}`;
+  document.getElementById("sync-banner-title").textContent = title;
+  document.getElementById("sync-banner-detail").textContent = detail;
+}
 
+function renderSyncBanner(status) {
   const everSynced = status.ever_synced && status.last_synced_at;
+  if (!status.ever_synced) {
+    setSyncBanner("never", "No accounts connected yet",
+      "Connect an account below so Lumis on your phone can use it.");
+    return;
+  }
   if (!everSynced) {
-    icon.innerHTML = ICONS.dashedCircle;
-    icon.className = "status-icon status-never";
-    title.textContent = "Extension not connected";
-    detail.textContent = "Connect an account below so Lumis on your phone can use it.";
+    // Connected, but this backend doesn't report sync times — still connected.
+    setSyncBanner("recent", "Connected to your phone",
+      "Your accounts are linked and ready.");
     return;
   }
   const fresh = Date.now() - status.last_synced_at * 1000 < STALE_AFTER_MS;
   if (fresh) {
-    icon.innerHTML = ICONS.checkFilled;
-    icon.className = "status-icon status-recent";
-    title.textContent = "Extension connected";
-    detail.textContent = `Last synced ${relativeTime(status.last_synced_at)}.`;
+    setSyncBanner("recent", "Connected to your phone",
+      `Last synced ${relativeTime(status.last_synced_at)}.`);
   } else {
-    icon.innerHTML = ICONS.clock;
-    icon.className = "status-icon status-stale";
-    title.textContent = "Extension needs a refresh";
-    detail.textContent =
+    setSyncBanner("stale", "Connected — sync is old",
       `Last synced ${relativeTime(status.last_synced_at)}. ` +
-      "Re-connect your accounts below so your sessions stay fresh.";
+      "Re-connect your accounts below so your sessions stay fresh.");
   }
 }
 
@@ -104,9 +115,21 @@ function renderSyncBanner(status) {
 
 async function renderServicesList() {
   const res = await sendMessage("GET_CONNECTED_SERVICES");
-  const connected = res.services || [];
-  const status = res.status || { ever_synced: connected.length > 0, last_synced_at: null };
-  renderSyncBanner(status);
+  const status = res.status || { ok: false };
+
+  if (status.ok === false) {
+    // The check failed — say so; never pretend nothing is connected.
+    setSyncBanner("unknown", "Can't check right now",
+      "The Lumis server didn't answer. Your accounts may still be connected — try again in a moment.");
+  } else {
+    renderSyncBanner(status);
+  }
+
+  const connected = status.connected || [];
+  const syncTimes = {};
+  for (const s of status.services || []) {
+    if (s.last_synced_at) syncTimes[s.service] = s.last_synced_at;
+  }
 
   const container = document.getElementById("services-list");
   container.innerHTML = "";
@@ -117,8 +140,8 @@ async function renderServicesList() {
   const googleRow = document.createElement("div");
   googleRow.className = "service-row";
   googleRow.innerHTML = `
-    <span class="service-name">Google account<br>
-      <small style="opacity:.6">Gmail, Sheets, Calendar, Docs, Drive</small></span>
+    <span class="service-name">Google account
+      <small class="service-sub">Gmail, Sheets, Calendar, Docs, Drive</small></span>
     ${status.google_api
       ? `<span class="connected-badge">${ICONS.check} Connected</span>`
       : `<button class="btn-small" id="connect-google-api-btn">Connect</button>`}
@@ -142,10 +165,15 @@ async function renderServicesList() {
 
   SUPPORTED_SERVICES.forEach(service => {
     const isConnected = connected.includes(service.id);
+    const syncedAt = syncTimes[service.id];
+    const sub = isConnected && syncedAt
+      ? `Synced ${relativeTime(syncedAt)}`
+      : service.sub;
     const row = document.createElement("div");
     row.className = "service-row";
     row.innerHTML = `
-      <span class="service-name">${service.name}</span>
+      <span class="service-name">${service.name}
+        <small class="service-sub">${sub}</small></span>
       ${isConnected
         ? `<span class="connected-badge">${ICONS.check} Connected</span>`
         : `<button class="btn-small connect-btn" data-service="${service.id}">Connect</button>`}
@@ -172,8 +200,15 @@ async function renderServicesList() {
 
 async function renderCurrentSite() {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const domain = activeTab?.url ? new URL(activeTab.url).hostname : "—";
-  document.getElementById("current-site-name").textContent = domain;
+  const nameEl = document.getElementById("current-site-name");
+  const btn = document.getElementById("sync-current-tab-btn");
+  let domain = null;
+  try {
+    const url = new URL(activeTab?.url || "");
+    if (url.protocol === "http:" || url.protocol === "https:") domain = url.hostname;
+  } catch { /* not a web page */ }
+  nameEl.textContent = domain || "Not a website";
+  btn.disabled = !domain;
 }
 
 function showSyncStatus(message, isError = false) {

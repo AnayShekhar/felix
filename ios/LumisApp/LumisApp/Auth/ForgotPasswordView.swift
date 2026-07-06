@@ -50,7 +50,7 @@ struct ForgotPasswordView: View {
             ZStack {
                 Circle().fill(LumisColors.tintSoft).frame(width: 96, height: 96)
                 Image(systemName: "checkmark")
-                    .font(.largeTitle.weight(.semibold))
+                    .font(.largeTitle.weight(.medium))
                     .foregroundStyle(LumisColors.tintStrong)
                     .scaleEffect(checkmark ? 1 : 0.3)
                     .opacity(checkmark ? 1 : 0)

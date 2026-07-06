@@ -51,59 +51,85 @@ struct ConnectStatusResponse: Codable {
     }
 }
 
-/// The honest tri-state of the phone ↔ Chrome-extension link. Mirrored by the
-/// extension popup so both surfaces read as the same feature.
+/// The honest state of the phone ↔ Chrome-extension link. "Not connected" is
+/// only ever shown when the backend *confirmed* nothing has synced — while
+/// loading, or when the check itself fails, the UI says so instead of guessing.
+/// Mirrored by the extension popup so both surfaces read as the same feature.
 enum ExtensionSyncState: Equatable {
-    /// The extension has never synced anything for this account.
+    /// Status request in flight and nothing cached yet.
+    case checking
+    /// The status check failed and there is no cached answer — unknown, not "off".
+    case unavailable
+    /// Backend confirmed: this account has never synced anything.
     case neverConnected
-    /// Synced within the last day — sessions should be fresh.
-    case recentlySynced(Date)
-    /// Synced once, but a while ago — cookies may have expired.
-    case stale(Date)
+    /// Confirmed connected. `lastSynced` is nil on older backends that don't
+    /// report timestamps; `fresh` is false once the newest sync is over a day old.
+    case connected(lastSynced: Date?, fresh: Bool)
 
     static let staleAfter: TimeInterval = 24 * 60 * 60
 
-    static func from(everSynced: Bool, lastSyncedAt: Double?) -> ExtensionSyncState {
-        guard everSynced, let ts = lastSyncedAt else { return .neverConnected }
+    static func from(_ response: ConnectStatusResponse) -> ExtensionSyncState {
+        let everSynced = response.everSynced ?? !response.connected.isEmpty
+        guard everSynced else { return .neverConnected }
+        guard let ts = response.lastSyncedAt else {
+            // Connected, but this backend doesn't report sync times — still
+            // connected. (Previously this fell through to "not connected".)
+            return .connected(lastSynced: nil, fresh: true)
+        }
         let date = Date(timeIntervalSince1970: ts)
-        return Date().timeIntervalSince(date) < staleAfter
-            ? .recentlySynced(date) : .stale(date)
+        return .connected(lastSynced: date,
+                          fresh: Date().timeIntervalSince(date) < staleAfter)
     }
 
     var title: String {
         switch self {
-        case .neverConnected:  return "Extension not connected"
-        case .recentlySynced:  return "Extension connected"
-        case .stale:           return "Extension needs a refresh"
+        case .checking:                       return "Checking extension…"
+        case .unavailable:                    return "Can't check right now"
+        case .neverConnected:                 return "Extension not set up"
+        case .connected(_, true):             return "Extension connected"
+        case .connected(_, false):            return "Connected — sync is old"
         }
     }
 
     var detail: String {
         switch self {
+        case .checking:
+            return "Asking the Lumis server which accounts are linked."
+        case .unavailable:
+            return "The Lumis server didn't answer. Your accounts may still be connected — pull to refresh."
         case .neverConnected:
             return "Install the Lumis Chrome extension on your computer and connect an account."
-        case .recentlySynced(let date):
-            return "Last synced \(RelativeTime.friendly(date.timeIntervalSince1970))."
-        case .stale(let date):
-            return "Last synced \(RelativeTime.friendly(date.timeIntervalSince1970)). Open the extension to re-sync your accounts."
+        case .connected(let date, true):
+            if let date {
+                return "Last synced \(RelativeTime.friendly(date.timeIntervalSince1970))."
+            }
+            return "Your accounts are linked and ready."
+        case .connected(let date, false):
+            if let date {
+                return "Last synced \(RelativeTime.friendly(date.timeIntervalSince1970)). Open the extension to refresh your sessions."
+            }
+            return "Open the extension to refresh your sessions."
         }
     }
 
-    // One accent: state is carried by the glyph, not a second hue. The tint
-    // marks the healthy state; neutral greys mark everything short of it.
+    // One accent per screen: state is carried by the glyph and the words,
+    // never a competing hue — every status icon stays in the neutral greys.
     var color: Color {
         switch self {
-        case .neverConnected:  return LumisColors.textTertiary
-        case .recentlySynced:  return LumisColors.tintStrong
-        case .stale:           return LumisColors.textSecondary
+        case .checking, .unavailable:  return LumisColors.textTertiary
+        case .neverConnected:          return LumisColors.textTertiary
+        case .connected(_, true):      return LumisColors.textSecondary
+        case .connected(_, false):     return LumisColors.textSecondary
         }
     }
 
     var icon: String {
         switch self {
-        case .neverConnected:  return "circle.dashed"
-        case .recentlySynced:  return "checkmark.circle"
-        case .stale:           return "clock.arrow.circlepath"
+        case .checking:              return "ellipsis.circle"
+        case .unavailable:           return "questionmark.circle"
+        case .neverConnected:        return "circle.dashed"
+        case .connected(_, true):    return "checkmark.circle"
+        case .connected(_, false):   return "clock.arrow.circlepath"
         }
     }
 }
@@ -111,35 +137,69 @@ enum ExtensionSyncState: Equatable {
 @MainActor
 final class ConnectedServicesViewModel: ObservableObject {
     @Published var connectedServiceIds: Set<String> = []
-    @Published var syncState: ExtensionSyncState = .neverConnected
+    @Published var syncState: ExtensionSyncState = .checking
+    /// Per-service last cookie sync, keyed by service id (from `services`).
+    @Published var serviceLastSynced: [String: Date] = [:]
     /// Google OAuth (API) connection — what Gmail/Sheets/Calendar tools need.
     @Published var googleAPIConnected = false
     @Published var isLoading = false
+    /// Non-nil when the *last* refresh failed; the shown data is the cached
+    /// previous answer, never a fabricated "not connected".
     @Published var errorMessage: String?
+
+    private static let cacheKey = "lumis.connectStatus.cache"
+
+    init() {
+        // Start from the last confirmed answer so a slow or failed request
+        // never flashes "not connected" over a working setup.
+        if let data = UserDefaults.standard.data(forKey: Self.cacheKey),
+           let cached = try? JSONDecoder().decode(ConnectStatusResponse.self, from: data) {
+            apply(cached)
+        }
+    }
 
     func fetchStatus() async {
         isLoading = true
-        errorMessage = nil
         do {
             let response = try await LumisAPI.request(
                 "/connect/status",
                 token: KeychainManager.token,
                 as: ConnectStatusResponse.self
             )
-            connectedServiceIds = Set(response.connected)
-            googleAPIConnected = response.googleApi ?? false
-            syncState = ExtensionSyncState.from(
-                everSynced: response.everSynced ?? !response.connected.isEmpty,
-                lastSyncedAt: response.lastSyncedAt
-            )
+            apply(response)
+            errorMessage = nil
+            if let data = try? JSONEncoder().encode(response) {
+                UserDefaults.standard.set(data, forKey: Self.cacheKey)
+            }
         } catch {
-            errorMessage = "Couldn't load connected services"
+            // Keep whatever we knew; only downgrade "checking" to "unavailable".
+            errorMessage = "Couldn't refresh connection status"
+            if syncState == .checking { syncState = .unavailable }
         }
         isLoading = false
     }
 
+    private func apply(_ response: ConnectStatusResponse) {
+        connectedServiceIds = Set(response.connected)
+        googleAPIConnected = response.googleApi ?? false
+        syncState = ExtensionSyncState.from(response)
+        var perService: [String: Date] = [:]
+        for entry in response.services ?? [] {
+            if let ts = entry.lastSyncedAt {
+                perService[entry.service] = Date(timeIntervalSince1970: ts)
+            }
+        }
+        serviceLastSynced = perService
+    }
+
     func isConnected(_ serviceId: String) -> Bool {
         connectedServiceIds.contains(serviceId)
+    }
+
+    /// "Synced 2 hours ago" caption for a connected service, if known.
+    func syncCaption(for serviceId: String) -> String? {
+        guard let date = serviceLastSynced[serviceId] else { return nil }
+        return "Synced \(RelativeTime.friendly(date.timeIntervalSince1970))"
     }
 
     var hasAnyConnection: Bool { !connectedServiceIds.isEmpty }

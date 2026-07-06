@@ -10,12 +10,12 @@ struct LumisTypography {
     static let greeting      = Font.system(.largeTitle, design: .serif)
 
     // Display — one per screen at most.
-    static let displayLarge  = Font.system(.largeTitle).weight(.semibold)
-    static let displayMedium = Font.system(.title).weight(.semibold)
+    static let displayLarge  = Font.system(.largeTitle).weight(.medium)
+    static let displayMedium = Font.system(.title).weight(.medium)
 
     // Title
-    static let titleLarge    = Font.system(.title2).weight(.semibold)
-    static let titleMedium   = Font.headline                       // 17 semibold
+    static let titleLarge    = Font.system(.title2).weight(.medium)
+    static let titleMedium   = Font.body.weight(.medium)           // 17 medium
     static let titleSmall    = Font.subheadline.weight(.medium)    // 15 medium
 
     // Body

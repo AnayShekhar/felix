@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Launch screen: animated Lumis shape + wordmark on Parchment. Shown while the
-/// app validates a stored token (`AuthViewModel.isLoading`).
+/// Launch screen: the Lumis mark + wordmark. Shown while the app validates a
+/// stored token (`AuthViewModel.isLoading`).
 struct SplashView: View {
     @State private var appear = false
 
@@ -9,7 +9,7 @@ struct SplashView: View {
         ZStack {
             LumisColors.background.ignoresSafeArea()
             VStack(spacing: 28) {
-                ScribbleView(state: .thinking, containerSize: 180)
+                LumisLogoMark(size: 150)
                     .scaleEffect(appear ? 1 : 0.85)
                     .opacity(appear ? 1 : 0)
                 LumisWordmark(size: 28)

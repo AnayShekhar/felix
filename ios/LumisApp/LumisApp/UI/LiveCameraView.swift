@@ -30,7 +30,7 @@ struct LiveCameraView: View {
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
                             .glassEffect(.regular, in: Circle())
-                            .overlay(Circle().stroke(LumisColors.tint.opacity(0.35), lineWidth: 1))
+                            .overlay(Circle().stroke(LumisColors.tint.opacity(0.35), lineWidth: 0.5))
                             .contentShape(Circle())
                     }
                     .buttonStyle(.lumisPress)
@@ -48,7 +48,7 @@ struct LiveCameraView: View {
                 // the home mic button, not a stock white circle.
                 Button(action: shutter) {
                     ZStack {
-                        Circle().stroke(LumisColors.tint, lineWidth: 3)
+                        Circle().stroke(LumisColors.tint, lineWidth: 2)
                             .frame(width: 78, height: 78)
                         Circle().fill(LumisColors.tint).frame(width: 64, height: 64)
                             .scaleEffect(capturing ? 0.85 : 1)
@@ -119,7 +119,7 @@ private struct ListeningPill: View {
         .padding(.horizontal, LumisSpacing.lg)
         .frame(height: 36)
         .glassEffect(.regular, in: Capsule())
-        .overlay(Capsule().stroke(LumisColors.tint.opacity(0.35), lineWidth: 1))
+        .overlay(Capsule().stroke(LumisColors.tint.opacity(0.35), lineWidth: 0.5))
         .animation(.easeInOut(duration: 0.3), value: hearing)
         .accessibilityLabel(hearing ? "Lumis is listening" : "Lumis is waiting for the wake word")
     }

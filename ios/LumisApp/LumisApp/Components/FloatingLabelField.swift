@@ -63,7 +63,7 @@ struct FloatingLabelField: View {
         .overlay(
             LumisRadius.rect(LumisRadius.lg)
                 .stroke(focused ? LumisColors.tint : LumisColors.divider,
-                        lineWidth: focused ? 1.5 : 1)
+                        lineWidth: focused ? 1 : 0.5)
         )
         .animation(.easeInOut(duration: 0.18), value: focused)
         .contentShape(Rectangle())

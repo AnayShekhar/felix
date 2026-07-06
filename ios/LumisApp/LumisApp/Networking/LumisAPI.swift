@@ -10,7 +10,7 @@ enum LumisAPIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unauthorized:         return "Your session expired. Please sign in again."
+        case .unauthorized:         return "Your session expired. Sign in again."
         case .server(_, let msg):   return msg
         case .network(let msg):     return msg
         case .decoding:             return "Unexpected response from the server."

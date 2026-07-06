@@ -9,7 +9,8 @@ enum LumisBrand {
     // resolutions; in-app use should go through the adaptive `LumisColors`
     // tokens, which handle dark mode.
 
-    /// Primary light-mode background. Alabaster, #DBDDDE.
+    /// Light-mode elevated-surface tone. Alabaster, #DBDDDE. (The light-mode
+    /// page background itself is pure white; Alabaster is the raised step.)
     static let alabaster = Color(red: 0.859, green: 0.867, blue: 0.871)
 
     /// The single brand accent — Cool Steel, #99ACBE. Identical in both modes.
@@ -122,24 +123,25 @@ enum ToolSummary {
 /// Settings memory list and the Mac Memory table so both read identically.
 enum MemoryFormat {
     private static let labels: [String: String] = [
-        "command_patterns": "Common Commands",
-        "default_browser": "Default Browser",
-        "frequent_contacts": "Frequent Contacts",
-        "last_email_recipient": "Last Email Recipient",
-        "expense_file": "Expense File",
-        "expense_file_path": "Expense File",
-        "preferred_calendar": "Default Calendar",
-        "preferred_reminder_list": "Default Reminder List",
-        "music_service": "Music Service",
-        "home_folder": "Home Folder",
+        "command_patterns": "Common commands",
+        "default_browser": "Default browser",
+        "frequent_contacts": "Frequent contacts",
+        "last_email_recipient": "Last email recipient",
+        "expense_file": "Expense file",
+        "expense_file_path": "Expense file",
+        "preferred_calendar": "Default calendar",
+        "preferred_reminder_list": "Default reminder list",
+        "music_service": "Music service",
+        "home_folder": "Home folder",
     ]
 
-    /// "command_patterns" -> "Common Commands" (curated), else title-cased.
+    /// "command_patterns" -> "Common commands" (curated), else sentence-cased.
     static func prettyKey(_ key: String) -> String {
         if let label = labels[key] { return label }
-        return key.split(whereSeparator: { $0 == "_" || $0 == "." })
-            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+        let words = key.split(whereSeparator: { $0 == "_" || $0 == "." })
+            .map(String.init)
             .joined(separator: " ")
+        return words.prefix(1).uppercased() + words.dropFirst()
     }
 
     /// A stored JSON-array value (e.g. `["a","b"]`) becomes "a, b"; plain values

@@ -31,7 +31,10 @@ struct ChatStack: Identifiable, Codable, Equatable {
     var startedAt = Date()
     var panels: [Panel] = []
 
-    var isFinished: Bool { panels.contains { $0.isFinal } }
+    /// Finished when the stack's LAST panel is a concluding one. A continued
+    /// past chat holds an earlier final panel mid-stack, so "contains a final
+    /// panel" would wrongly freeze it; only the tail decides.
+    var isFinished: Bool { panels.last?.isFinal == true }
 
     /// Index of the currently active panel, if any.
     var activeIndex: Int? { panels.lastIndex { $0.state == .active } }

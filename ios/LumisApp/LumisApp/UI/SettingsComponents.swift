@@ -1,48 +1,135 @@
 import SwiftUI
 
-/// Settings section: an uppercase header over quietly divided rows. No card
-/// border — hierarchy comes from whitespace and typography; the one stronger
-/// treatment (a bordered surface) is reserved for the profile summary.
+/// Apple-Settings-style grouped section: a small, muted sentence-case header,
+/// the rows on one shared inset-grouped surface (continuous corners, no
+/// border, no shadow), and an optional explanatory footer. Hierarchy comes from
+/// whitespace and the quiet surface step — the one stronger visual container
+/// in Settings is the profile summary card, never these groups.
 struct SettingsSection<Content: View>: View {
     let title: String
+    var footer: String?
     @ViewBuilder let content: () -> Content
-    init(_ title: String, @ViewBuilder content: @escaping () -> Content) {
-        self.title = title; self.content = content
+
+    init(_ title: String, footer: String? = nil,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.title = title; self.footer = footer; self.content = content
     }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(title.uppercased())
+            Text(title)
                 .font(LumisTypography.caption)
-                .tracking(0.8)
                 .foregroundStyle(LumisColors.textTertiary)
                 .padding(.leading, LumisSpacing.lg)
-                .padding(.bottom, LumisSpacing.sm)
+                .padding(.bottom, 7)
             VStack(spacing: 0) {
                 content()
+            }
+            .background(LumisColors.surface, in: LumisRadius.rect(LumisRadius.md))
+            if let footer {
+                Text(footer)
+                    .font(LumisTypography.caption)
+                    .foregroundStyle(LumisColors.textTertiary)
+                    .padding(.horizontal, LumisSpacing.lg)
+                    .padding(.top, 7)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 }
 
-/// One row: optional leading icon, title, trailing accessory.
-struct SettingsRow<Accessory: View>: View {
-    let icon: String?
-    let title: String
-    @ViewBuilder let accessory: () -> Accessory
+/// The uniform leading icon treatment for Settings rows — one size, one
+/// corner radius, one neutral weight everywhere (Apple's Settings discipline:
+/// icons all live in identical small containers). Deliberately not tinted:
+/// the accent color is reserved for interactive elements.
+struct SettingsIcon: View {
+    let systemName: String
+
     var body: some View {
-        HStack(spacing: 12) {
-            if let icon {
-                Image(systemName: icon).foregroundStyle(LumisColors.textSecondary).frame(width: 22)
+        Image(systemName: systemName)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(LumisColors.textSecondary)
+            .frame(width: 29, height: 29)
+            .background(LumisColors.textPrimary.opacity(0.08),
+                        in: LumisRadius.rect(7))
+    }
+}
+
+/// One Settings row: optional uniform icon chip, title (+ optional subtitle),
+/// trailing accessory. Constant 44pt-minimum height and padding rhythm so
+/// every row in the app sits on the same grid.
+struct SettingsRow<Accessory: View>: View {
+    var icon: String?
+    let title: String
+    var subtitle: String?
+    @ViewBuilder let accessory: () -> Accessory
+
+    init(icon: String? = nil, title: String, subtitle: String? = nil,
+         @ViewBuilder accessory: @escaping () -> Accessory) {
+        self.icon = icon; self.title = title; self.subtitle = subtitle
+        self.accessory = accessory
+    }
+
+    var body: some View {
+        HStack(spacing: LumisSpacing.md) {
+            if let icon { SettingsIcon(systemName: icon) }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(LumisTypography.bodyLarge)
+                    .foregroundStyle(LumisColors.textPrimary)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(LumisTypography.caption)
+                        .foregroundStyle(LumisColors.textSecondary)
+                }
             }
-            Text(title).font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.textPrimary)
-            Spacer()
+            Spacer(minLength: LumisSpacing.sm)
             accessory()
         }
-        .padding(.horizontal, LumisSpacing.lg).padding(.vertical, LumisSpacing.md)
+        .settingsRowPadding()
+        .frame(minHeight: 44)
         .contentShape(Rectangle())
     }
 }
 
+/// Trailing detail text (the muted value on the right of a row, like
+/// Apple's "On" / "Off" / account name).
+struct SettingsDetailText: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text)
+            .font(LumisTypography.bodyMedium)
+            .foregroundStyle(LumisColors.textSecondary)
+    }
+}
+
+/// Trailing disclosure chevron for navigation rows.
+struct SettingsChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(LumisColors.textTertiary)
+    }
+}
+
+/// Hairline row separator, inset like Apple's — it starts at the text
+/// column, never at the screen edge. Pass `hasIcon: true` for rows with a
+/// leading icon chip so the inset clears it.
+struct SettingsDivider: View {
+    var hasIcon: Bool = false
+    var body: some View {
+        Rectangle()
+            .fill(LumisColors.divider)
+            .frame(height: 0.5)
+            .padding(.leading, hasIcon ? LumisSpacing.lg + 29 + LumisSpacing.md
+                                       : LumisSpacing.lg)
+    }
+}
+
 extension View {
-    func settingsRowPadding() -> some View { self.padding(.horizontal, LumisSpacing.lg).padding(.vertical, LumisSpacing.md) }
+    func settingsRowPadding() -> some View {
+        self.padding(.horizontal, LumisSpacing.lg)
+            .padding(.vertical, 11)
+    }
 }

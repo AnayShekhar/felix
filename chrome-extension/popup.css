@@ -1,7 +1,9 @@
 /* Lumis extension — same design system as the iOS app.
    Three raw colors define the palette (Carbon #212222, Alabaster #DBDDDE,
-   Cool Steel #99ACBE). Light mode: Alabaster background / Carbon text.
-   Dark mode: swapped. The tint (Cool Steel) is constant in both modes.
+   Cool Steel #99ACBE). Light mode: pure white background / Carbon text, with
+   Alabaster as the elevated-surface tone. Dark mode: Carbon background /
+   Alabaster text. The tint (Cool Steel) is constant in both modes.
+   Muted text uses real colors, never the primary at reduced opacity.
    Everything below references the semantic tokens — never a raw hex. */
 
 :root {
@@ -9,12 +11,13 @@
   --alabaster: #DBDDDE;
   --cool-steel: #99ACBE;
 
-  --background: var(--alabaster);
-  --surface: rgba(33, 34, 34, 0.05);
+  --background: #FFFFFF;
+  --surface: #EFF0F1;          /* Alabaster lifted toward white */
+  --surface-strong: #E6E8E9;
   --text-primary: var(--carbon);
-  --text-secondary: rgba(33, 34, 34, 0.55);
-  --text-tertiary: rgba(33, 34, 34, 0.35);
-  --divider: rgba(33, 34, 34, 0.10);
+  --text-secondary: #6A6B6C;
+  --text-tertiary: #9B9C9D;
+  --divider: #E4E5E5;
   --tint: var(--cool-steel);
   --tint-soft: rgba(153, 172, 190, 0.16);
   --on-tint: var(--carbon);
@@ -33,52 +36,71 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: var(--carbon);
-    --surface: rgba(219, 221, 222, 0.07);
+    --surface: #323434;
+    --surface-strong: #3A3C3C;
     --text-primary: var(--alabaster);
-    --text-secondary: rgba(219, 221, 222, 0.55);
-    --text-tertiary: rgba(219, 221, 222, 0.35);
-    --divider: rgba(219, 221, 222, 0.10);
+    --text-secondary: #9EA0A1;
+    --text-tertiary: #757677;
+    --divider: #424344;
     --on-primary: var(--carbon);
   }
 }
 
+* { box-sizing: border-box; }
+
 body {
-  width: 320px;
+  width: 340px;
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  font-size: 13px;
+  letter-spacing: -0.08px;
   background: var(--background);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
 }
 
 .view { padding: var(--space-lg) var(--space-lg) var(--space-xl); }
 .hidden { display: none !important; }
 
-/* ── Header ─────────────────────────────────────────────────────────── */
-.header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
+button { font-family: inherit; letter-spacing: inherit; }
+
+button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--tint);
+  outline-offset: 1px;
 }
 
-/* Lumis petal mark: tint filled through the flower silhouette mask. */
+/* ── Brand mark (masked so it takes the theme's ink color) ──────────── */
 .logo-mark {
-  width: 28px;
-  height: 28px;
-  background: var(--tint);
-  -webkit-mask: url(icons/petal-mask.svg) no-repeat center / contain;
-  mask: url(icons/petal-mask.svg) no-repeat center / contain;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  background: var(--text-primary);
+  -webkit-mask: url(icons/lumis-mark.png) no-repeat center / contain;
+  mask: url(icons/lumis-mark.png) no-repeat center / contain;
 }
-.logo-mark.small { width: 20px; height: 20px; }
+.logo-mark.large { width: 56px; height: 56px; }
 
-h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.2px; }
-.app-name { font-size: 15px; font-weight: 600; }
+/* ── Login hero ─────────────────────────────────────────────────────── */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-lg) 0 var(--space-sm);
+}
+.hero h1 {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  margin: var(--space-md) 0 0;
+}
 
 .subtitle {
   font-size: 13px;
   color: var(--text-secondary);
   margin: var(--space-sm) 0 var(--space-xl) 0;
-  line-height: 1.4;
+  line-height: 1.45;
+  max-width: 250px;
 }
 
 /* ── Inputs & buttons ───────────────────────────────────────────────── */
@@ -87,36 +109,38 @@ form { display: flex; flex-direction: column; gap: var(--space-sm); }
 input {
   height: 44px;
   border: 1px solid var(--divider);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 0 var(--space-md);
   font-size: 14px;
   background: var(--surface);
   color: var(--text-primary);
   outline: none;
-  box-sizing: border-box;
+  transition: border-color 0.15s ease;
 }
 input::placeholder { color: var(--text-tertiary); }
-input:focus { border-color: var(--tint); border-width: 1.5px; }
+input:focus { border-color: var(--tint); }
 
 .btn-primary {
   height: 44px;
   background: var(--text-primary);
   color: var(--on-primary);
   border: none;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   margin-top: var(--space-xs);
+  transition: opacity 0.15s ease;
 }
-.btn-primary:hover { opacity: 0.9; }
+.btn-primary:hover { opacity: 0.88; }
+.btn-primary:active { opacity: 0.75; }
 
 .btn-outline {
   height: 44px;
   background: transparent;
   color: var(--text-primary);
-  border: 1px solid var(--text-primary);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -125,7 +149,7 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   justify-content: center;
   gap: var(--space-sm);
   width: 100%;
-  box-sizing: border-box;
+  transition: background 0.15s ease;
 }
 .btn-outline:hover { background: var(--surface); }
 
@@ -140,7 +164,7 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   content: "";
   position: absolute;
   top: 50%;
-  width: 40%;
+  width: 42%;
   height: 1px;
   background: var(--divider);
 }
@@ -152,6 +176,7 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   font-size: 12px;
   margin-top: var(--space-sm);
   min-height: 16px;
+  text-align: center;
 }
 
 /* ── Signed-in header ───────────────────────────────────────────────── */
@@ -159,23 +184,38 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-lg);
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+.header-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.app-name { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+.user-email {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-text {
   background: none;
   border: none;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
 }
-.btn-text:hover { color: var(--text-primary); }
-
-.user-email {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin: 0 0 var(--space-lg) 0;
-}
+.btn-text:hover { color: var(--text-primary); background: var(--surface); }
 
 /* ── Sync status banner (same tri-state + wording as iOS Settings) ──── */
 .sync-banner {
@@ -195,22 +235,30 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   font-size: 12px;
   color: var(--text-secondary);
   margin: 2px 0 0 0;
-  line-height: 1.35;
+  line-height: 1.4;
 }
-.status-never  { color: var(--text-tertiary); }
-.status-recent { color: var(--success); }
-.status-stale  { color: var(--amber); }
+.status-never   { color: var(--text-tertiary); }
+.status-recent  { color: var(--success); }
+.status-stale   { color: var(--amber); }
+.status-unknown { color: var(--text-tertiary); }
 
 /* ── Sections & service rows ────────────────────────────────────────── */
-.section { margin-bottom: var(--space-xl); }
+.section { margin-bottom: var(--space-lg); }
 
 .section-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  margin: 0 0 var(--space-sm) 0;
+  letter-spacing: 0.7px;
+  margin: 0 0 var(--space-sm) var(--space-xs);
+}
+
+.section-footer {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+  margin: var(--space-sm) var(--space-xs) 0;
 }
 
 .card {
@@ -224,17 +272,27 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 44px;
+  gap: var(--space-sm);
+  min-height: 50px;
+  padding: 7px 0;
   border-bottom: 1px solid var(--divider);
 }
 .service-row:last-child { border-bottom: none; }
 
-.service-name { font-size: 14px; }
+.service-name { font-size: 13.5px; font-weight: 500; min-width: 0; }
+.service-sub {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
 
 .connected-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
+  flex: none;
   font-size: 12px;
   color: var(--success);
   font-weight: 500;
@@ -243,6 +301,7 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
 
 .btn-small {
   height: 28px;
+  flex: none;
   padding: 0 var(--space-md);
   background: var(--tint);
   color: var(--on-tint);
@@ -251,15 +310,17 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: filter 0.15s ease;
 }
-.btn-small:hover { filter: brightness(1.05); }
+.btn-small:hover { filter: brightness(1.06); }
 .btn-small:disabled { opacity: 0.5; cursor: default; }
 
 .current-site-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 44px;
+  gap: var(--space-sm);
+  height: 48px;
 }
 
 #current-site-name {
@@ -269,14 +330,13 @@ input:focus { border-color: var(--tint); border-width: 1.5px; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-right: var(--space-sm);
 }
 
 .sync-status {
   font-size: 12px;
   text-align: center;
   min-height: 16px;
-  margin-top: var(--space-sm);
+  margin: var(--space-sm) 0 0;
 }
 .sync-status.success { color: var(--success); }
 .sync-status.error { color: var(--destructive); }

@@ -41,7 +41,7 @@ private struct WelcomeView: View {
             LumisColors.background.ignoresSafeArea()
             VStack(spacing: 0) {
                 Spacer()
-                ScribbleView(state: .idle, containerSize: 120)
+                LumisLogoMark(size: 110)
                 LumisWordmark(size: 28).padding(.top, 20)
                 Text("Your world, automated.")
                     .font(LumisTypography.bodyMedium)

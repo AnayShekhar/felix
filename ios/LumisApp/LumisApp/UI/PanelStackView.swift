@@ -182,7 +182,7 @@ private struct FinalPanelView: View {
             if !panel.body.isEmpty {
                 Text(panel.body)
                     .font(LumisTypography.bodyLarge)
-                    .foregroundStyle(LumisColors.textPrimary.opacity(0.85))
+                    .foregroundStyle(LumisColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -193,7 +193,7 @@ private struct FinalPanelView: View {
                 } label: {
                     HStack(spacing: LumisSpacing.sm) {
                         Image(systemName: "arrow.up.right")
-                            .font(.footnote.weight(.semibold))
+                            .font(.footnote.weight(.medium))
                         Text("Open the result")
                             .font(LumisTypography.titleSmall)
                     }

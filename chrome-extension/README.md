@@ -13,14 +13,15 @@ Reuses the exact same `/auth/*` endpoints the iPhone app uses.
 chrome-extension/
 ├── manifest.json        MV3 manifest (cookies/storage/tabs/identity perms)
 ├── background.js        service worker: auth + cookie reading + sync
-├── popup.html/js/css    the popup UI (Parchment theme, Lumis petal mark)
-├── icons/               generated Lumis petal icons (16/48/128) + google logo
+├── popup.html/js/css    the popup UI (Lumis design tokens, brand comet mark)
+├── icons/               Lumis mark icons (16/48/128) + google logo
 └── README.md
 ```
 
-The petal icons in `icons/` were generated from the Lumis brand (Powder Blue
-`#B0BFD1` petals + Carbon `#212222` center on Parchment `#F8F3EE`). The header
-logo in the popup uses `icons/petal-mask.svg` as a CSS mask over the brand color.
+The icons in `icons/` are generated from the Lumis brand mark (`image.svg` at
+the repo root) — Cool Steel `#99ACBE` on transparent for the toolbar. The header
+logo in the popup uses `icons/lumis-mark.png` as a CSS mask over the theme's ink
+color, so it adapts to light/dark automatically.
 
 ## Install (unpacked — no Web Store needed)
 

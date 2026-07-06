@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Authenticated app shell: Home is the single surface, with a slide-in
-/// sidebar (Past Chats + profile) opened from the toggle beneath the top bar,
-/// a full-screen Settings sheet reached from the sidebar's initials mark, and
-/// the live camera reached from the text bar.
+/// sidebar (past chats only) opened from the glass toggle beneath the top
+/// bar, a full-screen Settings sheet reached solely from the glass profile
+/// button top-right, and the live camera reached from the text bar.
 struct MainTabView: View {
     @EnvironmentObject private var vm: LumisViewModel
     @EnvironmentObject private var authVM: AuthViewModel
@@ -14,7 +14,10 @@ struct MainTabView: View {
 
     var body: some View {
         ZStack(alignment: .leading) {
-            HomeView(onMenu: openSidebar, onCamera: { showCamera = true })
+            HomeView(onMenu: openSidebar,
+                     onCamera: { showCamera = true },
+                     initials: authVM.currentUser?.initials ?? "?",
+                     onProfile: { showSettings = true })
                 // The main content eases aside as the sidebar comes in, then
                 // slides back — a natural, weighted iOS dismissal.
                 .scaleEffect(sidebarOpen ? 0.92 : 1, anchor: .trailing)
@@ -30,12 +33,12 @@ struct MainTabView: View {
                     .transition(.opacity)
 
                 SidebarView(
-                    initials: authVM.currentUser?.initials ?? "?",
-                    name: authVM.currentUser?.displayName ?? "",
-                    email: authVM.currentUser?.email ?? "",
-                    onSettings: { showSettings = true },
                     onOpenChat: { chat in
                         vm.openPastChat(chat)
+                        closeSidebar()
+                    },
+                    onNewChat: {
+                        vm.dismissCurrentChat()
                         closeSidebar()
                     },
                     pastChats: vm.pastChats
@@ -58,7 +61,15 @@ struct MainTabView: View {
                 .environmentObject(authVM)
                 .environmentObject(vm)
         }
-        .onAppear { vm.start() }
+        .onAppear {
+            vm.start()
+            #if DEBUG
+            // UI-screenshot hook: open the Settings sheet directly.
+            if ProcessInfo.processInfo.environment["LUMIS_UI_SETTINGS"] != nil {
+                showSettings = true
+            }
+            #endif
+        }
     }
 
     private func openSidebar() {

@@ -9,15 +9,15 @@
 
     <!-- Logged out state -->
     <div id="login-view" class="view">
-      <div class="header">
-        <div class="logo-mark"></div>
+      <div class="hero">
+        <div class="logo-mark large"></div>
         <h1>Lumis</h1>
+        <p class="subtitle">Sign in with the same account as your phone to connect your accounts.</p>
       </div>
-      <p class="subtitle">Sign in to connect your accounts to Lumis on your phone.</p>
 
       <form id="email-form">
-        <input type="email" id="email-input" placeholder="Email" required />
-        <input type="password" id="password-input" placeholder="Password" required />
+        <input type="email" id="email-input" placeholder="Email" autocomplete="email" required />
+        <input type="password" id="password-input" placeholder="Password" autocomplete="current-password" required />
         <button type="submit" class="btn-primary">Sign In</button>
       </form>
 
@@ -35,12 +35,14 @@
     <div id="connected-view" class="view hidden">
       <div class="header-row">
         <div class="header">
-          <div class="logo-mark small"></div>
-          <span class="app-name">Lumis</span>
+          <div class="logo-mark"></div>
+          <div class="header-text">
+            <span class="app-name">Lumis</span>
+            <span id="user-email" class="user-email"></span>
+          </div>
         </div>
         <button id="logout-btn" class="btn-text">Sign Out</button>
       </div>
-      <p id="user-email" class="user-email"></p>
 
       <!-- Phone ↔ extension sync status (same tri-state as iOS Settings) -->
       <div id="sync-banner" class="sync-banner">
@@ -52,18 +54,20 @@
       </div>
 
       <div class="section">
-        <p class="section-label">Connect your accounts</p>
+        <p class="section-label">Accounts</p>
         <div id="services-list" class="card"></div>
+        <p class="section-footer">Connecting shares that site's signed-in session with Lumis so it can act for you.</p>
       </div>
 
       <div class="section">
-        <p class="section-label">Current site</p>
+        <p class="section-label">This tab</p>
         <div class="card">
           <div class="current-site-row">
             <span id="current-site-name">—</span>
             <button id="sync-current-tab-btn" class="btn-small">Connect</button>
           </div>
         </div>
+        <p class="section-footer">Connect any other site you're signed into on this tab.</p>
       </div>
 
       <p id="sync-status" class="sync-status"></p>

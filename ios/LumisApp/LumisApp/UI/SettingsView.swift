@@ -1,5 +1,11 @@
 import SwiftUI
 
+/// Settings, in the visual language of Apple's own Settings app: plain
+/// inset-grouped sections with uniform leading icon chips, hairline inset
+/// separators, muted section headers/footers, a consistent 44pt row rhythm,
+/// and the accent color reserved for interactive elements (toggles, links,
+/// the Connect action). The profile summary at the top is the single
+/// stronger visual container on the screen.
 struct SettingsView: View {
     @EnvironmentObject private var authVM: AuthViewModel
     @EnvironmentObject private var lumisVM: LumisViewModel
@@ -49,7 +55,7 @@ struct SettingsView: View {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { onClose() } label: {
                             Image(systemName: "xmark")
-                                .font(.subheadline.weight(.semibold))
+                                .font(.subheadline.weight(.medium))
                                 .foregroundStyle(LumisColors.textPrimary)
                         }
                         .accessibilityLabel("Close settings")
@@ -68,6 +74,13 @@ struct SettingsView: View {
                 ExtensionInstructionsView()
             }
             .task { await servicesVM.fetchStatus() }
+            // The backend pushes connect_status_changed the moment a cookie
+            // sync or Google consent lands — re-query real state right away.
+            .onReceive(lumisVM.ws.events) { env in
+                if env.event == "connect_status_changed" {
+                    Task { await servicesVM.fetchStatus() }
+                }
+            }
             .confirmationDialog("Sign out of Lumis?", isPresented: $showSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { authVM.logout() }
                 Button("Cancel", role: .cancel) {}
@@ -75,7 +88,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Profile
+    // MARK: - Profile (the one emphasized container)
 
     private var profileCard: some View {
         Button { route = .editProfile } label: {
@@ -97,13 +110,12 @@ struct SettingsView: View {
                         .foregroundStyle(LumisColors.textSecondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(LumisColors.textTertiary)
+                SettingsChevron()
             }
             .padding(LumisSpacing.lg)
             // Material card, continuous corners, no drawn border — depth
-            // through blur and a near-invisible shadow.
+            // through blur and a near-invisible shadow. Deliberately the only
+            // card treatment in Settings.
             .background(.ultraThinMaterial, in: LumisRadius.rect(LumisRadius.card))
             .shadow(color: LumisColors.shadow, radius: 8, y: 4)
         }
@@ -114,83 +126,81 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var connectedServicesSection: some View {
-        SettingsSection("Connected Services") {
+        SettingsSection(
+            "Connected services",
+            footer: "Accounts are connected on your computer through the Lumis browser extension. Google API access is granted here."
+        ) {
             // Connection status lives exclusively here — never on the main screen.
-            serverStatusRow
-            Divider().overlay(LumisColors.divider)
-            ExtensionSyncBanner(state: servicesVM.syncState)
-            Divider().overlay(LumisColors.divider)
+            ServerStatusRow(ws: lumisVM.ws)
+            SettingsDivider(hasIcon: true)
+            ExtensionSyncBanner(state: servicesVM.syncState,
+                                staleNote: servicesVM.errorMessage)
+            SettingsDivider(hasIcon: true)
             // Google OAuth (API access) — what Gmail/Sheets/Calendar tools run
             // on. Separate from the cookie rows: cookies sign the cloud
             // browser in; this grants Lumis the Google APIs themselves.
             googleAPIRow
-            Divider().overlay(LumisColors.divider)
             if servicesVM.hasAnyConnection {
+                SettingsDivider(hasIcon: true)
                 ForEach(SUPPORTED_SERVICES) { service in
-                    VStack(alignment: .leading, spacing: LumisSpacing.sm) {
-                        HStack(spacing: LumisSpacing.md) {
-                            Image(systemName: service.icon)
-                                .font(.body.weight(.medium))
-                                .symbolRenderingMode(.hierarchical)
-                                .foregroundColor(LumisColors.textSecondary)
-                                .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(service.displayName)
-                                    .font(LumisTypography.bodyMedium)
-                                    .foregroundColor(LumisColors.textPrimary)
-                                Text(service.description)
-                                    .font(LumisTypography.caption)
-                                    .foregroundColor(LumisColors.textSecondary)
-                            }
-                            Spacer()
-                            if servicesVM.isConnected(service.id) {
-                                Label("Connected", systemImage: "checkmark.circle")
-                                    .font(LumisTypography.captionMedium)
-                                    .foregroundColor(LumisColors.tintStrong)
-                            } else {
-                                Text("Not connected")
-                                    .font(LumisTypography.caption)
-                                    .foregroundColor(LumisColors.textTertiary)
-                            }
-                        }
-                        if servicesVM.isConnected(service.id) {
-                            HStack(spacing: LumisSpacing.sm) {
-                                Button(verifyingID == service.id ? "Checking…" : "Verify") {
-                                    Task { await verify(service.id) }
-                                }
-                                .font(LumisTypography.captionMedium)
-                                .foregroundColor(LumisColors.textSecondary)
-                                .disabled(verifyingID == service.id)
-                                if let msg = verifyMessages[service.id] {
-                                    Text(msg)
-                                        .font(LumisTypography.caption)
-                                        .foregroundColor(LumisColors.textTertiary)
-                                }
-                            }
-                            // Aligns with the text column (28pt icon + 12pt gap).
-                            .padding(.leading, 40)
-                        }
+                    serviceRow(service)
+                    if service.id != SUPPORTED_SERVICES.last?.id {
+                        SettingsDivider(hasIcon: true)
                     }
-                    .padding(.vertical, LumisSpacing.md)
                 }
-
-                Divider().overlay(LumisColors.divider)
-
-                Button(action: { showExtensionInstructions = true }) {
-                    Label("Connect more accounts", systemImage: "plus.circle")
-                        .font(LumisTypography.bodyMedium)
-                        .foregroundColor(LumisColors.tintStrong)
+                SettingsDivider(hasIcon: true)
+                Button {
+                    showExtensionInstructions = true
+                } label: {
+                    SettingsRow(icon: "plus", title: "Connect more accounts") {
+                        EmptyView()
+                    }
                 }
-                .padding(.top, LumisSpacing.sm)
-            } else {
+                .buttonStyle(.plain)
+            } else if servicesVM.syncState == .neverConnected {
+                // Only pitch "get started" when the backend *confirmed* nothing
+                // is connected — never while checking or unreachable.
+                SettingsDivider(hasIcon: true)
                 ConnectServicesEmptyState(onGetStarted: { showExtensionInstructions = true })
             }
         }
     }
 
-    /// Live link between this phone and the Lumis backend, stated plainly.
-    private var serverStatusRow: some View {
-        ServerStatusRow(ws: lumisVM.ws)
+    /// One connected service: uniform icon chip, name + what it does, an honest
+    /// trailing status (with when the cookies last synced, if known), and —
+    /// when connected — a small interactive Verify link beneath, aligned to
+    /// the text column.
+    @ViewBuilder
+    private func serviceRow(_ service: ServiceDefinition) -> some View {
+        let connected = servicesVM.isConnected(service.id)
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow(icon: service.icon,
+                        title: service.displayName,
+                        subtitle: connected
+                            ? (servicesVM.syncCaption(for: service.id) ?? service.description)
+                            : service.description) {
+                ServiceStatusLabel(connected: connected)
+            }
+            if connected {
+                HStack(spacing: LumisSpacing.sm) {
+                    Button(verifyingID == service.id ? "Checking…" : "Verify") {
+                        Task { await verify(service.id) }
+                    }
+                    .font(LumisTypography.captionMedium)
+                    .foregroundStyle(LumisColors.tintStrong)
+                    .disabled(verifyingID == service.id)
+                    if let msg = verifyMessages[service.id] {
+                        Text(msg)
+                            .font(LumisTypography.caption)
+                            .foregroundStyle(LumisColors.textTertiary)
+                    }
+                }
+                // Aligns with the text column (16 margin + 29 chip + 12 gap).
+                .padding(.leading, LumisSpacing.lg + 29 + LumisSpacing.md)
+                .padding(.bottom, 11)
+                .padding(.top, -4)
+            }
+        }
     }
 
     // MARK: - Google API access (OAuth consent)
@@ -198,40 +208,27 @@ struct SettingsView: View {
     @State private var googleConnectError: String?
 
     private var googleAPIRow: some View {
-        VStack(alignment: .leading, spacing: LumisSpacing.sm) {
-            HStack(spacing: LumisSpacing.md) {
-                Image(systemName: "key")
-                    .font(.body.weight(.medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundColor(LumisColors.textSecondary)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Google account")
-                        .font(LumisTypography.bodyMedium)
-                        .foregroundColor(LumisColors.textPrimary)
-                    Text("Gmail, Sheets, Calendar, Docs, Drive")
-                        .font(LumisTypography.caption)
-                        .foregroundColor(LumisColors.textSecondary)
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsRow(icon: "key",
+                        title: "Google account",
+                        subtitle: "Gmail, Sheets, Calendar, Docs, Drive") {
                 if servicesVM.googleAPIConnected {
-                    Label("Connected", systemImage: "checkmark.circle")
-                        .font(LumisTypography.captionMedium)
-                        .foregroundColor(LumisColors.tintStrong)
+                    SettingsDetailText("Connected")
                 } else {
                     Button("Connect") { connectGoogle() }
-                        .font(LumisTypography.captionMedium)
-                        .foregroundColor(LumisColors.tintStrong)
+                        .font(LumisTypography.bodyMedium)
+                        .foregroundStyle(LumisColors.tintStrong)
                 }
             }
             if let googleConnectError {
                 Text(googleConnectError)
                     .font(LumisTypography.caption)
-                    .foregroundColor(LumisColors.destructive)
-                    .padding(.leading, 40)
+                    .foregroundStyle(LumisColors.destructive)
+                    .padding(.leading, LumisSpacing.lg + 29 + LumisSpacing.md)
+                    .padding(.bottom, 11)
+                    .padding(.top, -4)
             }
         }
-        .padding(.vertical, LumisSpacing.md)
     }
 
     /// Fetch the consent URL and open it in-app; status refreshes when the
@@ -251,34 +248,32 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         SettingsSection("Appearance") {
-            VStack(alignment: .leading, spacing: LumisSpacing.sm) {
-                Text("Theme")
-                    .font(LumisTypography.bodyLarge)
-                    .foregroundStyle(LumisColors.textPrimary)
+            SettingsRow(icon: "circle.lefthalf.filled", title: "Theme") {
                 Picker("Theme", selection: $appearanceRaw) {
                     ForEach(LumisAppearance.allCases) { mode in
                         Text(mode.label).tag(mode.rawValue)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
+                .tint(LumisColors.textSecondary)
             }
-            .settingsRowPadding()
         }
     }
 
     // MARK: - Voice
 
     private var voiceSection: some View {
-        SettingsSection("Voice") {
-            Toggle(isOn: $wakeWord) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Hey Lumis").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.textPrimary)
-                    Text("Listen for your wake word in the background")
-                        .font(LumisTypography.caption).foregroundStyle(LumisColors.textSecondary)
-                }
+        SettingsSection(
+            "Voice",
+            footer: "Saying \u{201C}Hey Lumis\u{201D} is the only way to start a voice request — there is no microphone button."
+        ) {
+            SettingsRow(icon: "waveform",
+                        title: "\u{201C}Hey Lumis\u{201D}",
+                        subtitle: "Listen for your wake word in the background") {
+                Toggle("", isOn: $wakeWord)
+                    .labelsHidden()
+                    .tint(LumisColors.tint)
             }
-            .tint(LumisColors.tint)
-            .settingsRowPadding()
             .onChange(of: wakeWord) { _, on in lumisVM.setWakeWord(on) }
         }
     }
@@ -288,17 +283,27 @@ struct SettingsView: View {
     private var accountSection: some View {
         SettingsSection("Account") {
             navRow("Change email") { route = .changeEmail }
+            SettingsDivider()
             navRow("Change password") { route = .changePassword }
+            SettingsDivider()
             Button { showSignOut = true } label: {
-                SettingsRow(icon: nil, title: "Sign out") { EmptyView() }
-            }.buttonStyle(.plain)
+                SettingsRow(title: "Sign out") { EmptyView() }
+            }
+            .buttonStyle(.plain)
+            SettingsDivider()
             Button { route = .deleteAccount } label: {
                 HStack {
-                    Text("Delete account").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.destructive)
+                    Text("Delete account")
+                        .font(LumisTypography.bodyLarge)
+                        .foregroundStyle(LumisColors.destructive)
                     Spacer()
-                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(LumisColors.textTertiary)
-                }.settingsRowPadding()
-            }.buttonStyle(.plain)
+                    SettingsChevron()
+                }
+                .settingsRowPadding()
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -309,14 +314,14 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         SettingsSection("About") {
-            HStack {
-                Text("Version").font(LumisTypography.bodyLarge).foregroundStyle(LumisColors.textPrimary)
-                Spacer()
-                Text("Version \(LumisConfig.appVersion) (\(LumisConfig.buildNumber))")
-                    .font(LumisTypography.bodyMedium).foregroundStyle(LumisColors.textSecondary)
-            }.settingsRowPadding()
-            navRow("Privacy Policy") { safariURL = URL(string: LumisConfig.privacyPolicyURL) }
-            navRow("Terms of Service") { safariURL = URL(string: LumisConfig.termsURL) }
+            SettingsRow(title: "Version") {
+                SettingsDetailText("\(LumisConfig.appVersion) (\(LumisConfig.buildNumber))")
+            }
+            SettingsDivider()
+            navRow("Privacy policy") { safariURL = URL(string: LumisConfig.privacyPolicyURL) }
+            SettingsDivider()
+            navRow("Terms of service") { safariURL = URL(string: LumisConfig.termsURL) }
+            SettingsDivider()
             navRow("Send feedback") { showFeedback = true }
         }
         // Refresh connection status on dismiss — the user may have just
@@ -337,10 +342,9 @@ struct SettingsView: View {
 
     private func navRow(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            SettingsRow(icon: nil, title: title) {
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(LumisColors.textTertiary)
-            }
-        }.buttonStyle(.plain)
+            SettingsRow(title: title) { SettingsChevron() }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Cookie-sync verification
@@ -357,8 +361,8 @@ struct SettingsView: View {
                 as: VerifyResponse.self
             )
             verifyMessages[serviceID] = result.likelySynced
-                ? "✓ \(result.cookieCount) cookies found — should work"
-                : "⚠ No cookies — try reconnecting in the extension"
+                ? "\(result.cookieCount) cookies found. Sync looks good."
+                : "No cookies found. Reconnect in the extension."
         } catch {
             verifyMessages[serviceID] = "Couldn't check right now"
         }
@@ -389,53 +393,75 @@ private struct ServerStatusRow: View {
     @ObservedObject var ws: WebSocketClient
 
     var body: some View {
-        HStack(spacing: LumisSpacing.md) {
-            Image(systemName: ws.connected ? "checkmark.circle" : "circle.dashed")
-                .font(.title3.weight(.medium))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(ws.connected ? LumisColors.tintStrong : LumisColors.textTertiary)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(ws.connected ? "Connected to Lumis" : "Connecting to Lumis…")
-                    .font(LumisTypography.titleSmall)
-                    .foregroundStyle(LumisColors.textPrimary)
-                Text(ws.connected
-                     ? "This phone is receiving live updates."
-                     : "Trying to reach the Lumis server.")
-                    .font(LumisTypography.caption)
-                    .foregroundStyle(LumisColors.textSecondary)
-            }
-            Spacer(minLength: 0)
+        SettingsRow(icon: ws.connected ? "checkmark.circle" : "circle.dashed",
+                    title: ws.connected ? "Connected to Lumis" : "Connecting to Lumis…",
+                    subtitle: ws.connected
+                        ? "This phone is receiving live updates."
+                        : "Trying to reach the Lumis server.") {
+            EmptyView()
         }
-        .settingsRowPadding()
         .accessibilityElement(children: .combine)
     }
 }
 
 /// The honest phone ↔ extension link status shown at the top of Connected
-/// Services (never / recently synced / stale). Same wording as the extension.
+/// Services. Only ever says "not set up" when the backend confirmed it —
+/// while checking or unreachable it says that instead. Same wording as the
+/// extension popup. `staleNote` appears when the shown data is a cached
+/// answer because the last refresh failed.
 struct ExtensionSyncBanner: View {
     let state: ExtensionSyncState
+    var staleNote: String?
 
     var body: some View {
-        HStack(spacing: LumisSpacing.md) {
-            Image(systemName: state.icon)
-                .font(.title3.weight(.medium))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(state.color)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(state.title)
-                    .font(LumisTypography.titleSmall)
-                    .foregroundStyle(LumisColors.textPrimary)
-                Text(state.detail)
-                    .font(LumisTypography.caption)
-                    .foregroundStyle(LumisColors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: LumisSpacing.md) {
+                Image(systemName: state.icon)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(state.color)
+                    .frame(width: 29, height: 29)
+                    .background(LumisColors.textPrimary.opacity(0.08),
+                                in: LumisRadius.rect(7))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(state.title)
+                        .font(LumisTypography.bodyLarge)
+                        .foregroundStyle(LumisColors.textPrimary)
+                    Text(state.detail)
+                        .font(LumisTypography.caption)
+                        .foregroundStyle(LumisColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            .settingsRowPadding()
+            .frame(minHeight: 44)
+            if let staleNote {
+                Text("\(staleNote) — showing the last known state.")
+                    .font(LumisTypography.caption)
+                    .foregroundStyle(LumisColors.textTertiary)
+                    .padding(.leading, LumisSpacing.lg + 29 + LumisSpacing.md)
+                    .padding(.bottom, 11)
+                    .padding(.top, -4)
+            }
         }
-        .settingsRowPadding()
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Trailing status for a service row: a small state dot plus quiet detail
+/// text, in Apple's Settings idiom (color as reinforcement, words as truth).
+struct ServiceStatusLabel: View {
+    let connected: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(connected ? LumisColors.textSecondary : LumisColors.textTertiary)
+                .frame(width: 7, height: 7)
+            Text(connected ? "Connected" : "Not connected")
+                .font(LumisTypography.bodyMedium)
+                .foregroundStyle(LumisColors.textSecondary)
+        }
+        .accessibilityLabel(connected ? "Connected" : "Not connected")
     }
 }

@@ -1,15 +1,14 @@
 import SwiftUI
 
-/// Left side panel: Past Chats. A calm, generously spaced list — the profile
-/// mark at the top (opens Settings), then each archived request identified by
-/// its original text and a relative timestamp. Tapping one reopens its full
-/// panel stack exactly as it finished.
+/// Left side panel: past chats, and nothing else. Each archived request is a
+/// quiet row identified by its original text and a relative timestamp;
+/// tapping one reopens its full panel stack (which can then be continued).
+/// A Liquid Glass "New chat" button sits at the bottom, present only while
+/// the sidebar is open. Settings is not reachable from here — the profile
+/// button on the home screen is its sole entry point.
 struct SidebarView: View {
-    let initials: String
-    var name: String = ""
-    var email: String = ""
-    var onSettings: () -> Void
     var onOpenChat: (ChatStack) -> Void
+    var onNewChat: () -> Void
 
     /// Observed directly (not through the view model) so archiving a stack
     /// refreshes the list immediately.
@@ -17,57 +16,26 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Profile — consistently at the top, part of the same list
-            // structure, always in the same place however far the list scrolls.
-            Button { Haptics.light(); onSettings() } label: {
-                HStack(spacing: LumisSpacing.md) {
-                    Text(initials)
-                        .font(LumisTypography.titleSmall)
-                        .foregroundStyle(LumisColors.onTint)
-                        .frame(width: 40, height: 40)
-                        .background(LumisColors.tint, in: Circle())
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(name.isEmpty ? "Settings" : name)
-                            .font(LumisTypography.titleSmall)
-                            .foregroundStyle(LumisColors.textPrimary)
-                            .lineLimit(1)
-                        if !email.isEmpty {
-                            Text(email)
-                                .font(LumisTypography.caption)
-                                .foregroundStyle(LumisColors.textSecondary)
-                                .lineLimit(1)
-                        }
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, LumisSpacing.lg)
-                .padding(.vertical, LumisSpacing.md)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.lumisPress)
-            .accessibilityLabel("Open Settings")
-            .padding(.top, 56)
-
-            Divider().overlay(LumisColors.divider)
-                .padding(.horizontal, LumisSpacing.lg)
-
-            Text("Past Chats")
+            Text("Past chats")
                 .font(LumisTypography.caption)
-                .tracking(1.1)
-                .textCase(.uppercase)
                 .foregroundStyle(LumisColors.textTertiary)
                 .padding(.horizontal, LumisSpacing.xl)
-                .padding(.top, LumisSpacing.lg)
+                .padding(.top, 72)
                 .padding(.bottom, LumisSpacing.xs)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     if pastChats.chats.isEmpty {
-                        Text("Nothing yet. Ask Lumis to do something.")
-                            .font(LumisTypography.bodySmall)
-                            .foregroundStyle(LumisColors.textSecondary)
-                            .padding(.horizontal, LumisSpacing.xl)
-                            .padding(.top, LumisSpacing.md)
+                        VStack(alignment: .leading, spacing: LumisSpacing.xs) {
+                            Text("Your chats live here")
+                                .font(LumisTypography.bodyMedium)
+                                .foregroundStyle(LumisColors.textPrimary)
+                            Text("Ask Lumis anything and it's saved here to revisit.")
+                                .font(LumisTypography.bodySmall)
+                                .foregroundStyle(LumisColors.textSecondary)
+                        }
+                        .padding(.horizontal, LumisSpacing.xl)
+                        .padding(.top, LumisSpacing.md)
                     } else {
                         ForEach(pastChats.chats) { chat in
                             Button {
@@ -85,6 +53,28 @@ struct SidebarView: View {
             }
 
             Spacer(minLength: 0)
+
+            // Liquid Glass "new chat" — exists only while the sidebar is open.
+            Button {
+                Haptics.light()
+                onNewChat()
+            } label: {
+                HStack(spacing: LumisSpacing.sm) {
+                    Image(systemName: "plus")
+                        .font(.subheadline.weight(.medium))
+                    Text("New chat")
+                        .font(LumisTypography.bodyMedium)
+                }
+                .foregroundStyle(LumisColors.textPrimary)
+                .padding(.horizontal, LumisSpacing.lg)
+                .frame(height: 44)
+                .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: Capsule())
+            .accessibilityLabel("Start a new chat")
+            .padding(.horizontal, LumisSpacing.lg)
+            .padding(.bottom, 44)
         }
         .frame(width: 300)
         .frame(maxHeight: .infinity, alignment: .top)

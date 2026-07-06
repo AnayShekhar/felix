@@ -98,21 +98,29 @@ async function logout() {
 // ── Service connection status ────────────────────────────────────────────
 
 async function fetchConnectStatus() {
+  // `ok:false` means "couldn't check", which the popup shows honestly —
+  // a failed request must never be reported as "nothing connected".
   const { token } = await getStoredAuth();
-  const empty = { connected: [], services: [], ever_synced: false, last_synced_at: null };
-  if (!token) return empty;
-  const res = await fetch(`${API_BASE}/connect/status`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!res.ok) return empty;
-  const data = await res.json();
-  return {
-    connected: data.connected || [],
-    services: data.services || [],
-    ever_synced: data.ever_synced ?? (data.connected || []).length > 0,
-    last_synced_at: data.last_synced_at ?? null,
-    google_api: data.google_api ?? false,
-  };
+  if (!token) {
+    return { ok: true, connected: [], services: [], ever_synced: false, last_synced_at: null };
+  }
+  try {
+    const res = await fetch(`${API_BASE}/connect/status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    return {
+      ok: true,
+      connected: data.connected || [],
+      services: data.services || [],
+      ever_synced: data.ever_synced ?? (data.connected || []).length > 0,
+      last_synced_at: data.last_synced_at ?? null,
+      google_api: data.google_api ?? false,
+    };
+  } catch {
+    return { ok: false };
+  }
 }
 
 // Start the Google OAuth consent flow (the credential Gmail/Sheets/Calendar
@@ -255,7 +263,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           break;
         case "GET_CONNECTED_SERVICES": {
           const status = await fetchConnectStatus();
-          sendResponse({ success: true, services: status.connected, status });
+          sendResponse({ success: true, services: status.connected || [], status });
           break;
         }
         case "CONNECT_GOOGLE_API":

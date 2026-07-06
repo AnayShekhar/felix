@@ -122,7 +122,10 @@ final class LumisViewModel: ObservableObject {
             .sink { [weak self] phase in
                 guard let self else { return }
                 let hearing = phase == .hearing
-                if hearing { self.captureArmed = true; Haptics.light() }
+                // Wake-word confirmation: a firm tap, matching the scribble's
+                // visual surge — with no mic button, this pair IS the receipt
+                // that Lumis heard you.
+                if hearing { self.captureArmed = true; Haptics.medium() }
                 let next: LumisState = hearing ? .listening : .idle
                 if next != self.lumisState {
                     self.lumisState = next
@@ -181,10 +184,12 @@ final class LumisViewModel: ObservableObject {
 
     // MARK: - Sending
 
-    /// Send a request (any entry point). Archives the visible stack, starts a
-    /// fresh one, and posts to /ingest — the WebSocket events build the panels.
+    /// Send a request (any entry point). Continues the visible stack when the
+    /// user is answering a question or replying inside a reopened past chat;
+    /// otherwise archives it and starts fresh. The WebSocket events build the
+    /// panels either way.
     func send(image: UIImage?, text: String) {
-        let command = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var command = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !command.isEmpty else { return }
 
         if awaitingReply, var chat = currentChat, !viewingArchived {
@@ -193,6 +198,17 @@ final class LumisViewModel: ObservableObject {
             chat.panels.append(Panel(title: "Working",
                                      subtitle: "Picking up where we left off"))
             currentChat = chat
+        } else if viewingArchived, var chat = currentChat {
+            // Replying inside a reopened past chat: the new exchange appends
+            // to that same stack, and the request carries the chat's context
+            // so the agent treats it as a genuine follow-up.
+            awaitingReply = false
+            command = Self.continuation(of: chat, reply: command)
+            chat.panels.append(Panel(title: "Working",
+                                     subtitle: "Continuing this chat"))
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                currentChat = chat
+            }
         } else {
             archiveCurrent()
             withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
@@ -230,6 +246,17 @@ final class LumisViewModel: ObservableObject {
             }
             isSending = false
         }
+    }
+
+    /// Wraps a reply inside a reopened past chat with that chat's context —
+    /// what was asked and how it concluded — so the agent handles it as a
+    /// follow-up even though the original session's transcript is gone.
+    private static func continuation(of chat: ChatStack, reply: String) -> String {
+        var context = "This continues an earlier request: \"\(chat.request)\"."
+        if let final = chat.panels.last(where: { $0.isFinal }), !final.body.isEmpty {
+            context += " What happened then: \(final.body)"
+        }
+        return "\(context)\n\nThe user now says: \(reply)"
     }
 
     /// Dismiss the visible stack (user is done looking at it) — archives it,

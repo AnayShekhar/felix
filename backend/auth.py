@@ -28,8 +28,19 @@ import db
 logger = logging.getLogger("lumis.auth")
 
 # Signing secret for our session JWTs. Set LUMIS_JWT_SECRET in the Railway env
-# for production; the default keeps local dev working out of the box.
-_JWT_SECRET = os.getenv("LUMIS_JWT_SECRET", "lumis-dev-secret-change-me").encode()
+# for production; the dev fallback keeps local dev working out of the box but
+# is REFUSED when running on Railway so a deploy can't silently ship it.
+_jwt_secret_raw = os.getenv("LUMIS_JWT_SECRET", "")
+if not _jwt_secret_raw:
+    if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
+        raise RuntimeError(
+            "LUMIS_JWT_SECRET is not set. Refusing to start in production with "
+            "the built-in dev secret — set LUMIS_JWT_SECRET in the Railway "
+            "environment (any long random string) and redeploy."
+        )
+    logger.warning("LUMIS_JWT_SECRET is not set — using the dev-only fallback secret.")
+    _jwt_secret_raw = "lumis-dev-secret-change-me"
+_JWT_SECRET = _jwt_secret_raw.encode()
 _TOKEN_TTL = 60 * 60 * 24 * 30  # 30 days
 _GOOGLE_CLIENT_ID = os.getenv("LUMIS_GOOGLE_CLIENT_ID")  # optional audience check
 _APPLE_BUNDLE_ID = os.getenv("LUMIS_APPLE_BUNDLE_ID", "com.anay.lumis")
@@ -47,9 +58,19 @@ CREATE TABLE IF NOT EXISTS users (
     name          TEXT,
     password_hash TEXT,
     provider      TEXT NOT NULL DEFAULT 'email',
-    created_at    REAL NOT NULL
+    created_at    REAL NOT NULL,
+    plan          TEXT NOT NULL DEFAULT 'free',
+    billing_meta  TEXT
 );
 """
+
+# Billing readiness: `plan` (free/pro/…) and `billing_meta` (JSON blob for a
+# future Stripe customer id, subscription state, etc.) exist now so adding
+# billing later is a value write, not a schema migration.
+_USER_MIGRATIONS = [
+    ("plan", "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'"),
+    ("billing_meta", "ALTER TABLE users ADD COLUMN billing_meta TEXT"),
+]
 
 
 def _connect() -> sqlite3.Connection:
@@ -59,9 +80,15 @@ def _connect() -> sqlite3.Connection:
 
 
 def init_auth() -> None:
-    """Create the users table. Safe to call repeatedly."""
+    """Create the users table (and apply column migrations). Safe to call repeatedly."""
     with _connect() as conn:
         conn.executescript(_USER_SCHEMA)
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+        for column, ddl in _USER_MIGRATIONS:
+            if column not in existing:
+                conn.execute(ddl)
+                logger.info("users table: added column %s", column)
+        conn.commit()
     logger.info("Users table ready at %s", db.DB_PATH)
 
 

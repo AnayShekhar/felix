@@ -6,7 +6,8 @@ import UIKit
 /// Three raw colors define the whole palette:
 ///   Carbon Black  #212222 · Alabaster #DBDDDE · Cool Steel #99ACBE
 ///
-/// Light mode: Alabaster background, Carbon text. Dark mode: swapped.
+/// Light mode: pure white background, Carbon text, with Alabaster repurposed
+/// as the elevated-surface tone. Dark mode: Carbon background, Alabaster text.
 /// The tint (Cool Steel) is the one constant accent in both modes.
 /// Every other file references the semantic names below — never a raw hex.
 struct LumisColors {
@@ -17,21 +18,26 @@ struct LumisColors {
 
     // MARK: Semantic tokens — adaptive (follow the trait environment)
 
-    /// Primary screen background.
-    static let background = adaptive(light: alabaster, dark: carbon)
-    /// Elevated surface (cards, the chat bar, sheets) — a solid step *cleaner*
-    /// than the background: near-white in light mode, a clearly lifted grey in
-    /// dark, so surfaces separate instead of washing into one flat grey.
-    static let surface = adaptive(light: blend(alabaster, .white, 0.72),
+    /// Primary screen background — pure white in light mode.
+    static let background = adaptive(light: .white, dark: carbon)
+    /// Elevated surface (cards, the chat bar, sheets). Light mode: the
+    /// Alabaster tone lifted toward white, so cards sit visibly on the pure
+    /// white page without turning heavy grey. Dark: a clearly lifted grey.
+    static let surface = adaptive(light: blend(alabaster, .white, 0.40),
                                   dark: blend(carbon, alabaster, 0.09))
     /// Primary text and icons.
     static let textPrimary = adaptive(light: carbon, dark: alabaster)
-    /// Secondary text (supporting copy, subtitles).
-    static let textSecondary = textPrimary.opacity(0.55)
-    /// Tertiary text (timestamps, placeholders, disabled).
-    static let textTertiary = textPrimary.opacity(0.35)
-    /// Hairline dividers and card strokes.
-    static let divider = textPrimary.opacity(0.10)
+    /// Secondary text (supporting copy, subtitles). A real color, never the
+    /// primary at reduced opacity — opacity drifts across surfaces.
+    static let textSecondary = adaptive(light: blend(carbon, .white, 0.33),
+                                        dark: blend(alabaster, carbon, 0.33))
+    /// Tertiary text (timestamps, placeholders, disabled). Real color, not opacity.
+    static let textTertiary = adaptive(light: blend(carbon, .white, 0.55),
+                                       dark: blend(alabaster, carbon, 0.55))
+    /// Hairline dividers and card strokes. Real color, not opacity, so the
+    /// hairline reads identically on every surface.
+    static let divider = adaptive(light: blend(carbon, .white, 0.88),
+                                  dark: blend(alabaster, carbon, 0.82))
 
     // MARK: Tint — constant across both modes (like Claude's one orange)
 

@@ -15,8 +15,13 @@ enum LumisState: Equatable {
 ///
 /// State expression:
 ///   • idle      — gentle, slow drift; lines redraw and resettle, never frozen.
-///   • listening — the linework tightens and loosens with the live mic level
-///                 (`audioLevel`), directly connected to the user's voice.
+///   • listening — unmistakably awake. Entering the state fires a fast surge
+///                 (an energy spike plus an expanding activation ring) so the
+///                 wake word reads as a decisive pop, never a subtle drift.
+///                 While listening the tangle holds a visibly higher baseline
+///                 of motion — clearly "attentive" even in silence — and rides
+///                 the live mic level (`audioLevel`) on top, so the shape
+///                 keeps answering the user's voice for the whole utterance.
 ///   • thinking  — a touch more energy than idle, slow steady swirl.
 ///   • speaking  — lively simulated envelope (used on splash/auth only).
 ///
@@ -49,7 +54,8 @@ struct ScribbleView: View {
                 ScribbleRenderer.draw(in: context, size: size,
                                       time: clock.time,
                                       energy: clock.energy,
-                                      breathe: clock.breathe)
+                                      breathe: clock.breathe,
+                                      surge: clock.surge)
             }
         }
         .frame(width: containerSize, height: containerSize)
@@ -79,39 +85,58 @@ final class ScribbleClock {
     private(set) var energy: Double = 0
     /// Slow whole-shape breathing scale, ~±2%.
     private(set) var breathe: Double = 1
+    /// Wake-word activation burst: jumps to 1 the instant listening begins and
+    /// decays over ~0.7s — drives the expanding ring and the energy spike that
+    /// make the transition read as one decisive event.
+    private(set) var surge: Double = 0
 
     private var lastTime: TimeInterval?
+    private var lastState: LumisState = .idle
     private var smoothedAudio: Double = 0
     private var phase: Double = 0
 
     func tick(now: TimeInterval, state: LumisState, audioLevel: CGFloat, frozen: Bool) {
         guard !frozen else {
             lastTime = now
-            time = 0; energy = 0; breathe = 1
+            time = 0; energy = 0; breathe = 1; surge = 0
+            lastState = state
             return
         }
         let dt = min(max(now - (lastTime ?? now), 0), 1.0 / 20.0)  // clamp hiccups
         lastTime = now
         phase += dt
 
+        // The moment the wake word lands, fire the activation burst.
+        if state == .listening && lastState != .listening { surge = 1 }
+        lastState = state
+        surge = max(0, surge - dt * 1.5)   // ~0.7s decay
+
         // Smooth the mic level like a meter: fast attack, slower release.
         let level = Double(min(max(audioLevel, 0), 1))
         let audioRate = level > smoothedAudio ? 16.0 : 5.0
         smoothedAudio += (level - smoothedAudio) * min(1, dt * audioRate)
 
-        // Per-state target energy; listening rides the voice directly.
+        // Per-state target energy. Listening holds a high, clearly-awake floor
+        // with a slow attentive swell (visible even in total silence) and rides
+        // the live voice on top; the surge stacks a further spike at activation.
         let targetEnergy: Double
         switch state {
         case .idle:      targetEnergy = 0.14
-        case .listening: targetEnergy = 0.18 + smoothedAudio * 1.1
+        case .listening: targetEnergy = 0.55 + 0.10 * sin(phase * 2.6)
+                                      + smoothedAudio * 1.2 + surge * 0.8
         case .thinking:  targetEnergy = 0.34
         case .speaking:  targetEnergy = 0.55 + 0.25 * sin(phase * 5.1)
         }
-        energy += (targetEnergy - energy) * min(1, dt * 7)
+        // Fast attack, slower release: waking up is abrupt and confident;
+        // settling back down is calm.
+        let rate = targetEnergy > energy ? 16.0 : 6.0
+        energy += (targetEnergy - energy) * min(1, dt * rate)
 
         // Time warps with energy so louder speech visibly quickens the lines.
         time += dt * (0.35 + energy * 1.6)
-        breathe = 1 + 0.02 * sin(phase * 0.9)
+        // Listening breathes deeper — the whole mark visibly swells with attention.
+        let breatheDepth = state == .listening ? 0.035 : 0.02
+        breathe = 1 + breatheDepth * sin(phase * (state == .listening ? 1.6 : 0.9))
     }
 }
 
@@ -157,12 +182,32 @@ enum ScribbleRenderer {
     private static let segments = 40   // points per loop — smooth, still cheap
 
     static func draw(in context: GraphicsContext, size: CGSize,
-                     time: Double, energy: Double, breathe: Double) {
+                     time: Double, energy: Double, breathe: Double,
+                     surge: Double = 0) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let unit = min(size.width, size.height) / 2 * 0.86 * breathe
         // Base stroke scales with the render size so the tangle reads cleanly
-        // both as the 220pt hero and the 80pt splash mark.
-        let baseStroke = max(1.2, unit * 0.016)
+        // both as the 220pt hero and the 80pt splash mark. Energy thickens the
+        // line — an awake mark is visibly bolder, not just faster.
+        let baseStroke = max(1.2, unit * 0.016) * (1 + energy * 0.35)
+
+        // Wake-word activation ring: a single crisp circle bursting outward
+        // from the tangle and fading — the "it heard you" moment, legible
+        // even in peripheral vision.
+        if surge > 0.02 {
+            let progress = 1 - surge                       // 0 → 1 as it decays
+            let ringRadius = unit * (1.02 + progress * 0.55)
+            let ring = Path(ellipseIn: CGRect(x: center.x - ringRadius,
+                                              y: center.y - ringRadius,
+                                              width: ringRadius * 2,
+                                              height: ringRadius * 2))
+            context.stroke(
+                ring,
+                with: .color(LumisColors.tintStrong.opacity(surge * 0.65)),
+                style: StrokeStyle(lineWidth: baseStroke * (1.6 - progress),
+                                   lineCap: .round)
+            )
+        }
 
         for loop in loops {
             var path = Path()

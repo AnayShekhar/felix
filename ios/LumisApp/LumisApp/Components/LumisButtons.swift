@@ -46,7 +46,7 @@ struct LumisSecondaryButton<Leading: View>: View {
             .foregroundStyle(LumisColors.textPrimary)
             .overlay(
                 LumisRadius.rect(LumisRadius.lg)
-                    .stroke(LumisColors.divider, lineWidth: 1)
+                    .stroke(LumisColors.divider, lineWidth: 0.5)
             )
         }
         .buttonStyle(.lumisPress)
@@ -57,6 +57,21 @@ struct LumisSecondaryButton<Leading: View>: View {
 extension LumisSecondaryButton where Leading == EmptyView {
     init(title: String, action: @escaping () -> Void) {
         self.init(title: title, leading: { EmptyView() }, action: action)
+    }
+}
+
+/// The Lumis brand mark (the comet from image.svg), template-rendered so it
+/// takes the theme's ink color in both light and dark mode.
+struct LumisLogoMark: View {
+    var size: CGFloat = 120
+    var body: some View {
+        Image("LumisMark")
+            .resizable()
+            .renderingMode(.template)
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(LumisColors.textPrimary)
+            .accessibilityHidden(true)
     }
 }
 
