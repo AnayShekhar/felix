@@ -13,11 +13,15 @@ struct SignInView: View {
         ZStack {
             LumisColors.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: LumisSpacing.xl) {
                     Text("Welcome back")
-                        .font(LumisTypography.titleLarge)
+                        .font(LumisTypography.displayLarge)
                         .foregroundStyle(LumisColors.textPrimary)
-                        .padding(.top, 8)
+                        .padding(.top, LumisSpacing.xl)
+                    Text("Sign in to keep Lumis close at hand.")
+                        .font(LumisTypography.bodyMedium)
+                        .foregroundStyle(LumisColors.textSecondary)
+                        .padding(.top, -LumisSpacing.md)
 
                     FloatingLabelField(title: "Email address", text: $email,
                                        keyboard: .emailAddress, contentType: .emailAddress)
@@ -27,7 +31,7 @@ struct SignInView: View {
 
                     Button("Forgot password?") { path.append(.forgot) }
                         .font(LumisTypography.bodySmall)
-                        .foregroundStyle(LumisColors.tint)
+                        .foregroundStyle(LumisColors.tintStrong)
                         .frame(maxWidth: .infinity, alignment: .trailing)
 
                     LumisPrimaryButton(title: "Sign in",
@@ -46,7 +50,7 @@ struct SignInView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, LumisSpacing.xl)
                 .padding(.bottom, 40)
             }
         }

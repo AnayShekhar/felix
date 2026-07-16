@@ -39,44 +39,76 @@ private struct WelcomeView: View {
     var body: some View {
         ZStack {
             LumisColors.background.ignoresSafeArea()
-            VStack(spacing: 0) {
-                Spacer()
-                LumisLogoMark(size: 110)
-                LumisWordmark(size: 28).padding(.top, 20)
-                Text("Your world, automated.")
-                    .font(LumisTypography.bodyMedium)
-                    .foregroundStyle(LumisColors.textSecondary)
-                    .padding(.top, 8)
-                Spacer()
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: LumisSpacing.xs) {
+                            LumisLogoMark(size: 24)
+                            LumisWordmark(size: 22)
+                        }
+                        .padding(.top, LumisSpacing.lg)
 
-                VStack(spacing: 12) {
-                    LumisSecondaryButton(title: "Continue with email") {
-                        path.append(.signUp)
-                    }
+                        Spacer(minLength: LumisSpacing.xxl)
 
-                    SignInWithAppleButton(.signIn) { request in
-                        request.requestedScopes = [.fullName, .email]
-                    } onCompletion: { result in
-                        authVM.handleAppleCompletion(result)
-                    }
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                    // ASAuthorizationAppleIDButton only reads its style at
-                    // creation — re-create it when the scheme flips live.
-                    .id(colorScheme)
-                    .frame(height: 54)
-                    .clipShape(LumisRadius.rect(LumisRadius.lg))
+                        VStack(alignment: .leading, spacing: LumisSpacing.md) {
+                            ScribbleView(state: .idle, containerSize: 150)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.bottom, LumisSpacing.xs)
 
-                    LumisSecondaryButton(title: "Continue with Google") {
-                        GoogleLogo()
-                    } action: {
-                        Task { await authVM.signInWithGoogle() }
+                            Text("Your world,\nhandled.")
+                                .font(LumisTypography.displayLarge)
+                                .foregroundStyle(LumisColors.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("Say what you need. Lumis works across the accounts you choose to connect.")
+                                .font(LumisTypography.bodyLarge)
+                                .foregroundStyle(LumisColors.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer(minLength: LumisSpacing.xxl)
+
+                        VStack(spacing: LumisSpacing.md) {
+                            LumisPrimaryButton(title: "Continue with email") {
+                                path.append(.signUp)
+                            }
+
+                            SignInWithAppleButton(.signIn) { request in
+                                request.requestedScopes = [.fullName, .email]
+                            } onCompletion: { result in
+                                authVM.handleAppleCompletion(result)
+                            }
+                            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                            // ASAuthorizationAppleIDButton only reads its style at
+                            // creation — re-create it when the scheme flips live.
+                            .id(colorScheme)
+                            .frame(height: 54)
+                            .clipShape(LumisRadius.rect(LumisRadius.lg))
+
+                            LumisSecondaryButton(title: "Continue with Google") {
+                                GoogleLogo()
+                            } action: {
+                                Task { await authVM.signInWithGoogle() }
+                            }
+                        }
+
+                        HStack(spacing: LumisSpacing.xs) {
+                            Text("Already have an account?")
+                                .foregroundStyle(LumisColors.textSecondary)
+                            Button("Sign in") { path.append(.signIn) }
+                                .foregroundStyle(LumisColors.tintStrong)
+                        }
+                        .font(LumisTypography.bodySmall)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, LumisSpacing.lg)
+
+                        legal.padding(.top, LumisSpacing.lg)
                     }
+                    .frame(minHeight: proxy.size.height, alignment: .top)
+                    .padding(.horizontal, LumisSpacing.xl)
+                    .padding(.bottom, LumisSpacing.lg)
                 }
-                .padding(.horizontal, 28)
-
-                legal.padding(.top, 18).padding(.horizontal, 32)
+                .scrollIndicators(.hidden)
             }
-            .padding(.bottom, 28)
         }
         .navigationBarBackButtonHidden(true)
     }
@@ -85,7 +117,7 @@ private struct WelcomeView: View {
         Text("By continuing you agree to our [Terms](\(LumisConfig.termsURL)) and [Privacy Policy](\(LumisConfig.privacyPolicyURL)).")
             .font(LumisTypography.caption)
             .foregroundStyle(LumisColors.textTertiary)
-            .tint(LumisColors.tint)
+            .tint(LumisColors.tintStrong)
             .multilineTextAlignment(.center)
             .environment(\.openURL, OpenURLAction { url in openURL(url); return .handled })
     }

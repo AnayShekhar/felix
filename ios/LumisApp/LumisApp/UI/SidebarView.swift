@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Left side panel: past chats, and nothing else. Each archived request is a
+/// Left side panel: recent requests, and nothing else. Each archived request is a
 /// quiet row identified by its original text and a relative timestamp;
 /// tapping one reopens its full panel stack (which can then be continued).
 /// A Liquid Glass "New chat" button sits at the bottom, present only while
@@ -9,6 +9,7 @@ import SwiftUI
 struct SidebarView: View {
     var onOpenChat: (ChatStack) -> Void
     var onNewChat: () -> Void
+    var onClose: () -> Void
 
     /// Observed directly (not through the view model) so archiving a stack
     /// refreshes the list immediately.
@@ -16,21 +17,37 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Past chats")
-                .font(LumisTypography.caption)
-                .foregroundStyle(LumisColors.textTertiary)
-                .padding(.horizontal, LumisSpacing.xl)
-                .padding(.top, 72)
-                .padding(.bottom, LumisSpacing.xs)
+            HStack {
+                Text("Recents")
+                    .font(LumisTypography.titleLarge)
+                    .foregroundStyle(LumisColors.textPrimary)
+                Spacer()
+                Button {
+                    Haptics.light()
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(LumisColors.textPrimary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.lumisPress)
+                .lumisGlass(in: Circle(), interactive: true)
+                .accessibilityLabel("Close recents")
+            }
+            .padding(.horizontal, LumisSpacing.lg)
+            .padding(.top, 56)
+            .padding(.bottom, LumisSpacing.md)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     if pastChats.chats.isEmpty {
                         VStack(alignment: .leading, spacing: LumisSpacing.xs) {
-                            Text("Your chats live here")
-                                .font(LumisTypography.bodyMedium)
-                                .foregroundStyle(LumisColors.textPrimary)
-                            Text("Ask Lumis anything and it's saved here to revisit.")
+                                Text("Your requests live here")
+                                    .font(LumisTypography.bodyMedium)
+                                    .foregroundStyle(LumisColors.textPrimary)
+                            Text("Ask Lumis to do something and you can revisit the full result here.")
                                 .font(LumisTypography.bodySmall)
                                 .foregroundStyle(LumisColors.textSecondary)
                         }
@@ -54,7 +71,7 @@ struct SidebarView: View {
 
             Spacer(minLength: 0)
 
-            // Liquid Glass "new chat" — exists only while the sidebar is open.
+            // One confident action at the bottom of the panel.
             Button {
                 Haptics.light()
                 onNewChat()
@@ -65,22 +82,21 @@ struct SidebarView: View {
                     Text("New chat")
                         .font(LumisTypography.bodyMedium)
                 }
-                .foregroundStyle(LumisColors.textPrimary)
+                .foregroundStyle(LumisColors.background)
                 .padding(.horizontal, LumisSpacing.lg)
                 .frame(height: 44)
                 .contentShape(Capsule())
+                .background(LumisColors.textPrimary, in: Capsule())
             }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .buttonStyle(.lumisPress)
             .accessibilityLabel("Start a new chat")
             .padding(.horizontal, LumisSpacing.lg)
             .padding(.bottom, 44)
         }
         .frame(width: 300)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(
-            Color.clear.glassEffect(.regular, in: Rectangle())
-        )
+        .background(LumisColors.surface)
+        .lumisGlass(in: Rectangle())
         .clipShape(.rect(bottomTrailingRadius: 28, topTrailingRadius: 28))
         .ignoresSafeArea()
         .shadow(color: LumisColors.shadow, radius: 24, x: 8, y: 0)

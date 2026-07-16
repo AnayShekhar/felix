@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// The states the Lumis mark can express (drives the surrounding UI text;
-/// the mark itself keeps a continuous idle drift in every state).
+/// The four states expressed by the Lumis signal orb.
 enum LumisState: Equatable {
     case idle
     case listening
@@ -9,40 +8,20 @@ enum LumisState: Equatable {
     case speaking
 }
 
-/// The Lumis mark: a hand-drawn tangle of continuous line work — overlapping
-/// freeform loops forming a rough sphere, all stroked paths, no fill. The
-/// feeling is a confident single pen stroke, not a chaotic mess.
+/// Lumis's living status instrument.
 ///
-/// State expression:
-///   • idle      — gentle, slow drift; lines redraw and resettle, never frozen.
-///   • listening — unmistakably awake. Entering the state fires a fast surge
-///                 (an energy spike plus an expanding activation ring) so the
-///                 wake word reads as a decisive pop, never a subtle drift.
-///                 While listening the tangle holds a visibly higher baseline
-///                 of motion — clearly "attentive" even in silence — and rides
-///                 the live mic level (`audioLevel`) on top, so the shape
-///                 keeps answering the user's voice for the whole utterance.
-///   • thinking  — a touch more energy than idle, slow steady swirl.
-///   • speaking  — lively simulated envelope (used on splash/auth only).
-///
-/// Rendering is a single `Canvas` inside `TimelineView(.animation)` — every
-/// frame is display-refresh-synced (ProMotion-friendly), no `Timer`, and no
-/// per-frame `@State` writes churning SwiftUI. The per-loop constants are
-/// computed once; each frame only evaluates cheap sinusoids. Honors Reduce
-/// Motion (static mark).
+/// The mark is intentionally contained and stateful rather than decorative:
+/// three soft contours make one recognizable object, while a state-specific
+/// signal appears around it. Listening uses live radial voice bars, thinking
+/// uses directional orbits, and speaking sends resolved waves outward.
 struct ScribbleView: View {
     var state: LumisState = .idle
     var containerSize: CGFloat = 260
-    /// Live mic level (0…1). Only used in `.listening`.
     var audioLevel: CGFloat = 0
-    /// Dim the mark (e.g. while disconnected).
     var dimmed: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// Per-instance animation clock (reference type — mutated during draw so
-    /// motion stays continuous across state changes without invalidating SwiftUI).
-    @State private var clock = ScribbleClock()
+    @State private var clock = SignalOrbClock()
 
     var body: some View {
         TimelineView(.animation(paused: reduceMotion)) { timeline in
@@ -51,43 +30,43 @@ struct ScribbleView: View {
                            state: state,
                            audioLevel: audioLevel,
                            frozen: reduceMotion)
-                ScribbleRenderer.draw(in: context, size: size,
-                                      time: clock.time,
-                                      energy: clock.energy,
-                                      breathe: clock.breathe,
-                                      surge: clock.surge)
+                SignalOrbRenderer.draw(in: context,
+                                       size: size,
+                                       state: state,
+                                       time: clock.time,
+                                       energy: clock.energy,
+                                       breathe: clock.breathe,
+                                       surge: clock.surge)
             }
         }
         .frame(width: containerSize, height: containerSize)
-        .opacity(dimmed ? 0.45 : 1)
-        .animation(.easeInOut(duration: 0.5), value: dimmed)
+        .opacity(dimmed ? 0.42 : 1)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: dimmed)
         .accessibilityElement()
         .accessibilityLabel(accessibilityText)
+        .accessibilityValue(accessibilityValue)
     }
 
     private var accessibilityText: String {
         switch state {
-        case .idle:      return "Lumis is ready"
+        case .idle: return "Lumis is ready"
         case .listening: return "Lumis is listening"
-        case .thinking:  return "Lumis is thinking"
-        case .speaking:  return "Lumis is speaking"
+        case .thinking: return "Lumis is thinking"
+        case .speaking: return "Lumis is responding"
         }
+    }
+
+    private var accessibilityValue: String {
+        state == .listening ? "Voice level \(Int(audioLevel * 100)) percent" : ""
     }
 }
 
-/// Frame-to-frame animation state. Advanced once per display frame from the
-/// TimelineView; everything is smoothed toward per-state targets so state
-/// changes glide instead of snapping.
-final class ScribbleClock {
-    /// Warped time driving the loop drift — runs faster when energetic.
+/// Display-linked animation state. Values ease toward state targets so an
+/// interrupted command changes direction naturally instead of snapping.
+final class SignalOrbClock {
     private(set) var time: Double = 0
-    /// 0 (calm idle) … 1+ (loud speech) — scales wobble amplitude.
-    private(set) var energy: Double = 0
-    /// Slow whole-shape breathing scale, ~±2%.
+    private(set) var energy: Double = 0.12
     private(set) var breathe: Double = 1
-    /// Wake-word activation burst: jumps to 1 the instant listening begins and
-    /// decays over ~0.7s — drives the expanding ring and the energy spike that
-    /// make the transition read as one decisive event.
     private(set) var surge: Double = 0
 
     private var lastTime: TimeInterval?
@@ -98,175 +77,246 @@ final class ScribbleClock {
     func tick(now: TimeInterval, state: LumisState, audioLevel: CGFloat, frozen: Bool) {
         guard !frozen else {
             lastTime = now
-            time = 0; energy = 0; breathe = 1; surge = 0
+            time = 0
+            energy = state == .idle ? 0.12 : 0.38
+            breathe = 1
+            surge = 0
             lastState = state
             return
         }
-        let dt = min(max(now - (lastTime ?? now), 0), 1.0 / 20.0)  // clamp hiccups
+
+        let dt = min(max(now - (lastTime ?? now), 0), 1.0 / 20.0)
         lastTime = now
         phase += dt
 
-        // The moment the wake word lands, fire the activation burst.
-        if state == .listening && lastState != .listening { surge = 1 }
+        if state != lastState { surge = 1 }
         lastState = state
-        surge = max(0, surge - dt * 1.5)   // ~0.7s decay
+        surge = max(0, surge - dt * 1.8)
 
-        // Smooth the mic level like a meter: fast attack, slower release.
         let level = Double(min(max(audioLevel, 0), 1))
-        let audioRate = level > smoothedAudio ? 16.0 : 5.0
+        let audioRate = level > smoothedAudio ? 18.0 : 5.0
         smoothedAudio += (level - smoothedAudio) * min(1, dt * audioRate)
 
-        // Per-state target energy. Listening holds a high, clearly-awake floor
-        // with a slow attentive swell (visible even in total silence) and rides
-        // the live voice on top; the surge stacks a further spike at activation.
-        let targetEnergy: Double
+        let target: Double
         switch state {
-        case .idle:      targetEnergy = 0.14
-        case .listening: targetEnergy = 0.55 + 0.10 * sin(phase * 2.6)
-                                      + smoothedAudio * 1.2 + surge * 0.8
-        case .thinking:  targetEnergy = 0.34
-        case .speaking:  targetEnergy = 0.55 + 0.25 * sin(phase * 5.1)
+        case .idle: target = 0.12
+        case .listening: target = 0.38 + smoothedAudio * 0.78
+        case .thinking: target = 0.48
+        case .speaking: target = 0.50 + 0.16 * sin(phase * 5.4)
         }
-        // Fast attack, slower release: waking up is abrupt and confident;
-        // settling back down is calm.
-        let rate = targetEnergy > energy ? 16.0 : 6.0
-        energy += (targetEnergy - energy) * min(1, dt * rate)
+        let response = target > energy ? 14.0 : 6.0
+        energy += (target - energy) * min(1, dt * response)
+        time += dt * (state == .thinking ? 1.45 : 0.48 + energy * 0.72)
 
-        // Time warps with energy so louder speech visibly quickens the lines.
-        time += dt * (0.35 + energy * 1.6)
-        // Listening breathes deeper — the whole mark visibly swells with attention.
-        let breatheDepth = state == .listening ? 0.035 : 0.02
-        breathe = 1 + breatheDepth * sin(phase * (state == .listening ? 1.6 : 0.9))
+        let depth = state == .listening ? 0.035 : 0.018
+        let speed = state == .thinking ? 1.35 : 0.82
+        breathe = 1 + depth * sin(phase * speed)
     }
 }
 
-/// Pure drawing of the line tangle into a `GraphicsContext`.
-enum ScribbleRenderer {
-    /// One scribbled loop: a wobbly, squashed ellipse at a fixed orientation.
-    /// All constants are seeded once so the tangle is stable frame to frame.
-    private struct Loop {
-        let orientation: Double     // rotation of the squashed loop
-        let eccentricity: Double    // 0.35…0.9 — how flattened the loop is
-        let radius: Double          // base radius as a fraction of the mark
-        let wobbleSeed: Double      // phase offset for the hand wobble
-        let wobbleFreq: Double      // how many wobbles around the loop
-        let driftSpeed: Double      // how fast this loop's wobble drifts
-        let width: Double           // stroke width multiplier
-        let alpha: Double           // stroke opacity
-    }
+enum SignalOrbRenderer {
+    private static let contourSegments = 72
 
-    /// 12 loops, hand-tuned (seeded pseudo-random) so density reads as one
-    /// confident tangle at UI sizes without turning to noise when small.
-    private static let loops: [Loop] = {
-        var result: [Loop] = []
-        var seed: UInt64 = 0x9E3779B97F4A7C15
-        func rand() -> Double {   // deterministic xorshift — stable across runs
-            seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17
-            return Double(seed % 100_000) / 100_000
-        }
-        for i in 0..<12 {
-            result.append(Loop(
-                orientation: rand() * .pi * 2,
-                eccentricity: 0.38 + rand() * 0.5,
-                radius: 0.62 + rand() * 0.3,
-                wobbleSeed: rand() * .pi * 2,
-                wobbleFreq: 2 + Double(i % 3),
-                driftSpeed: 0.5 + rand() * 0.9,
-                width: 0.8 + rand() * 0.5,
-                alpha: 0.6 + rand() * 0.4
-            ))
-        }
-        return result
-    }()
-
-    private static let segments = 40   // points per loop — smooth, still cheap
-
-    static func draw(in context: GraphicsContext, size: CGSize,
-                     time: Double, energy: Double, breathe: Double,
-                     surge: Double = 0) {
+    static func draw(in context: GraphicsContext,
+                     size: CGSize,
+                     state: LumisState,
+                     time: Double,
+                     energy: Double,
+                     breathe: Double,
+                     surge: Double) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let unit = min(size.width, size.height) / 2 * 0.86 * breathe
-        // Base stroke scales with the render size so the tangle reads cleanly
-        // both as the 220pt hero and the 80pt splash mark. Energy thickens the
-        // line — an awake mark is visibly bolder, not just faster.
-        let baseStroke = max(1.2, unit * 0.016) * (1 + energy * 0.35)
+        let radius = min(size.width, size.height) * 0.285 * breathe
+        let line = max(1.2, radius * 0.021)
 
-        // Wake-word activation ring: a single crisp circle bursting outward
-        // from the tangle and fading — the "it heard you" moment, legible
-        // even in peripheral vision.
+        // A quiet field gives the animated geometry a stable silhouette.
+        let fieldRadius = radius * 1.42
+        let field = Path(ellipseIn: circle(center: center, radius: fieldRadius))
+        context.fill(field, with: .color(LumisColors.tintSoft.opacity(0.42)))
+        context.stroke(field,
+                       with: .color(LumisColors.glassStroke.opacity(0.72)),
+                       lineWidth: 0.75)
+
+        // On a state change, one restrained acknowledgement ring confirms that
+        // Lumis heard the transition before the continuous signal takes over.
         if surge > 0.02 {
-            let progress = 1 - surge                       // 0 → 1 as it decays
-            let ringRadius = unit * (1.02 + progress * 0.55)
-            let ring = Path(ellipseIn: CGRect(x: center.x - ringRadius,
-                                              y: center.y - ringRadius,
-                                              width: ringRadius * 2,
-                                              height: ringRadius * 2))
-            context.stroke(
-                ring,
-                with: .color(LumisColors.tintStrong.opacity(surge * 0.65)),
-                style: StrokeStyle(lineWidth: baseStroke * (1.6 - progress),
-                                   lineCap: .round)
-            )
+            let progress = 1 - surge
+            let acknowledgement = Path(ellipseIn: circle(
+                center: center,
+                radius: fieldRadius * (1.02 + progress * 0.22)
+            ))
+            context.stroke(acknowledgement,
+                           with: .color(LumisColors.tintStrong.opacity(surge * 0.42)),
+                           lineWidth: line * (1.8 - progress))
         }
 
-        for loop in loops {
-            var path = Path()
-            let cosO = cos(loop.orientation + time * 0.05 * loop.driftSpeed)
-            let sinO = sin(loop.orientation + time * 0.05 * loop.driftSpeed)
+        drawStateSignal(in: context,
+                        center: center,
+                        radius: radius,
+                        line: line,
+                        state: state,
+                        time: time,
+                        energy: energy)
 
-            for s in 0...segments {
-                let t = Double(s) / Double(segments) * 2 * .pi
-                // Hand wobble: two drifting harmonics on the radius. Energy
-                // raises the amplitude — voice visibly tightens/loosens lines.
-                let wobble =
-                    (0.05 + 0.10 * energy) * sin(t * loop.wobbleFreq + loop.wobbleSeed + time * loop.driftSpeed) +
-                    (0.03 + 0.06 * energy) * sin(t * (loop.wobbleFreq + 3) - time * loop.driftSpeed * 1.7)
-                let r = unit * loop.radius * (1 + wobble)
-
-                // Squashed loop in local space, then rotated into place.
-                let lx = cos(t) * r
-                let ly = sin(t) * r * loop.eccentricity
-                let point = CGPoint(x: center.x + lx * cosO - ly * sinO,
-                                    y: center.y + lx * sinO + ly * cosO)
-                if s == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        // Three related contours make the mark feel alive without becoming a
+        // nest of unrelated lines. Their phases are fixed, so Lumis remains a
+        // recognizable object at every point in the animation.
+        for layer in 0..<3 {
+            let layerScale = 1 - Double(layer) * 0.17
+            let contour = organicContour(center: center,
+                                         radius: radius * layerScale,
+                                         time: time,
+                                         energy: energy,
+                                         layer: layer,
+                                         state: state)
+            if layer == 2 {
+                context.fill(contour, with: .color(LumisColors.tintSoft.opacity(0.34)))
             }
-            path.closeSubpath()
-
-            // tintStrong, not raw tint: Cool Steel on Alabaster is too faint
-            // to read as deliberate — the deepened/lifted accent holds the
-            // line confidently on both backgrounds.
-            context.stroke(
-                path,
-                with: .color(LumisColors.tintStrong.opacity(loop.alpha)),
-                style: StrokeStyle(lineWidth: baseStroke * loop.width,
-                                   lineCap: .round, lineJoin: .round)
-            )
+            context.stroke(contour,
+                           with: .color(LumisColors.tintStrong.opacity(0.92 - Double(layer) * 0.20)),
+                           style: StrokeStyle(lineWidth: line * (1.20 - Double(layer) * 0.12),
+                                              lineCap: .round,
+                                              lineJoin: .round))
         }
+
+        let coreRadius = max(3.5, radius * (0.065 + energy * 0.018))
+        context.fill(Path(ellipseIn: circle(center: center, radius: coreRadius)),
+                     with: .color(LumisColors.tintStrong))
+    }
+
+    private static func drawStateSignal(in context: GraphicsContext,
+                                        center: CGPoint,
+                                        radius: Double,
+                                        line: Double,
+                                        state: LumisState,
+                                        time: Double,
+                                        energy: Double) {
+        switch state {
+        case .idle:
+            // Four anchor points read as calm readiness, not inactivity.
+            for index in 0..<4 {
+                let angle = Double(index) * .pi / 2 + time * 0.08
+                let point = polar(center: center, radius: radius * 1.18, angle: angle)
+                let dot = Path(ellipseIn: circle(center: point, radius: line * 1.15))
+                context.fill(dot, with: .color(LumisColors.tintStrong.opacity(0.42)))
+            }
+
+        case .listening:
+            // A circular voice meter responds to the live smoothed mic level.
+            for index in 0..<20 {
+                let angle = Double(index) / 20 * .pi * 2 - .pi / 2
+                let cadence = 0.5 + 0.5 * sin(Double(index) * 1.73 + time * 3.2)
+                let length = radius * (0.10 + cadence * (0.08 + energy * 0.12))
+                let inner = polar(center: center, radius: radius * 1.18, angle: angle)
+                let outer = polar(center: center, radius: radius * 1.18 + length, angle: angle)
+                var bar = Path()
+                bar.move(to: inner)
+                bar.addLine(to: outer)
+                context.stroke(bar,
+                               with: .color(LumisColors.tintStrong.opacity(0.52 + cadence * 0.38)),
+                               style: StrokeStyle(lineWidth: line * 1.25, lineCap: .round))
+            }
+
+        case .thinking:
+            // Deliberately directional orbital tracks convey active processing.
+            for orbit in 0..<3 {
+                let angle = time * (orbit == 1 ? -0.85 : 0.72) + Double(orbit) * .pi / 3
+                let path = orbitPath(center: center,
+                                     major: radius * (1.30 + Double(orbit) * 0.06),
+                                     minor: radius * (0.52 + Double(orbit) * 0.08),
+                                     rotation: angle)
+                context.stroke(path,
+                               with: .color(LumisColors.tintStrong.opacity(0.24 + Double(orbit) * 0.11)),
+                               style: StrokeStyle(lineWidth: line,
+                                                  lineCap: .round,
+                                                  dash: [line * 2.2, line * 5.4],
+                                                  dashPhase: time * 10))
+            }
+
+        case .speaking:
+            // Resolved information moves outward in clean, readable waves.
+            for wave in 0..<3 {
+                let phase = (time * 0.75 + Double(wave) / 3).truncatingRemainder(dividingBy: 1)
+                let waveRadius = radius * (1.14 + phase * 0.48)
+                let wavePath = Path(ellipseIn: circle(center: center, radius: waveRadius))
+                context.stroke(wavePath,
+                               with: .color(LumisColors.tintStrong.opacity((1 - phase) * 0.38)),
+                               lineWidth: line)
+            }
+        }
+    }
+
+    private static func organicContour(center: CGPoint,
+                                       radius: Double,
+                                       time: Double,
+                                       energy: Double,
+                                       layer: Int,
+                                       state: LumisState) -> Path {
+        var path = Path()
+        let layerPhase = Double(layer) * 2.17
+        let motion = state == .thinking ? time * 1.35 : time * 0.58
+        for segment in 0...contourSegments {
+            let angle = Double(segment) / Double(contourSegments) * .pi * 2
+            let primary = sin(angle * 3 + layerPhase + motion)
+            let secondary = cos(angle * 2 - layerPhase + motion * 0.72)
+            let distortion = 0.035 + energy * 0.045
+            let localRadius = radius * (1 + primary * distortion + secondary * distortion * 0.52)
+            let point = polar(center: center, radius: localRadius, angle: angle)
+            if segment == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    private static func orbitPath(center: CGPoint,
+                                  major: Double,
+                                  minor: Double,
+                                  rotation: Double) -> Path {
+        var path = Path()
+        for segment in 0...contourSegments {
+            let angle = Double(segment) / Double(contourSegments) * .pi * 2
+            let x = cos(angle) * major
+            let y = sin(angle) * minor
+            let point = CGPoint(x: center.x + x * cos(rotation) - y * sin(rotation),
+                                y: center.y + x * sin(rotation) + y * cos(rotation))
+            if segment == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        return path
+    }
+
+    private static func polar(center: CGPoint, radius: Double, angle: Double) -> CGPoint {
+        CGPoint(x: center.x + cos(angle) * radius,
+                y: center.y + sin(angle) * radius)
+    }
+
+    private static func circle(center: CGPoint, radius: Double) -> CGRect {
+        CGRect(x: center.x - radius,
+               y: center.y - radius,
+               width: radius * 2,
+               height: radius * 2)
     }
 }
 
+#if DEBUG
 #Preview {
     struct Demo: View {
-        @State private var state: LumisState = .idle
-        @State private var fakeLevel: CGFloat = 0.5
+        @State private var state = LumisState.idle
         var body: some View {
             ZStack {
                 LumisColors.background.ignoresSafeArea()
-                VStack(spacing: 40) {
-                    ScribbleView(state: state, containerSize: 240, audioLevel: fakeLevel)
-                    Picker("State", selection: $state) {
-                        Text("Idle").tag(LumisState.idle)
-                        Text("Listening").tag(LumisState.listening)
-                        Text("Thinking").tag(LumisState.thinking)
+                VStack(spacing: LumisSpacing.xl) {
+                    ScribbleView(state: state, containerSize: 240, audioLevel: 0.72)
+                    Picker("Lumis state", selection: $state) {
+                        Text("Ready").tag(LumisState.idle)
+                        Text("Listen").tag(LumisState.listening)
+                        Text("Think").tag(LumisState.thinking)
+                        Text("Speak").tag(LumisState.speaking)
                     }
                     .pickerStyle(.segmented)
-                    .padding(.horizontal, 32)
-                    if state == .listening {
-                        Slider(value: $fakeLevel, in: 0...1).padding(.horizontal, 32)
-                    }
+                    .padding(.horizontal, LumisSpacing.xl)
                 }
             }
         }
     }
     return Demo()
 }
+#endif

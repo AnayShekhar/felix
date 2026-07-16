@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The main screen. Three states under one persistent branding top bar:
+/// The main screen. Three states under one small, centered navigation bar:
 ///
 ///   • Dormant   — the scribble mark idling and a "+" that unfolds into the
 ///                 text input. Nothing else. There is deliberately NO mic
@@ -11,10 +11,12 @@ import SwiftUI
 ///   • Panels    — the request's live panel stack, filling everything
 ///                 below the top bar.
 ///
-/// The top bar is branding only (logo slot + "Lumis") and never scrolls;
-/// connection status lives exclusively in Settings.
+/// The page is intentionally not a chat transcript. The visual center is the
+/// voice-reactive Lumis mark; the composer is a deliberate fallback rather
+/// than a competing primary action.
 struct HomeView: View {
     @EnvironmentObject private var vm: LumisViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Opens the sidebar (past chats).
     var onMenu: () -> Void = {}
@@ -37,42 +39,9 @@ struct HomeView: View {
             LumisColors.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                BrandingTopBar()
-
-                // Liquid Glass controls sit just beneath the wordmark bar:
-                // sidebar toggle top-left, profile (opens Settings) top-right.
-                HStack {
-                    Button {
-                        Haptics.light()
-                        onMenu()
-                    } label: {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(LumisColors.textPrimary)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Circle())
-                    .accessibilityLabel("Open past chats")
-
-                    Spacer()
-
-                    Button {
-                        Haptics.light()
-                        onProfile()
-                    } label: {
-                        Text(initials)
-                            .font(LumisTypography.titleSmall)
-                            .foregroundStyle(LumisColors.textPrimary)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Circle())
-                    .accessibilityLabel("Open settings")
-                }
-                .padding(.horizontal, LumisSpacing.screenMargin)
+                HomeHeader(onMenu: onMenu, initials: initials, onProfile: onProfile)
+                    .padding(.horizontal, LumisSpacing.screenMargin)
+                    .padding(.top, LumisSpacing.xs)
 
                 // The content beneath the fixed header changes between states.
                 ZStack {
@@ -96,23 +65,24 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .animation(.spring(response: 0.6, dampingFraction: 0.82), value: mode)
+            .animation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.82), value: mode)
 
             // Error toast — API failures always surface.
             if let error = vm.errorMessage {
                 VStack {
                     Spacer()
                     ErrorToast(message: error) { vm.errorMessage = nil }
-                        .padding(.bottom, 110)
+                        .padding(.bottom, 84)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .overlay(alignment: .bottom) {
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             LumisInputBar(onCamera: onCamera)
-                .padding(.bottom, LumisSpacing.md)
+                .padding(.horizontal, LumisSpacing.screenMargin)
+                .padding(.bottom, LumisSpacing.sm)
         }
-        .animation(.easeInOut(duration: 0.3), value: vm.errorMessage)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: vm.errorMessage)
     }
 
     /// Dormant + listening: the scribble mark, centered, voice-reactive.
@@ -120,42 +90,114 @@ struct HomeView: View {
     /// slightly-overshooting spring — paired with the Canvas-level energy
     /// surge and activation ring, the state change is impossible to miss.
     private var scribbleStage: some View {
-        VStack(spacing: LumisSpacing.xl) {
+        VStack(spacing: LumisSpacing.lg) {
             Spacer()
+            Text(stageTitle)
+                .font(LumisTypography.greeting.weight(.medium))
+                .foregroundStyle(LumisColors.textPrimary)
+                .multilineTextAlignment(.center)
+                .contentTransition(.opacity)
+            Text(stageSubtitle)
+                .font(LumisTypography.bodyMedium)
+                .foregroundStyle(LumisColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .contentTransition(.opacity)
             ScribbleView(
                 state: vm.lumisState,
-                containerSize: 240,
+                containerSize: 218,
                 audioLevel: vm.lumisState == .listening ? vm.speech.inputLevel : 0
             )
             .scaleEffect(vm.lumisState == .listening ? 1.12 : 1)
-            .animation(.spring(response: 0.32, dampingFraction: 0.6),
+            .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.6),
                        value: vm.lumisState == .listening)
             Spacer()
-            Spacer().frame(height: 60)   // breathing room above the input bar
+            Spacer().frame(height: 42)   // breathing room above the composer
         }
+        .padding(.horizontal, LumisSpacing.xl)
         .frame(maxWidth: .infinity)
+    }
+
+    private var stageTitle: String {
+        switch vm.lumisState {
+        case .idle: return greeting
+        case .listening: return "I’m listening"
+        case .thinking: return "Working on it"
+        case .speaking: return "Here’s what I found"
+        }
+    }
+
+    private var stageSubtitle: String {
+        switch vm.lumisState {
+        case .idle: return "Say “Hey Lumis” or type a request below."
+        case .listening: return "Tell Lumis what you’d like to get done."
+        case .thinking: return "Lumis is understanding your request and choosing the next step."
+        case .speaking: return "Your result is ready."
+        }
+    }
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        case 17..<22: return "Good evening"
+        default: return "Hello"
+        }
     }
 }
 
-/// The persistent branding bar: the comet mark followed by the wordmark,
-/// SF Pro. Purely branding — no status, no functional chrome — and it never
-/// scrolls.
-private struct BrandingTopBar: View {
-    var body: some View {
-        HStack(spacing: LumisSpacing.sm) {
-            LumisLogoMark(size: 26)
+/// A single, balanced navigation row. Both utilities occupy the same 44pt
+/// circle, keeping the brand precisely centered without a second layer of
+/// chrome below it.
+private struct HomeHeader: View {
+    var onMenu: () -> Void
+    var initials: String
+    var onProfile: () -> Void
 
-            Text("Lumis")
-                .font(LumisTypography.titleMedium)
-                .foregroundStyle(LumisColors.textPrimary)
+    var body: some View {
+        HStack {
+            Button {
+                Haptics.light()
+                onMenu()
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(LumisColors.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.lumisPress)
+            .lumisGlass(in: Circle(), interactive: true)
+            .accessibilityLabel("Open past chats")
 
             Spacer()
+
+            HStack(spacing: LumisSpacing.xs) {
+                LumisLogoMark(size: 21)
+                Text("Lumis")
+                    .font(LumisTypography.titleMedium)
+                    .foregroundStyle(LumisColors.textPrimary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Lumis")
+            .accessibilityAddTraits(.isHeader)
+
+            Spacer()
+
+            Button {
+                Haptics.light()
+                onProfile()
+            } label: {
+                Text(initials)
+                    .font(LumisTypography.titleSmall)
+                    .foregroundStyle(LumisColors.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.lumisPress)
+            .lumisGlass(in: Circle(), interactive: true)
+            .accessibilityLabel("Open settings")
         }
-        .padding(.horizontal, LumisSpacing.screenMargin)
-        .frame(height: 44)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Lumis")
-        .accessibilityAddTraits(.isHeader)
+        .frame(height: 52)
     }
 }
 
@@ -172,6 +214,7 @@ private struct BrandingTopBar: View {
 /// behind the surface so the shape leads and the content follows.
 private struct LumisInputBar: View {
     @EnvironmentObject private var vm: LumisViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onCamera: () -> Void
 
     #if DEBUG
@@ -258,11 +301,11 @@ private struct LumisInputBar: View {
         .padding(.horizontal, LumisSpacing.sm)
         .frame(height: expanded ? 56 : 52)
         .frame(maxWidth: expanded ? .infinity : 52)
-        .glassEffect(.regular, in: Capsule())
+        .lumisGlass(in: Capsule(), interactive: true)
         .contentShape(Capsule())
-        .padding(.horizontal, LumisSpacing.screenMargin)
-        .animation(expanded ? Self.openSpring : Self.closeSpring, value: expanded)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: canSend)
+        .shadow(color: LumisColors.shadow, radius: 10, y: 4)
+        .animation(reduceMotion ? nil : (expanded ? Self.openSpring : Self.closeSpring), value: expanded)
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: canSend)
     }
 
     private func collapse() {

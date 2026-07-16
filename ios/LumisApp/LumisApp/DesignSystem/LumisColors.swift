@@ -20,11 +20,15 @@ struct LumisColors {
 
     /// Primary screen background — pure white in light mode.
     static let background = adaptive(light: .white, dark: carbon)
-    /// Elevated surface (cards, the chat bar, sheets). Light mode: the
-    /// Alabaster tone lifted toward white, so cards sit visibly on the pure
-    /// white page without turning heavy grey. Dark: a clearly lifted grey.
-    static let surface = adaptive(light: blend(alabaster, .white, 0.40),
-                                  dark: blend(carbon, alabaster, 0.09))
+    /// Elevated surface (cards, composer, sheets). The tonal step stays very
+    /// close to black or white; depth should come from the platform material,
+    /// not from a field of grey cards.
+    static let surface = adaptive(light: blend(alabaster, .white, 0.66),
+                                  dark: blend(carbon, alabaster, 0.11))
+    /// The strongest neutral surface, reserved for the one focused object on
+    /// a screen: an active task, a profile summary, or an authentication form.
+    static let surfaceProminent = adaptive(light: .white,
+                                           dark: blend(carbon, alabaster, 0.15))
     /// Primary text and icons.
     static let textPrimary = adaptive(light: carbon, dark: alabaster)
     /// Secondary text (supporting copy, subtitles). A real color, never the
@@ -32,12 +36,17 @@ struct LumisColors {
     static let textSecondary = adaptive(light: blend(carbon, .white, 0.33),
                                         dark: blend(alabaster, carbon, 0.33))
     /// Tertiary text (timestamps, placeholders, disabled). Real color, not opacity.
-    static let textTertiary = adaptive(light: blend(carbon, .white, 0.55),
-                                       dark: blend(alabaster, carbon, 0.55))
+    static let textTertiary = adaptive(light: blend(carbon, .white, 0.48),
+                                       dark: blend(alabaster, carbon, 0.48))
     /// Hairline dividers and card strokes. Real color, not opacity, so the
     /// hairline reads identically on every surface.
     static let divider = adaptive(light: blend(carbon, .white, 0.88),
                                   dark: blend(alabaster, carbon, 0.82))
+    /// A single hairline catches the edge of every glass surface. It avoids
+    /// the muddy, over-outlined look common in glass UIs while preserving a
+    /// reliable boundary in both appearances.
+    static let glassStroke = adaptive(light: blend(carbon, .white, 0.84),
+                                     dark: blend(alabaster, carbon, 0.73))
 
     // MARK: Tint — constant across both modes (like Claude's one orange)
 
@@ -53,6 +62,11 @@ struct LumisColors {
     static let tintSoft = tint.opacity(0.16)
     /// Mid-strength tint (secondary fills).
     static let tintMid = tint.opacity(0.55)
+    /// A low-confidence blue wash. Use only behind selected or currently
+    /// active content; it should never compete with the app's black-and-white
+    /// hierarchy.
+    static let tintWash = adaptive(light: blend(coolSteel, .white, 0.78),
+                                   dark: blend(coolSteel, carbon, 0.72))
     /// Ink drawn on top of a solid tint fill — Carbon in both modes
     /// (Cool Steel is light, so dark ink keeps contrast everywhere).
     static let onTint = Color(uiColor: carbon)
@@ -70,9 +84,10 @@ struct LumisColors {
     // MARK: Status colors (functional, not decorative)
 
     /// The one semantic exception to the single accent: errors and destructive
-    /// actions only. Success/connected states use the tint (with a checkmark
-    /// glyph carrying the meaning) — never a second hue.
-    static let destructive = Color(hex: "#E05252")
+    /// actions only. The light value is deliberately deep enough for text on
+    /// white; the dark value lifts for the same readable contrast on Carbon.
+    static let destructive = adaptive(light: UIColor(hex: "#B93737"),
+                                     dark: UIColor(hex: "#F28B8B"))
 
     // MARK: -
 

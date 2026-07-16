@@ -10,7 +10,7 @@ struct ExtensionInstructionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: LumisSpacing.xl) {
                     Text("Connect your accounts")
                         .font(LumisTypography.displayMedium)
                         .foregroundColor(LumisColors.textPrimary)

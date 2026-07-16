@@ -50,6 +50,7 @@ struct SettingsView: View {
                 .refreshable { await servicesVM.fetchStatus() }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if let onClose {
                     ToolbarItem(placement: .topBarLeading) {
@@ -57,7 +58,11 @@ struct SettingsView: View {
                             Image(systemName: "xmark")
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(LumisColors.textPrimary)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Circle())
                         }
+                        .buttonStyle(.lumisPress)
+                        .lumisGlass(in: Circle(), interactive: true)
                         .accessibilityLabel("Close settings")
                     }
                 }
@@ -113,10 +118,8 @@ struct SettingsView: View {
                 SettingsChevron()
             }
             .padding(LumisSpacing.lg)
-            // Material card, continuous corners, no drawn border — depth
-            // through blur and a near-invisible shadow. Deliberately the only
-            // card treatment in Settings.
-            .background(.ultraThinMaterial, in: LumisRadius.rect(LumisRadius.card))
+            .background(LumisColors.tintWash, in: LumisRadius.rect(LumisRadius.card))
+            .lumisGlass(in: LumisRadius.rect(LumisRadius.card), interactive: true)
             .shadow(color: LumisColors.shadow, radius: 8, y: 4)
         }
         .buttonStyle(.lumisPress)
@@ -420,8 +423,9 @@ struct ExtensionSyncBanner: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(state.color)
                     .frame(width: 29, height: 29)
-                    .background(LumisColors.textPrimary.opacity(0.08),
+                    .background(LumisColors.surfaceProminent,
                                 in: LumisRadius.rect(7))
+                    .overlay(LumisRadius.rect(7).stroke(LumisColors.glassStroke, lineWidth: 0.5))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(state.title)
                         .font(LumisTypography.bodyLarge)

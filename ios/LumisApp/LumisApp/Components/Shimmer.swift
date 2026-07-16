@@ -3,6 +3,7 @@ import SwiftUI
 /// Skeleton shimmer: a highlight sweep left→right over placeholder content.
 struct ShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = -1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
@@ -19,6 +20,7 @@ struct ShimmerModifier: ViewModifier {
             )
             .clipped()
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
                     phase = 1
                 }

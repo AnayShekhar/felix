@@ -7,6 +7,7 @@ import SwiftUI
 struct MainTabView: View {
     @EnvironmentObject private var vm: LumisViewModel
     @EnvironmentObject private var authVM: AuthViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var sidebarOpen = false
     @State private var showSettings = false
@@ -41,6 +42,7 @@ struct MainTabView: View {
                         vm.dismissCurrentChat()
                         closeSidebar()
                     },
+                    onClose: closeSidebar,
                     pastChats: vm.pastChats
                 )
                 .transition(.move(edge: .leading))
@@ -56,10 +58,13 @@ struct MainTabView: View {
             )
             .environmentObject(vm)
         }
-        .fullScreenCover(isPresented: $showSettings) {
+        .sheet(isPresented: $showSettings) {
             SettingsView(onClose: { showSettings = false })
                 .environmentObject(authVM)
                 .environmentObject(vm)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.regularMaterial)
         }
         .onAppear {
             vm.start()
@@ -73,10 +78,10 @@ struct MainTabView: View {
     }
 
     private func openSidebar() {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) { sidebarOpen = true }
+        withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) { sidebarOpen = true }
     }
 
     private func closeSidebar() {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) { sidebarOpen = false }
+        withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.82)) { sidebarOpen = false }
     }
 }

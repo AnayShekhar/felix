@@ -6,6 +6,7 @@ import SwiftUI
 /// trail of what happened, like a timeline.
 struct PanelStackView: View {
     let chat: ChatStack
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Nil while the stack is still running (no dismissal mid-run).
     var onDismiss: (() -> Void)?
 
@@ -34,14 +35,14 @@ struct PanelStackView: View {
                             Haptics.light()
                             onDismiss()
                         } label: {
-                            Text("Done")
+                            Label("Done", systemImage: "checkmark")
                                 .font(LumisTypography.titleSmall)
                                 .foregroundStyle(LumisColors.textSecondary)
                                 .padding(.horizontal, LumisSpacing.xl)
                                 .frame(height: 44)
-                                .background(.ultraThinMaterial, in: Capsule())
                         }
                         .buttonStyle(.lumisPress)
+                        .lumisGlass(in: Capsule(), interactive: true)
                         .padding(.top, LumisSpacing.sm)
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         .accessibilityLabel("Dismiss this request")
@@ -56,7 +57,7 @@ struct PanelStackView: View {
             }
             .scrollIndicators(.hidden)
             .onChange(of: chat.panels.count) { _, _ in
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.85)) {
                     proxy.scrollTo("stack-bottom", anchor: .bottom)
                 }
             }
@@ -68,6 +69,7 @@ struct PanelStackView: View {
 /// panels are large and bright; completed ones settle back with a checkmark.
 private struct StepPanelView: View {
     let panel: Panel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isActive: Bool { panel.state == .active }
 
@@ -96,22 +98,20 @@ private struct StepPanelView: View {
         }
         .padding(isActive ? LumisSpacing.xl : LumisSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Depth comes from material blur, not borders: the active panel gets
-        // the cleaner elevated surface, settled panels recede into thin glass.
-        .background {
-            if isActive {
-                LumisRadius.rect(LumisRadius.card).fill(LumisColors.surface)
-            } else {
-                LumisRadius.rect(LumisRadius.card).fill(.ultraThinMaterial)
-            }
-        }
+        // The selected step receives the one quiet slate-blue wash. Completed
+        // actions remain neutral and readable, rather than shrinking into a
+        // decorative stack of cards.
+        .background(
+            LumisRadius.rect(LumisRadius.card)
+                .fill(isActive ? LumisColors.tintWash : LumisColors.surface)
+        )
+        .lumisGlass(in: LumisRadius.rect(LumisRadius.card))
         .shadow(color: LumisColors.shadow.opacity(isActive ? 1 : 0),
                 radius: 12, y: 4)
-        .scaleEffect(isActive ? 1 : 0.965)
         .opacity(panelOpacity)
-        .animation(.spring(response: 0.55, dampingFraction: 0.8), value: panel.state)
-        .animation(.easeInOut(duration: 0.35), value: panel.title)
-        .animation(.easeInOut(duration: 0.35), value: panel.subtitle)
+        .animation(reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.8), value: panel.state)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: panel.title)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: panel.subtitle)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
     }
@@ -208,11 +208,10 @@ private struct FinalPanelView: View {
         }
         .padding(LumisSpacing.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Elevated surface with a near-invisible shadow — no drawn border;
-        // the concluding panel lifts off the screen through depth alone.
         .background(
-            LumisRadius.rect(LumisRadius.card).fill(LumisColors.surface)
+            LumisRadius.rect(LumisRadius.card).fill(LumisColors.surfaceProminent)
         )
+        .lumisGlass(in: LumisRadius.rect(LumisRadius.card))
         .shadow(color: LumisColors.shadow, radius: 12, y: 4)
         .accessibilityElement(children: .combine)
     }

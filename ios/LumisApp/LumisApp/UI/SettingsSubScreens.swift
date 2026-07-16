@@ -70,6 +70,7 @@ struct DeleteAccountView: View {
                         .background(confirmation == "DELETE" ? LumisColors.destructive : LumisColors.destructive.opacity(0.35))
                         .clipShape(LumisRadius.rect(LumisRadius.lg))
                 }
+                .buttonStyle(.lumisPress)
                 .disabled(confirmation != "DELETE")
             }
             .padding(24)
@@ -121,10 +122,10 @@ private struct FormScaffold<Content: View>: View {
             ZStack {
                 LumisColors.background.ignoresSafeArea()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: LumisSpacing.xl) {
                         content()
                     }
-                    .padding(24)
+                    .padding(LumisSpacing.xl)
                 }
             }
             .navigationTitle(title)

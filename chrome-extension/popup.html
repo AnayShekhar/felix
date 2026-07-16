@@ -1,79 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lumis</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div id="app">
+  <main id="app">
+    <section id="login-view" class="view" aria-labelledby="login-title">
+      <header class="brand-bar">
+        <div class="brand-lockup" aria-label="Lumis">
+          <span class="logo-mark" aria-hidden="true"></span>
+          <span class="app-name">Lumis</span>
+        </div>
+        <span class="platform-chip">Chrome</span>
+      </header>
 
-    <!-- Logged out state -->
-    <div id="login-view" class="view">
-      <div class="hero">
-        <div class="logo-mark large"></div>
-        <h1>Lumis</h1>
-        <p class="subtitle">Sign in with the same account as your phone to connect your accounts.</p>
+      <div class="login-hero">
+        <div class="signal-orb" aria-hidden="true">
+          <span class="orb-contour contour-one"></span>
+          <span class="orb-contour contour-two"></span>
+          <span class="orb-core"></span>
+        </div>
+        <p class="eyebrow">Your browser, connected</p>
+        <h1 id="login-title">Bring your accounts<br>into Lumis.</h1>
+        <p class="subtitle">Use the same Lumis account as your iPhone. You choose which signed-in services are shared.</p>
       </div>
 
-      <form id="email-form">
-        <input type="email" id="email-input" placeholder="Email" autocomplete="email" required />
-        <input type="password" id="password-input" placeholder="Password" autocomplete="current-password" required />
-        <button type="submit" class="btn-primary">Sign In</button>
+      <form id="email-form" novalidate>
+        <div class="field-group">
+          <label for="email-input">Email</label>
+          <input type="email" id="email-input" autocomplete="email" required>
+        </div>
+        <div class="field-group">
+          <label for="password-input">Password</label>
+          <input type="password" id="password-input" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn-primary">Sign in</button>
       </form>
 
-      <div class="divider"><span>or</span></div>
+      <div class="divider"><span>or continue with</span></div>
 
-      <button id="google-signin-btn" class="btn-outline">
-        <img src="icons/google-logo.svg" width="16" height="16" alt="" />
-        Sign in with Google
+      <button id="google-signin-btn" class="btn-secondary">
+        <img src="icons/google-logo.svg" width="17" height="17" alt="">
+        Google
       </button>
 
-      <p id="login-error" class="error-text"></p>
-    </div>
+      <p id="login-error" class="message error-text" role="alert" aria-live="assertive"></p>
+      <p class="privacy-note">Credentials stay with Lumis. Connections can be removed anytime from iPhone Settings.</p>
+    </section>
 
-    <!-- Logged in state -->
-    <div id="connected-view" class="view hidden">
-      <div class="header-row">
-        <div class="header">
-          <div class="logo-mark"></div>
-          <div class="header-text">
-            <span class="app-name">Lumis</span>
+    <section id="connected-view" class="view hidden" aria-labelledby="connected-title">
+      <header class="brand-bar">
+        <div class="brand-lockup">
+          <span class="logo-mark" aria-hidden="true"></span>
+          <span>
+            <span id="connected-title" class="app-name">Lumis</span>
             <span id="user-email" class="user-email"></span>
+          </span>
+        </div>
+        <button id="logout-btn" class="icon-text-button" aria-label="Sign out of Lumis">Sign out</button>
+      </header>
+
+      <section id="sync-banner" class="sync-hero" aria-live="polite">
+        <span id="sync-banner-icon" class="status-icon" aria-hidden="true"></span>
+        <div class="sync-copy">
+          <p class="eyebrow">iPhone + Chrome</p>
+          <h2 id="sync-banner-title"></h2>
+          <p id="sync-banner-detail"></p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="accounts-label">
+        <div class="section-heading">
+          <h2 id="accounts-label">Accounts</h2>
+          <span>Choose what Lumis can use</span>
+        </div>
+        <div id="services-list" class="glass-group"></div>
+      </section>
+
+      <section class="section" aria-labelledby="tab-label">
+        <div class="section-heading">
+          <h2 id="tab-label">This tab</h2>
+          <span>Connect another signed-in site</span>
+        </div>
+        <div class="glass-group current-site-card">
+          <div class="site-glyph" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M8.5 12a3.5 3.5 0 0 1 3.5-3.5h3.5a3.5 3.5 0 1 1 0 7H14"/><path d="M15.5 12A3.5 3.5 0 0 1 12 15.5H8.5a3.5 3.5 0 1 1 0-7H10"/></svg>
           </div>
-        </div>
-        <button id="logout-btn" class="btn-text">Sign Out</button>
-      </div>
-
-      <!-- Phone ↔ extension sync status (same tri-state as iOS Settings) -->
-      <div id="sync-banner" class="sync-banner">
-        <span id="sync-banner-icon" class="status-icon"></span>
-        <div>
-          <p id="sync-banner-title" class="sync-banner-title"></p>
-          <p id="sync-banner-detail" class="sync-banner-detail"></p>
-        </div>
-      </div>
-
-      <div class="section">
-        <p class="section-label">Accounts</p>
-        <div id="services-list" class="card"></div>
-        <p class="section-footer">Connecting shares that site's signed-in session with Lumis so it can act for you.</p>
-      </div>
-
-      <div class="section">
-        <p class="section-label">This tab</p>
-        <div class="card">
-          <div class="current-site-row">
-            <span id="current-site-name">—</span>
-            <button id="sync-current-tab-btn" class="btn-small">Connect</button>
+          <div class="site-copy">
+            <span class="row-title">Current website</span>
+            <span id="current-site-name">Checking…</span>
           </div>
+          <button id="sync-current-tab-btn" class="btn-small">Connect</button>
         </div>
-        <p class="section-footer">Connect any other site you're signed into on this tab.</p>
-      </div>
+      </section>
 
-      <p id="sync-status" class="sync-status"></p>
-    </div>
-
-  </div>
+      <p id="sync-status" class="message sync-status" role="status" aria-live="polite"></p>
+      <footer class="extension-footer">
+        <span class="footer-dot" aria-hidden="true"></span>
+        Changes appear automatically in Lumis Settings on your iPhone.
+      </footer>
+    </section>
+  </main>
   <script src="popup.js"></script>
 </body>
 </html>

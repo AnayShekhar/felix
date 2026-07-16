@@ -1,10 +1,8 @@
 import SwiftUI
 
-/// Apple-Settings-style grouped section: a small, muted sentence-case header,
-/// the rows on one shared inset-grouped surface (continuous corners, no
-/// border, no shadow), and an optional explanatory footer. Hierarchy comes from
-/// whitespace and the quiet surface step — the one stronger visual container
-/// in Settings is the profile summary card, never these groups.
+/// Apple-Settings-style grouped section. The rows retain the familiar inset
+/// grouping and scanability of Settings, but sit on the same restrained native
+/// material as the rest of Lumis rather than on opaque gray cards.
 struct SettingsSection<Content: View>: View {
     let title: String
     var footer: String?
@@ -26,6 +24,7 @@ struct SettingsSection<Content: View>: View {
                 content()
             }
             .background(LumisColors.surface, in: LumisRadius.rect(LumisRadius.md))
+            .lumisGlass(in: LumisRadius.rect(LumisRadius.md))
             if let footer {
                 Text(footer)
                     .font(LumisTypography.caption)
@@ -39,9 +38,8 @@ struct SettingsSection<Content: View>: View {
 }
 
 /// The uniform leading icon treatment for Settings rows — one size, one
-/// corner radius, one neutral weight everywhere (Apple's Settings discipline:
-/// icons all live in identical small containers). Deliberately not tinted:
-/// the accent color is reserved for interactive elements.
+/// corner radius, one neutral weight everywhere. Deliberately not tinted: the
+/// slate blue remains an interaction signal, not a field of colored icons.
 struct SettingsIcon: View {
     let systemName: String
 
@@ -50,8 +48,9 @@ struct SettingsIcon: View {
             .font(.subheadline.weight(.medium))
             .foregroundStyle(LumisColors.textSecondary)
             .frame(width: 29, height: 29)
-            .background(LumisColors.textPrimary.opacity(0.08),
+            .background(LumisColors.surfaceProminent,
                         in: LumisRadius.rect(7))
+            .overlay(LumisRadius.rect(7).stroke(LumisColors.glassStroke, lineWidth: 0.5))
     }
 }
 

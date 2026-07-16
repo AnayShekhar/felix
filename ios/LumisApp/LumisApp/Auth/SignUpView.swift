@@ -18,11 +18,15 @@ struct SignUpView: View {
         ZStack {
             LumisColors.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: LumisSpacing.xl) {
                     Text("Create your account")
-                        .font(LumisTypography.titleLarge)
+                        .font(LumisTypography.displayLarge)
                         .foregroundStyle(LumisColors.textPrimary)
-                        .padding(.top, 8)
+                        .padding(.top, LumisSpacing.xl)
+                    Text("A private place for the things you ask Lumis to do.")
+                        .font(LumisTypography.bodyMedium)
+                        .foregroundStyle(LumisColors.textSecondary)
+                        .padding(.top, -LumisSpacing.md)
 
                     FloatingLabelField(title: "Full name", text: $name,
                                        contentType: .name)
@@ -59,7 +63,7 @@ struct SignUpView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, LumisSpacing.xl)
                 .padding(.bottom, 40)
             }
         }

@@ -22,11 +22,11 @@ struct ForgotPasswordView: View {
     }
 
     private var formState: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: LumisSpacing.xl) {
             Text("Reset your password")
-                .font(LumisTypography.titleLarge)
+                .font(LumisTypography.displayLarge)
                 .foregroundStyle(LumisColors.textPrimary)
-                .padding(.top, 8)
+                .padding(.top, LumisSpacing.xl)
             Text("Enter your email and we'll send you a reset link.")
                 .font(LumisTypography.bodyMedium)
                 .foregroundStyle(LumisColors.textSecondary)
@@ -41,8 +41,7 @@ struct ForgotPasswordView: View {
                 .padding(.top, 4)
             Spacer()
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
+        .padding(.horizontal, LumisSpacing.xl)
     }
 
     private var successState: some View {

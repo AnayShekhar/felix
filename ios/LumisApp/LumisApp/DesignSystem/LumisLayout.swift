@@ -41,16 +41,53 @@ enum LumisRadius {
     }
 }
 
+/// One material treatment for Lumis's floating controls and focused surfaces.
+/// The native glass effect provides the blur and specular edge; the restrained
+/// semantic hairline makes it legible over both a white page and a live camera.
+/// Keeping this in one modifier prevents "glass" from turning into a mixture
+/// of arbitrary opacities and shadows across screens.
+private struct LumisGlassSurface<S: Shape>: ViewModifier {
+    let shape: S
+    var interactive: Bool = false
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            if interactive {
+                content.glassEffect(.regular.interactive(), in: shape)
+            } else {
+                content.glassEffect(.regular, in: shape)
+            }
+        } else {
+            content
+                .background(.regularMaterial, in: shape)
+                .overlay(shape.fill(LumisColors.surface.opacity(interactive ? 0.26 : 0.18)))
+                .overlay(shape.stroke(LumisColors.glassStroke, lineWidth: 0.5))
+                .contentShape(shape)
+        }
+    }
+}
+
+extension View {
+    /// Applies Lumis's native Liquid Glass treatment to a continuous shape.
+    /// Set `interactive` for controls so the platform supplies its pressed and
+    /// hover response in addition to the app's subtle press scale.
+    func lumisGlass<S: Shape>(in shape: S, interactive: Bool = false) -> some View {
+        modifier(LumisGlassSurface(shape: shape, interactive: interactive))
+    }
+}
+
 /// Press feedback for any tappable card or control: the HIG-style subtle
 /// scale-down while pressed. Pair with the existing `Haptics` calls (or
 /// `.sensoryFeedback`) — this style only handles the visual response.
 struct LumisPressStyle: ButtonStyle {
     var scale: CGFloat = 0.96
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1)
-            .animation(.spring(response: 0.28, dampingFraction: 0.8),
+            .scaleEffect(configuration.isPressed && !reduceMotion ? scale : 1)
+            .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.8),
                        value: configuration.isPressed)
     }
 }

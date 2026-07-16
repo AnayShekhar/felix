@@ -2,12 +2,12 @@
 // delegated to background.js via chrome.runtime messaging.
 
 const SUPPORTED_SERVICES = [
-  { id: "gmail",    name: "Gmail",         sub: "Read and draft emails" },
-  { id: "sheets",   name: "Google Sheets", sub: "Track expenses and data" },
-  { id: "notion",   name: "Notion",        sub: "Create and edit pages" },
-  { id: "linkedin", name: "LinkedIn",      sub: "Search and post updates" },
-  { id: "slack",    name: "Slack",         sub: "Send messages" },
-  { id: "airtable", name: "Airtable",      sub: "Manage records" },
+  { id: "gmail",    glyph: "GM", name: "Gmail browser",  sub: "Signed-in web session" },
+  { id: "sheets",   glyph: "SH", name: "Sheets browser", sub: "Signed-in web session" },
+  { id: "notion",   glyph: "N",  name: "Notion",         sub: "Create and edit pages" },
+  { id: "linkedin", glyph: "IN", name: "LinkedIn",       sub: "Search and post updates" },
+  { id: "slack",    glyph: "S",  name: "Slack",          sub: "Send messages" },
+  { id: "airtable", glyph: "A",  name: "Airtable",       sub: "Manage records" },
 ];
 
 // Inline vector icons (no emoji anywhere in this UI).
@@ -39,11 +39,17 @@ function sendMessage(type, payload = {}) {
 }
 
 async function init() {
-  const auth = await sendMessage("GET_AUTH");
-  if (auth.token) {
-    showConnectedView(auth.user);
-  } else {
+  try {
+    const auth = await sendMessage("GET_AUTH");
+    if (auth.token) {
+      await showConnectedView(auth.user);
+      return;
+    }
     showLoginView();
+  } catch {
+    showLoginView();
+    document.getElementById("login-error").textContent =
+      "Lumis couldn’t start. Close this popup and try again.";
   }
 }
 
@@ -55,7 +61,7 @@ function showLoginView() {
 async function showConnectedView(user) {
   document.getElementById("login-view").classList.add("hidden");
   document.getElementById("connected-view").classList.remove("hidden");
-  document.getElementById("user-email").textContent = user.email;
+  document.getElementById("user-email").textContent = user?.email || "Signed in";
 
   setSyncBanner("unknown", "Checking status…", "Asking the Lumis server which accounts are linked.");
   await renderServicesList();
@@ -140,8 +146,11 @@ async function renderServicesList() {
   const googleRow = document.createElement("div");
   googleRow.className = "service-row";
   googleRow.innerHTML = `
-    <span class="service-name">Google account
-      <small class="service-sub">Gmail, Sheets, Calendar, Docs, Drive</small></span>
+    <span class="service-glyph" aria-hidden="true">G</span>
+    <span class="service-copy">
+      <span class="row-title">Google workspace</span>
+      <span class="row-subtitle">Gmail, Calendar, Docs, Drive</span>
+    </span>
     ${status.google_api
       ? `<span class="connected-badge">${ICONS.check} Connected</span>`
       : `<button class="btn-small" id="connect-google-api-btn">Connect</button>`}
@@ -172,8 +181,11 @@ async function renderServicesList() {
     const row = document.createElement("div");
     row.className = "service-row";
     row.innerHTML = `
-      <span class="service-name">${service.name}
-        <small class="service-sub">${sub}</small></span>
+      <span class="service-glyph" aria-hidden="true">${service.glyph}</span>
+      <span class="service-copy">
+        <span class="row-title">${service.name}</span>
+        <span class="row-subtitle">${sub}</span>
+      </span>
       ${isConnected
         ? `<span class="connected-badge">${ICONS.check} Connected</span>`
         : `<button class="btn-small connect-btn" data-service="${service.id}">Connect</button>`}
@@ -214,20 +226,37 @@ async function renderCurrentSite() {
 function showSyncStatus(message, isError = false) {
   const el = document.getElementById("sync-status");
   el.textContent = message;
-  el.className = isError ? "sync-status error" : "sync-status success";
-  setTimeout(() => { el.textContent = ""; el.className = "sync-status"; }, 6000);
+  el.className = isError ? "message sync-status error" : "message sync-status success";
+  setTimeout(() => { el.textContent = ""; el.className = "message sync-status"; }, 6000);
+}
+
+async function withPending(button, pendingLabel, action) {
+  const original = button.textContent;
+  button.textContent = pendingLabel;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  try {
+    return await action();
+  } finally {
+    button.textContent = original;
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+  }
 }
 
 // ── Event listeners ─────────────────────────────────────────────────────
 
 document.getElementById("email-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!e.currentTarget.reportValidity()) return;
   const email = document.getElementById("email-input").value;
   const password = document.getElementById("password-input").value;
   const errorEl = document.getElementById("login-error");
   errorEl.textContent = "";
-
-  const result = await sendMessage("LOGIN_EMAIL", { email, password });
+  const button = e.currentTarget.querySelector("button[type='submit']");
+  const result = await withPending(button, "Signing in…", () =>
+    sendMessage("LOGIN_EMAIL", { email, password })
+  );
   if (result.success) {
     showConnectedView(result.user);
   } else {
@@ -236,7 +265,9 @@ document.getElementById("email-form").addEventListener("submit", async (e) => {
 });
 
 document.getElementById("google-signin-btn").addEventListener("click", async () => {
-  const result = await sendMessage("LOGIN_GOOGLE");
+  const button = document.getElementById("google-signin-btn");
+  document.getElementById("login-error").textContent = "";
+  const result = await withPending(button, "Opening Google…", () => sendMessage("LOGIN_GOOGLE"));
   if (result.success) {
     showConnectedView(result.user);
   } else {
@@ -250,17 +281,14 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
 });
 
 document.getElementById("sync-current-tab-btn").addEventListener("click", async (e) => {
-  e.target.textContent = "Connecting…";
-  e.target.disabled = true;
-  const result = await sendMessage("SYNC_CURRENT_TAB");
+  const button = e.currentTarget;
+  const result = await withPending(button, "Connecting…", () => sendMessage("SYNC_CURRENT_TAB"));
   if (result.success) {
     showSyncStatus(`Connected ${result.domain}`);
     await renderServicesList();   // refresh the sync banner timestamp
   } else {
     showSyncStatus(result.error, true);
   }
-  e.target.textContent = "Connect";
-  e.target.disabled = false;
 });
 
 init();

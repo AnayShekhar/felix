@@ -29,11 +29,10 @@ struct LiveCameraView: View {
                             .font(.callout.weight(.medium))
                             .foregroundStyle(.white)
                             .frame(width: 44, height: 44)
-                            .glassEffect(.regular, in: Circle())
-                            .overlay(Circle().stroke(LumisColors.tint.opacity(0.35), lineWidth: 0.5))
                             .contentShape(Circle())
                     }
                     .buttonStyle(.lumisPress)
+                    .lumisGlass(in: Circle(), interactive: true)
                     .accessibilityLabel("Close camera")
 
                     Spacer()
@@ -118,8 +117,7 @@ private struct ListeningPill: View {
         }
         .padding(.horizontal, LumisSpacing.lg)
         .frame(height: 36)
-        .glassEffect(.regular, in: Capsule())
-        .overlay(Capsule().stroke(LumisColors.tint.opacity(0.35), lineWidth: 0.5))
+        .lumisGlass(in: Capsule())
         .animation(.easeInOut(duration: 0.3), value: hearing)
         .accessibilityLabel(hearing ? "Lumis is listening" : "Lumis is waiting for the wake word")
     }

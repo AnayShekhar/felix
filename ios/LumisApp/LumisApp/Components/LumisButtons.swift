@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Full-width filled button: Carbon Black background, Parchment text.
+/// Full-width filled button: the app's one confident, high-contrast action.
 struct LumisPrimaryButton: View {
     let title: String
     var loading: Bool = false
@@ -44,12 +44,10 @@ struct LumisSecondaryButton<Leading: View>: View {
             .frame(maxWidth: .infinity)
             .frame(height: 54)
             .foregroundStyle(LumisColors.textPrimary)
-            .overlay(
-                LumisRadius.rect(LumisRadius.lg)
-                    .stroke(LumisColors.divider, lineWidth: 0.5)
-            )
+            .background(LumisColors.surface, in: LumisRadius.rect(LumisRadius.lg))
         }
         .buttonStyle(.lumisPress)
+        .lumisGlass(in: LumisRadius.rect(LumisRadius.lg), interactive: true)
         .accessibilityLabel(title)
     }
 }

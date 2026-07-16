@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Rounded input with an animated floating label, a Powder-Blue focus border,
-/// and an optional show/hide toggle for secure entry. 52pt tall, 14pt radius.
+/// Rounded input with a floating label and native glass depth. The field keeps
+/// the same quiet surface in both appearances; only focus earns the slate-blue
+/// ring so the form never becomes a collection of outlined boxes.
 struct FloatingLabelField: View {
     let title: String
     @Binding var text: String
@@ -21,7 +22,7 @@ struct FloatingLabelField: View {
             // Floating label.
             Text(title)
                 .font(floated ? LumisTypography.caption : LumisTypography.bodyMedium)
-                .foregroundStyle(focused ? LumisColors.tint : LumisColors.textSecondary)
+                .foregroundStyle(focused ? LumisColors.tintStrong : LumisColors.textSecondary)
                 .offset(y: floated ? -20 : 0)
                 .animation(.easeInOut(duration: 0.18), value: floated)
                 .allowsHitTesting(false)
@@ -59,7 +60,8 @@ struct FloatingLabelField: View {
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
-        .background(LumisColors.background)
+        .background(LumisColors.surface, in: LumisRadius.rect(LumisRadius.lg))
+        .lumisGlass(in: LumisRadius.rect(LumisRadius.lg), interactive: true)
         .overlay(
             LumisRadius.rect(LumisRadius.lg)
                 .stroke(focused ? LumisColors.tint : LumisColors.divider,
