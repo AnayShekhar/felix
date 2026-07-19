@@ -29,7 +29,9 @@ _WEB_UA = (
 )
 
 # Groq is the ONLY AI provider. GROQ_API_KEY is the only required key.
-GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+# llama-4-scout was shut down on Groq (2026-07-17); default to multimodal Qwen.
+DEFAULT_GROQ_MODEL = "qwen/qwen3.6-27b"
+GROQ_MODEL = os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL)
 
 
 class ToolError(Exception):
@@ -48,6 +50,18 @@ def _groq_client():
     return Groq(api_key=key)
 
 
+def _groq_kwargs(model: str) -> dict:
+    # Qwen 3.6 emits reasoning by default; disable so tool helpers stay clean.
+    if model.startswith("qwen/"):
+        return {"reasoning_effort": "none"}
+    return {}
+
+
+def _strip_think(text: str) -> str:
+    """Drop accidental <think>…</think> blocks if a model still emits them."""
+    return re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.I).strip()
+
+
 def _groq_vision(image_b64: str, prompt: str, max_tokens: int = 1000) -> str:
     """Send a base64 image + prompt to Groq's vision model, return its text."""
     client = _groq_client()
@@ -62,8 +76,9 @@ def _groq_vision(image_b64: str, prompt: str, max_tokens: int = 1000) -> str:
             ],
         }],
         max_tokens=max_tokens,
+        **_groq_kwargs(GROQ_MODEL),
     )
-    return (response.choices[0].message.content or "").strip()
+    return _strip_think(response.choices[0].message.content or "")
 
 
 def _groq_text(prompt: str, max_tokens: int = 1200) -> str:
@@ -72,8 +87,9 @@ def _groq_text(prompt: str, max_tokens: int = 1200) -> str:
         model=GROQ_MODEL,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
+        **_groq_kwargs(GROQ_MODEL),
     )
-    return (response.choices[0].message.content or "").strip()
+    return _strip_think(response.choices[0].message.content or "")
 
 
 def _first_two_sentences(text: str) -> str:

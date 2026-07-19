@@ -14,7 +14,8 @@ uvicorn main:app --port 8000
 ```
 
 Set these in `backend/.env` (see `.env.example`):
-- `GROQ_API_KEY` — the only required AI key (Groq llama-4-scout)
+- `GROQ_API_KEY` — the only required AI key (Groq)
+- `GROQ_MODEL` — optional; defaults to `qwen/qwen3.6-27b` (multimodal)
 - `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` — cloud browser
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` — Google API tools
 
