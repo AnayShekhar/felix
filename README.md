@@ -29,7 +29,7 @@ Google account, your browser, and on your phone.
 ## The three pieces (brain / eyes / hands)
 
 - **The brain 🧠 — the backend on Railway.** It gets the picture + voice, runs a
-  ReAct agent on Groq (`llama-4-scout`), remembers your preferences, and decides what
+  ReAct agent on Groq (`qwen/qwen3.6-27b`), remembers your preferences, and decides what
   to do. It lives at a permanent public URL in the cloud.
 - **The eyes & ears 👀 — the iPhone app.** Camera + microphone + the chat screen. It
   captures the real world and shows you results. It never makes decisions.
@@ -141,7 +141,8 @@ chrome-extension/  Connect-your-accounts browser extension
 
 Backend env vars (Railway):
 
-- `GROQ_API_KEY` — the only required AI key (Groq `llama-4-scout`).
+- `GROQ_API_KEY` — the only required AI key (Groq multimodal).
+- `GROQ_MODEL` — optional; defaults to `qwen/qwen3.6-27b`.
 - `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` — cloud browser + cookie sync.
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` — for the Google-API tool
   layer's per-user OAuth token refresh.

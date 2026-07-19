@@ -5,7 +5,7 @@
   (permanent public URL; ngrok only for local dev)
 - iOS: Swift + SwiftUI, iOS 17+, AVFoundation, Speech framework, no third-party deps
 - Chrome extension: Manifest V3, vanilla JS — auth + cookie sync only (no automation)
-- AI: Groq llama-4-scout ONLY (multimodal — text + vision)
+- AI: Groq ONLY (multimodal — text + vision; default `qwen/qwen3.6-27b`)
 - Realtime: WebSocket for live event broadcasting
 - Execution is 100% cloud (Railway = brain, iOS = eyes/ears). Tools run three ways:
   Google REST APIs, a Browserbase cloud browser, or a phone-side URL scheme.
@@ -20,9 +20,11 @@ chrome-extension/  "Connect your accounts" browser extension (auth + cookie sync
 - NEVER touch CameraManager.swift or SpeechRecognizer.swift
 - NEVER add Python dependencies without asking first
 - NEVER put AI logic in any frontend — backend only
-- AI Provider: Groq (llama-4-scout) ONLY. No Gemini, no OpenAI, no other
-  providers. GROQ_API_KEY is the only required AI key. Never add Gemini
-  dependencies. (google-* packages are for Google service APIs / auth, NOT AI.)
+- AI Provider: Groq ONLY. No Gemini, no direct OpenAI, no other providers.
+  Default model is `qwen/qwen3.6-27b` (multimodal; replaces shut-down
+  `meta-llama/llama-4-scout-17b-16e-instruct`). GROQ_API_KEY is the only
+  required AI key. Never add Gemini dependencies. (google-* packages are for
+  Google service APIs / auth, NOT AI. `openai/gpt-oss-*` on Groq is still Groq.)
 - All API errors must surface in UI, no silent console-only failures
 - Adaptive light/dark theme across frontends from three raw colors: Carbon
   #212222, Alabaster #DBDDDE, Cool Steel #99ACBE. Light: Alabaster bg / Carbon
@@ -80,7 +82,7 @@ The ReAct agent (backend/agent.py) picks one tool per step and routes by runs_on
   ios.create_reminder, ios.create_note, ios.open_maps, ios.send_message_draft
 
 ## ReAct agent (backend/agent.py, agent_prompt.py)
-/ingest runs a deep ReAct loop on Groq (llama-4-scout): THINK -> ACT (one tool) ->
+/ingest runs a deep ReAct loop on Groq: THINK -> ACT (one tool) ->
 OBSERVE the real result -> repeat, until the agent emits `finish` or hits
 AGENT_MAX_STEPS (default 20). One JSON action per turn: tool_call | ask_user
 (pauses; resumed via the next /ingest on the same session_id, or POST /agent/reply)

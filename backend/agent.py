@@ -1,6 +1,6 @@
 """Lumis ReAct agent.
 
-A deep reasoning loop on Groq (llama-4-scout): THINK -> ACT -> OBSERVE -> ...
+A deep reasoning loop on Groq (multimodal): THINK -> ACT -> OBSERVE -> ...
 One tool call per iteration, reading the real result before deciding the next
 step. Replaces the old single-shot llm.py planner + engine.py runner.
 
@@ -64,12 +64,38 @@ def _debug_dump(payload: dict) -> str:
 
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+# llama-4-scout was shut down on Groq (2026-07-17). Default to the multimodal
+# replacement; override with GROQ_MODEL. Qwen needs reasoning_effort=none for
+# reliable JSON-mode agent turns.
+DEFAULT_GROQ_MODEL = "qwen/qwen3.6-27b"
+GROQ_MODEL = os.getenv("GROQ_MODEL", DEFAULT_GROQ_MODEL)
 
 MAX_STEPS = int(os.getenv("AGENT_MAX_STEPS", "20"))      # hard cap on tool calls
 # Fail fast if Groq is slow so the user gets feedback quickly rather than a long
 # hang (Part 2). Overridable for vision-heavy steps via AGENT_THINK_TIMEOUT.
-THINK_TIMEOUT_S = int(os.getenv("AGENT_THINK_TIMEOUT", "12"))
+THINK_TIMEOUT_S = int(os.getenv("AGENT_THINK_TIMEOUT", "20"))
+
+
+def _is_model_missing_error(exc: BaseException) -> bool:
+    text = str(exc).lower()
+    return "model_not_found" in text or "does not exist" in text or "do not have access" in text
+
+
+def _groq_chat(client, *, model: str, messages: list, **kwargs):
+    """Call Groq chat completions with model-specific kwargs.
+
+    Qwen 3.6 defaults to reasoning tokens that break JSON mode unless
+    reasoning_effort is set to \"none\".
+    """
+    create_kwargs = dict(kwargs)
+    if model.startswith("qwen/"):
+        create_kwargs.setdefault("reasoning_effort", "none")
+    return client.chat.completions.create(
+        model=model,
+        messages=messages,
+        **create_kwargs,
+    )
+
 
 # Tool args holding a datetime that must be ISO-8601 before execution.
 _DATETIME_ARGS = {
@@ -150,7 +176,7 @@ def _date_block() -> str:
     )
 
 
-# llama-4-scout does not reliably follow the exact action schema — it very often
+# The model does not always follow the exact action schema — it very often
 # puts the tool name directly in "action" (e.g. {"action": "gmail.read_inbox"})
 # instead of {"action": "tool_call", "tool": "gmail.read_inbox"}, or omits
 # "action" entirely and just gives a "tool". If we don't tolerate these, the loop
@@ -381,16 +407,35 @@ class LumisAgent:
         from groq import Groq
 
         client = Groq(api_key=GROQ_API_KEY)
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[
-                {"role": "system", "content": _date_block() + AGENT_SYSTEM_PROMPT},
-                *self.context,
-            ],
-            temperature=0,
-            response_format={"type": "json_object"},
-            timeout=THINK_TIMEOUT_S,
-        )
+        messages = [
+            {"role": "system", "content": _date_block() + AGENT_SYSTEM_PROMPT},
+            *self.context,
+        ]
+        model = GROQ_MODEL
+        try:
+            response = _groq_chat(
+                client,
+                model=model,
+                messages=messages,
+                temperature=0,
+                response_format={"type": "json_object"},
+                timeout=THINK_TIMEOUT_S,
+            )
+        except Exception as exc:  # noqa: BLE001 - migrate off shut-down model IDs
+            if not _is_model_missing_error(exc) or model == DEFAULT_GROQ_MODEL:
+                raise
+            logger.warning(
+                "GROQ_MODEL %s unavailable (%s); falling back to %s",
+                model, exc, DEFAULT_GROQ_MODEL,
+            )
+            response = _groq_chat(
+                client,
+                model=DEFAULT_GROQ_MODEL,
+                messages=messages,
+                temperature=0,
+                response_format={"type": "json_object"},
+                timeout=THINK_TIMEOUT_S,
+            )
         return response.choices[0].message.content or "{}"
 
     def _drop_stale_images(self) -> None:
