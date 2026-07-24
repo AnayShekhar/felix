@@ -62,7 +62,14 @@ enum APIClient {
     static func latest(baseURL: String) async throws -> WSEnvelope? {
         var req = URLRequest(url: URL(string: "\(baseURL)/latest")!)
         authorize(&req)
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            struct Detail: Codable { let detail: String? }
+            let detail = (try? JSONDecoder().decode(Detail.self, from: data))?.detail
+            throw NSError(domain: "Lumis", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey:
+                                     detail ?? "Server returned HTTP \(http.statusCode)."])
+        }
         return try? JSONDecoder().decode(WSEnvelope.self, from: data)
     }
 
@@ -70,7 +77,14 @@ enum APIClient {
     static func history(baseURL: String) async throws -> [ActionHistoryItem] {
         var req = URLRequest(url: Config.historyURL(base: baseURL))
         authorize(&req)
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            struct Detail: Codable { let detail: String? }
+            let detail = (try? JSONDecoder().decode(Detail.self, from: data))?.detail
+            throw NSError(domain: "Lumis", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey:
+                                     detail ?? "Server returned HTTP \(http.statusCode)."])
+        }
         return (try? JSONDecoder().decode(HistoryResponse.self, from: data))?.actions ?? []
     }
 
@@ -88,7 +102,14 @@ enum APIClient {
         req.httpBody = try JSONSerialization.data(
             withJSONObject: ["instruction": instruction, "session_id": sessionID]
         )
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            struct Detail: Codable { let detail: String? }
+            let detail = (try? JSONDecoder().decode(Detail.self, from: data))?.detail
+            throw NSError(domain: "Lumis", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey:
+                                     detail ?? "Server returned HTTP \(http.statusCode)."])
+        }
         return try JSONDecoder().decode(TaskCreateResponse.self, from: data)
     }
 
@@ -96,7 +117,15 @@ enum APIClient {
     static func undo(actionID: Int, baseURL: String) async throws -> UndoResponse {
         var req = URLRequest(url: Config.undoURL(base: baseURL, actionID: actionID))
         req.httpMethod = "POST"
-        let (data, _) = try await URLSession.shared.data(for: req)
+        authorize(&req)
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            struct Detail: Codable { let detail: String? }
+            let detail = (try? JSONDecoder().decode(Detail.self, from: data))?.detail
+            throw NSError(domain: "Lumis", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey:
+                                     detail ?? "Server returned HTTP \(http.statusCode)."])
+        }
         return try JSONDecoder().decode(UndoResponse.self, from: data)
     }
 }

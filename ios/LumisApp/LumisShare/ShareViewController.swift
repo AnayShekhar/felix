@@ -18,7 +18,8 @@ final class ShareViewController: UIViewController {
     /// MUST match AppSettings.appGroupID in the main app.
     private static let appGroupID = "group.com.lumis.shared"
     private static let backendURLKey = "lumis.backendURL"
-    private static let fallbackURL = "https://greyhound-self-division.ngrok-free.dev"
+    private static let authTokenKey = "lumis.authToken"
+    private static let fallbackURL = "https://lumis-production-b878.up.railway.app"
 
     private var model = ShareModel()
 
@@ -144,9 +145,22 @@ final class ShareViewController: UIViewController {
         return raw.hasSuffix("/") ? String(raw.dropLast()) : raw
     }
 
+    private var authToken: String? {
+        let shared = UserDefaults(suiteName: Self.appGroupID)?
+            .string(forKey: Self.authTokenKey)
+        let standard = UserDefaults.standard.string(forKey: Self.authTokenKey)
+        return [shared, standard].compactMap { $0 }
+            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
     private func send() {
         model.sending = true
         model.toast = nil
+
+        guard let token = authToken, !token.isEmpty else {
+            finishWithError("Sign in to Lumis in the main app first.")
+            return
+        }
 
         let prompt = model.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         // The editable prompt is the instruction; PDF text is appended as context.
@@ -171,6 +185,7 @@ final class ShareViewController: UIViewController {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.httpBody = body
         req.timeoutInterval = 20
 

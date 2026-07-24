@@ -43,6 +43,7 @@ if _memory_dir:
 # Human-readable labels so the injected prompt reads naturally.
 _LABELS = {
     "expense_file": "Your expense spreadsheet file path",
+    "expense_sheet_id": "Your expense Google Sheet id",
     "music_service": "Preferred music service",
     "last_email_recipient": "Most recent email recipient",
     "default_browser": "Default browser",
@@ -204,6 +205,19 @@ def delete(key: str) -> bool:
     return False
 
 
+def delete_user(user_id: str) -> None:
+    """Remove an account's entire memory sub-store (account deletion)."""
+    store = _load_all()
+    if user_id not in store:
+        return
+    del store[user_id]
+    tmp = MEMORY_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(store, fh, indent=2, ensure_ascii=False)
+    os.replace(tmp, MEMORY_PATH)
+    logger.info("Cleared memory for user %s", user_id)
+
+
 def learn_from_action(tool: str, args: dict, result: dict) -> None:
     """Extract durable preferences from a SUCCESSFUL action and persist them.
 
@@ -220,17 +234,15 @@ def learn_from_action(tool: str, args: dict, result: dict) -> None:
         counts = _bump_counter("_command_pattern_counts", cat)
         set_pref("command_patterns", json.dumps(_top_items(counts, 5)))
 
-    if tool == "numbers.add_expense":
-        if data.get("file"):
-            set_pref("expense_file", data["file"])
+    if tool == "sheets.add_row" and (args.get("expense") or data.get("expense")):
+        sheet_id = data.get("spreadsheet_id") or data.get("sheet_id")
+        if sheet_id:
+            set_pref("expense_sheet_id", str(sheet_id))
 
     elif tool == "media.open_spotify":
         set_pref("music_service", "Spotify")
 
-    elif tool == "media.open_apple_music":
-        set_pref("music_service", "Apple Music")
-
-    elif tool == "gmail.draft_email":
+    elif tool in ("gmail.draft_email", "gmail.send_email"):
         to = str(data.get("to") or args.get("to") or "").strip()
         if "@" in to:
             set_pref("last_email_recipient", to)
@@ -238,7 +250,6 @@ def learn_from_action(tool: str, args: dict, result: dict) -> None:
             set_pref("frequent_contacts", json.dumps(_top_items(counts, 5)))
 
     elif tool == "browser.open_url":
-        # browser.open_url (and Gmail) always drive Chrome in this build.
         set_pref("default_browser", "Chrome")
 
     elif tool == "calendar.create_event":
@@ -249,7 +260,7 @@ def learn_from_action(tool: str, args: dict, result: dict) -> None:
             if top:
                 set_pref("preferred_calendar", top[0])
 
-    elif tool == "reminders.add_item":
+    elif tool in ("tasks.create_task", "ios.create_reminder"):
         lst = str(data.get("list_name") or args.get("list_name") or "").strip()
         if lst:
             counts = _bump_counter("_reminder_list_counts", lst)
@@ -257,9 +268,8 @@ def learn_from_action(tool: str, args: dict, result: dict) -> None:
             if top:
                 set_pref("preferred_reminder_list", top[0])
 
-    elif tool == "contacts.find":
-        # Count each resolved contact (prefer email, fall back to name).
-        for m in (data.get("results") or []):
+    elif tool == "people.search_contacts":
+        for m in (data.get("results") or data.get("contacts") or []):
             if not isinstance(m, dict):
                 continue
             ident = str(m.get("email") or m.get("name") or "").strip()
@@ -267,15 +277,8 @@ def learn_from_action(tool: str, args: dict, result: dict) -> None:
                 counts = _bump_counter("_contact_counts", ident)
                 set_pref("frequent_contacts", json.dumps(_top_items(counts, 5)))
 
-    elif tool.startswith("finder."):
-        # Infer the most-used directory from any path the finder op touched.
-        path = (
-            data.get("path")
-            or data.get("destination")
-            or data.get("new_path")
-            or args.get("path")
-            or args.get("destination")
-        )
+    elif tool == "drive.move_file":
+        path = data.get("destination") or args.get("destination") or args.get("folder")
         if path:
             directory = os.path.dirname(str(path)) or str(path)
             if directory:

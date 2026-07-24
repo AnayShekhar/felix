@@ -374,12 +374,18 @@ def ios_create_reminder(args: dict) -> dict:
     if not title:
         raise ToolError("ios.create_reminder requires a 'title'.")
     due = str(args.get("due_date") or "").strip()
-    url = "x-apple-reminderkit://create?" + urllib.parse.urlencode({"title": title})
+    # ReminderKit URL scheme only reliably accepts title; include due date in
+    # the title suffix so the phone still surfaces the timing, and put the
+    # raw due value in data for clients that can do better.
+    display = title if not due else f"{title} (due {due})"
+    url = "x-apple-reminderkit://create?" + urllib.parse.urlencode({"title": display})
     fallback = "shortcuts://run-shortcut?" + urllib.parse.urlencode(
-        {"name": "Add Reminder", "input": title})
+        {"name": "Add Reminder", "input": display})
     msg = f'Adding a reminder "{title}"' + (f" due {due}." if due else ".")
-    return _ios_action("ios.create_reminder", "New Reminder", msg,
-                       f"Adding the reminder {title}.", url, fallback)
+    result = _ios_action("ios.create_reminder", "New Reminder", msg,
+                         f"Adding the reminder {title}.", url, fallback)
+    result["data"] = {**(result.get("data") or {}), "title": title, "due_date": due or None}
+    return result
 
 
 def ios_create_note(args: dict) -> dict:

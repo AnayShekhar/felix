@@ -1,6 +1,7 @@
-"""Lumis pipeline: INPUT -> ReAct AGENT -> REAL ACTIONS (cloud + Mac agent)."""
+"""Lumis pipeline: INPUT -> ReAct AGENT -> REAL ACTIONS (cloud + iOS)."""
 import asyncio
 import logging
+import os
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -111,13 +112,14 @@ async def history(limit: int = 50, user: dict = Depends(current_user)):
 
 
 @router.post("/undo/{action_id}")
-async def undo(action_id: int):
+async def undo(action_id: int, user: dict = Depends(current_user)):
     """Undo a previously executed action by running its stored undo script.
 
-    Returns 404 if the action does not exist and 400 if it cannot be undone.
-    Broadcasts an `action_undone` event to all WebSocket clients on success.
+    Returns 404 if the action does not exist (or belongs to another account)
+    and 400 if it cannot be undone. Broadcasts an `action_undone` event on
+    success.
     """
-    action = db.get_action(action_id)
+    action = db.get_action(action_id, user_id=user["id"])
     if action is None:
         raise HTTPException(status_code=404, detail="Action not found.")
     if not action["undo_available"] or not action.get("undo_script"):
@@ -130,7 +132,7 @@ async def undo(action_id: int):
         db.mark_undone(action_id)
         await manager.broadcast({
             "session_id": action["session_id"],
-            "user_id": action.get("user_id"),
+            "user_id": action.get("user_id") or user["id"],
             "event": "action_undone",
             "data": {"action_id": action_id, "tool": action["tool_name"], **result},
         })
@@ -156,10 +158,10 @@ async def create_task(payload: TaskPayload, user: dict = Depends(current_user)):
 
 
 @router.get("/task/{task_id}/status")
-async def task_status(task_id: str):
+async def task_status(task_id: str, user: dict = Depends(current_user)):
     """Return a task's status: queued | running | done | failed, its steps, and
-    progress_pct (0-100). 404 if the task id is unknown."""
-    status = tasks.get_status(task_id)
+    progress_pct (0-100). 404 if the task id is unknown or owned by someone else."""
+    status = tasks.get_status(task_id, user_id=user["id"])
     if status is None:
         raise HTTPException(status_code=404, detail="Task not found.")
     return status
@@ -222,8 +224,11 @@ async def connection_status(user: dict = Depends(current_user)):
 
     details = connections.get_connection_details(user["id"])
     last = max((d["last_synced_at"] for d in details), default=None)
+    fresh = [d["service"] for d in details if d.get("fresh")]
+    stale = [d["service"] for d in details if d.get("stale")]
     return {
-        "connected": [d["service"] for d in details],
+        "connected": fresh,  # only fresh services count as connected for UI+tools
+        "stale": stale,
         "services": details,
         "ever_synced": bool(details),
         "last_synced_at": last,
@@ -417,3 +422,21 @@ async def verify_service_cookies(service: str, user: dict = Depends(current_user
 @router.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@router.get("/health/dependencies")
+async def health_dependencies():
+    """Non-secret readiness of external dependencies (for deploy checks)."""
+    groq_key = bool(os.getenv("GROQ_API_KEY"))
+    browserbase = bool(os.getenv("BROWSERBASE_API_KEY") and os.getenv("BROWSERBASE_PROJECT_ID"))
+    google_oauth = bool(os.getenv("GOOGLE_OAUTH_CLIENT_ID") and os.getenv("GOOGLE_OAUTH_CLIENT_SECRET"))
+    jwt = bool(os.getenv("LUMIS_JWT_SECRET"))
+    ok = groq_key and jwt
+    return {
+        "status": "ok" if ok else "degraded",
+        "groq": groq_key,
+        "jwt_secret": jwt,
+        "browserbase": browserbase,
+        "google_oauth": google_oauth,
+        "model": os.getenv("GROQ_MODEL", "qwen/qwen3.6-27b"),
+    }

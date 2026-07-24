@@ -99,8 +99,9 @@ def _groq_chat(client, *, model: str, messages: list, **kwargs):
 
 # Tool args holding a datetime that must be ISO-8601 before execution.
 _DATETIME_ARGS = {
-    "calendar.create_event": ("start_datetime",),
-    "reminders.add_item": ("due_date",),
+    "calendar.create_event": ("start_datetime", "end_datetime"),
+    "tasks.create_task": ("due_date",),
+    "ios.create_reminder": ("due_date",),
 }
 
 Broadcast = Callable[[dict], Awaitable[None]]
@@ -121,6 +122,11 @@ _HISTORY_INJECT_TURNS = 5
 _HISTORY_TTL_S = 2 * 60 * 60
 
 
+def _history_key(user_id: str, session_id: str) -> str:
+    """Scope conversation transcript to one account + session."""
+    return f"{user_id or '_anon'}::{session_id or ''}"
+
+
 def _prune_expired_sessions() -> None:
     now = time.time()
     stale = [
@@ -131,26 +137,28 @@ def _prune_expired_sessions() -> None:
         del _session_history[sid]
 
 
-def _append_turn(session_id: str, role: str, content: str) -> None:
+def _append_turn(user_id: str, session_id: str, role: str, content: str) -> None:
     content = str(content or "").strip()
     if not session_id or not content:
         return
+    key = _history_key(user_id, session_id)
     with _history_lock:
         _prune_expired_sessions()
         sess = _session_history.setdefault(
-            session_id, {"turns": [], "last_activity": time.time()}
+            key, {"turns": [], "last_activity": time.time()}
         )
         sess["turns"].append({"role": role, "content": content})
         sess["turns"] = sess["turns"][-_HISTORY_MAX_TURNS:]
         sess["last_activity"] = time.time()
 
 
-def _conversation_block(session_id: str) -> str:
+def _conversation_block(user_id: str, session_id: str) -> str:
     if not session_id:
         return ""
+    key = _history_key(user_id, session_id)
     with _history_lock:
         _prune_expired_sessions()
-        sess = _session_history.get(session_id)
+        sess = _session_history.get(key)
         turns = list(sess["turns"]) if sess else []
     if not turns:
         return ""
@@ -322,8 +330,8 @@ class LumisAgent:
         # task (e.g. turning previous research into the spreadsheet instead of
         # reading the new photo). Conversation context is only for image-less
         # follow-ups like "do that again" / "change the time".
-        block = "" if image_b64 else _conversation_block(self.session_id)
-        _append_turn(self.session_id, "user", voice_text)
+        block = "" if image_b64 else _conversation_block(self.user_id, self.session_id)
+        _append_turn(self.user_id, self.session_id, "user", voice_text)
 
         self.context.append({
             "role": "user",
@@ -344,7 +352,7 @@ class LumisAgent:
     async def resume(self, user_reply: str, image_b64: Optional[str] = None) -> None:
         """Continue a paused run after the user answers a clarifying question."""
         memory.set_user(self.user_id)
-        _append_turn(self.session_id, "user", user_reply)
+        _append_turn(self.user_id, self.session_id, "user", user_reply)
         self.pending_question = None
 
         content: list = [{"type": "text", "text": f"User's answer: {user_reply}"}]
@@ -633,7 +641,7 @@ class LumisAgent:
         speak = decision.get("speak") or summary
         title = decision.get("title") or "Complete"
         url = decision.get("url")
-        _append_turn(self.session_id, "lumis", summary)
+        _append_turn(self.user_id, self.session_id, "lumis", summary)
 
         agent_done_payload = {
             "event": "agent_done",

@@ -7,7 +7,14 @@ extension APIClient {
     static func memory(baseURL: String) async throws -> [String: String] {
         var req = URLRequest(url: URL(string: "\(baseURL)/memory")!)
         authorize(&req)
-        let (data, _) = try await URLSession.shared.data(for: req)
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
+            struct Detail: Codable { let detail: String? }
+            let detail = (try? JSONDecoder().decode(Detail.self, from: data))?.detail
+            throw NSError(domain: "Lumis", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey:
+                                     detail ?? "Server returned HTTP \(http.statusCode)."])
+        }
         struct Resp: Codable { let memory: [String: String]? }
         return (try? JSONDecoder().decode(Resp.self, from: data))?.memory ?? [:]
     }

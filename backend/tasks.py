@@ -46,10 +46,15 @@ def create_task(instruction: str, session_id: str, user_id: str = db.GLOBAL_USER
     return task_id
 
 
-def get_status(task_id: str) -> Optional[dict]:
-    """Return the public status contract for a task, or None if unknown."""
+def get_status(task_id: str, user_id: Optional[str] = None) -> Optional[dict]:
+    """Return the public status contract for a task, or None if unknown.
+
+    When `user_id` is given, only that account's tasks are visible.
+    """
     t = _tasks.get(task_id)
     if t is None:
+        return None
+    if user_id is not None and t.get("user_id") != user_id:
         return None
     return {
         "task_id": t["task_id"],

@@ -216,6 +216,13 @@ def has_google(user_id: str) -> bool:
     return bool(tok and tok.get("refresh_token"))
 
 
+def delete_user_tokens(user_id: str) -> None:
+    """Remove stored Google OAuth tokens for account deletion."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM google_tokens WHERE user_id = ?", (user_id,))
+        conn.commit()
+
+
 def get_credentials(user_id: str):
     """Build a refreshable google.oauth2 Credentials object for the user.
 
