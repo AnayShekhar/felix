@@ -77,8 +77,8 @@ Lumis is account-based, so everything is scoped to one login and one memory.
 | **Contacts** | Look people up in Google Contacts. |
 | **Drive** | Search and move files (Drive only — no local files). |
 | **Browser** | Open pages, read them, click, fill forms, screenshot — on a real cloud browser signed in as you. |
-| **Media** | Play/pause and search Spotify via the web player. |
-| **Other** | Notion, Slack, LinkedIn, Airtable via the cloud browser. |
+| **Media** | Search/open Spotify via the web player (play/pause when the control is available). |
+| **Other** | Notion, Slack, LinkedIn, Airtable — opens the right cloud-browser surface for you to finish (full create/post/send automation is not complete yet). |
 | **Web** | Search, fetch a page, or run a research agent that searches + synthesizes + saves a Google Doc. |
 | **iPhone** | Create a reminder/note, open Maps, draft an iMessage — via URL schemes on the phone itself. |
 

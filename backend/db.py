@@ -147,16 +147,27 @@ def get_history(limit: int = 50, user_id: Optional[str] = None) -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
-def get_action(action_id: int) -> Optional[dict]:
-    """Return one action row including its undo_script, or None."""
+def get_action(action_id: int, user_id: Optional[str] = None) -> Optional[dict]:
+    """Return one action row including its undo_script, or None.
+
+    When `user_id` is given, the row must belong to that account.
+    """
     with _connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM actions WHERE id = ?", (action_id,)
-        ).fetchone()
+        if user_id is None:
+            row = conn.execute(
+                "SELECT * FROM actions WHERE id = ?", (action_id,)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT * FROM actions WHERE id = ? AND user_id = ?",
+                (action_id, user_id),
+            ).fetchone()
     if row is None:
         return None
     data = _row_to_dict(row)
     data["undo_script"] = row["undo_script"]
+    data["user_id"] = row["user_id"]
+    data["session_id"] = row["session_id"]
     return data
 
 
@@ -166,3 +177,10 @@ def mark_undone(action_id: int) -> None:
         conn.execute(
             "UPDATE actions SET undo_available = 0 WHERE id = ?", (action_id,)
         )
+
+
+def delete_user_actions(user_id: str) -> None:
+    """Remove every action row owned by this account (account deletion)."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM actions WHERE user_id = ?", (user_id,))
+        conn.commit()

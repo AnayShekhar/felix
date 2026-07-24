@@ -67,13 +67,10 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    /// No backend reset endpoint exists yet; this confirms the flow client-side.
+    /// Password reset by email is not implemented on the backend yet.
     func sendPasswordReset(email: String) async -> Bool {
-        guard email.contains("@") else {
-            error = "Enter a valid email address."
-            return false
-        }
-        return true
+        error = "Password reset isn't available yet. Use Apple or Google sign-in, or create a new account."
+        return false
     }
 
     // MARK: - Sign in with Apple
@@ -169,6 +166,12 @@ final class AuthViewModel: ObservableObject {
     private func apply(_ resp: AuthResponse) {
         KeychainManager.token = resp.token
         KeychainManager.saveUser(resp.user)
+        // Share extension can't read the Keychain without an access group; mirror
+        // the token into the App Group so Share can authorize /ingest.
+        UserDefaults(suiteName: "group.com.lumis.shared")?
+            .set(resp.token, forKey: "lumis.authToken")
+        UserDefaults(suiteName: "group.com.lumis.shared")?
+            .set(LumisConfig.backendURL, forKey: "lumis.backendURL")
         currentUser = resp.user
         isAuthenticated = true
         error = nil
@@ -176,6 +179,8 @@ final class AuthViewModel: ObservableObject {
 
     private func signOutLocal() {
         KeychainManager.clear()
+        UserDefaults(suiteName: "group.com.lumis.shared")?
+            .removeObject(forKey: "lumis.authToken")
         currentUser = nil
         isAuthenticated = false
     }

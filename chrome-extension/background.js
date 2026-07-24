@@ -159,6 +159,7 @@ async function errorDetail(res, fallback) {
 const SERVICE_DOMAINS = {
   gmail:     "google.com",
   sheets:    "google.com",
+  spotify:   "spotify.com",
   notion:    "notion.so",
   linkedin:  "linkedin.com",
   slack:     "slack.com",

@@ -7,9 +7,17 @@ browser, or a phone-side URL scheme. There is no Mac app or Mac agent to run.
 
 ## 1. Start the backend (terminal 1)
 
+First-time setup (creates `backend/venv`, installs deps + Playwright Chromium,
+and writes a local `backend/.env` with a generated `LUMIS_JWT_SECRET`):
+
+```bash
+bash scripts/setup_backend.sh
+# then edit backend/.env and set at least GROQ_API_KEY
+```
+
 ```bash
 cd backend
-source venv/bin/activate          # first time: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+source venv/bin/activate
 uvicorn main:app --port 8000
 ```
 
@@ -18,6 +26,7 @@ Set these in `backend/.env` (see `.env.example`):
 - `GROQ_MODEL` — optional; defaults to `qwen/qwen3.6-27b` (multimodal)
 - `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` — cloud browser
 - `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` — Google API tools
+- `LUMIS_JWT_SECRET` — required on Railway; setup script generates one locally
 
 The backend serves, among others:
 - `POST /ingest` — `{session_id, image, voice_text}` → runs the ReAct agent

@@ -4,10 +4,11 @@
 const SUPPORTED_SERVICES = [
   { id: "gmail",    glyph: "GM", name: "Gmail browser",  sub: "Signed-in web session" },
   { id: "sheets",   glyph: "SH", name: "Sheets browser", sub: "Signed-in web session" },
-  { id: "notion",   glyph: "N",  name: "Notion",         sub: "Create and edit pages" },
-  { id: "linkedin", glyph: "IN", name: "LinkedIn",       sub: "Search and post updates" },
-  { id: "slack",    glyph: "S",  name: "Slack",          sub: "Send messages" },
-  { id: "airtable", glyph: "A",  name: "Airtable",       sub: "Manage records" },
+  { id: "spotify",  glyph: "SP", name: "Spotify",        sub: "Play and control music" },
+  { id: "notion",   glyph: "N",  name: "Notion",         sub: "Open pages in cloud browser" },
+  { id: "linkedin", glyph: "IN", name: "LinkedIn",       sub: "Open feed to post" },
+  { id: "slack",    glyph: "S",  name: "Slack",          sub: "Open Slack to message" },
+  { id: "airtable", glyph: "A",  name: "Airtable",       sub: "Open Airtable to edit" },
 ];
 
 // Inline vector icons (no emoji anywhere in this UI).

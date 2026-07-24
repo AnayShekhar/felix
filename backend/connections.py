@@ -19,6 +19,10 @@ import db
 
 logger = logging.getLogger("lumis.connections")
 
+# A service is only "connected" for tool gating if cookies were synced within
+# this window. Status still reports stale services so the UI can nudge re-sync.
+FRESH_WITHIN_S = int(os.getenv("CONNECTION_FRESH_S", str(24 * 60 * 60)))
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS browser_contexts (
     user_id     TEXT PRIMARY KEY,
@@ -85,24 +89,47 @@ def get_connection_details(user_id: str) -> List[dict]:
     """Each connected service with when its cookies were last synced.
 
     `connected_at` is refreshed on every successful cookie sync, so it is the
-    honest "last synced" timestamp the status endpoint reports.
+    honest "last synced" timestamp the status endpoint reports. Includes a
+    `fresh` flag so clients can distinguish live vs stale connections.
     """
+    now = time.time()
     with _connect() as conn:
         rows = conn.execute(
             "SELECT service, connected_at FROM connected_services "
             "WHERE user_id = ? ORDER BY connected_at",
             (user_id,),
         ).fetchall()
-    return [{"service": r["service"], "last_synced_at": r["connected_at"]} for r in rows]
+    out = []
+    for r in rows:
+        age = now - float(r["connected_at"] or 0)
+        out.append({
+            "service": r["service"],
+            "last_synced_at": r["connected_at"],
+            "fresh": age <= FRESH_WITHIN_S,
+            "stale": age > FRESH_WITHIN_S,
+        })
+    return out
 
 
-def get_connected_services(user_id: str) -> List[str]:
+def get_connected_services(user_id: str, *, fresh_only: bool = True) -> List[str]:
+    """Services available for tool gating.
+
+    By default only returns services synced within FRESH_WITHIN_S so expired
+    cookie sessions are not treated as connected forever.
+    """
+    now = time.time()
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT service FROM connected_services WHERE user_id = ? ORDER BY connected_at",
+            "SELECT service, connected_at FROM connected_services "
+            "WHERE user_id = ? ORDER BY connected_at",
             (user_id,),
         ).fetchall()
-    return [r["service"] for r in rows]
+    out = []
+    for r in rows:
+        if fresh_only and (now - float(r["connected_at"] or 0)) > FRESH_WITHIN_S:
+            continue
+        out.append(r["service"])
+    return out
 
 
 def remove_connected_service(user_id: str, service: str) -> None:
@@ -111,4 +138,12 @@ def remove_connected_service(user_id: str, service: str) -> None:
             "DELETE FROM connected_services WHERE user_id = ? AND service = ?",
             (user_id, service),
         )
+        conn.commit()
+
+
+def delete_user_data(user_id: str) -> None:
+    """Wipe Browserbase context + connected-service rows for account deletion."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM connected_services WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM browser_contexts WHERE user_id = ?", (user_id,))
         conn.commit()

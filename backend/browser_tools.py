@@ -248,8 +248,14 @@ async def media_open_spotify(args: dict, user_id: str) -> dict:
         await page.goto(target, wait_until="domcontentloaded", timeout=30000)
         await page.wait_for_timeout(1500)
         if query:
-            with contextlib.suppress(Exception):
+            try:
                 await page.locator('[data-testid="tracklist-row"]').first.click(timeout=8000)
+            except Exception as exc:  # noqa: BLE001
+                return {"tool": "media.open_spotify", "status": "error",
+                        "title": "Spotify",
+                        "message": f"Opened Spotify search for {query} but couldn't start playback: {exc}",
+                        "url": page.url, "speak": f"Couldn't play {query} on Spotify.",
+                        "data": {"url": page.url, "query": query}}
         return {"tool": "media.open_spotify", "status": "success",
                 "title": "Spotify", "message": f"Opened Spotify{f' for {query}' if query else ''}.",
                 "url": page.url, "speak": f"Playing {query} on Spotify." if query else "Opened Spotify.",
@@ -259,46 +265,76 @@ async def media_open_spotify(args: dict, user_id: str) -> dict:
 async def media_play_pause(args: dict, user_id: str) -> dict:
     async with cloud_page(user_id) as page:
         await page.goto("https://open.spotify.com", wait_until="domcontentloaded", timeout=30000)
-        with contextlib.suppress(Exception):
+        try:
             await page.locator('[data-testid="control-button-playpause"]').first.click(timeout=8000)
+        except Exception as exc:  # noqa: BLE001
+            return {"tool": "media.play_pause", "status": "error", "title": "Spotify",
+                    "message": f"Couldn't toggle playback: {exc}", "url": page.url,
+                    "speak": "Couldn't control Spotify playback.",
+                    "data": {"url": page.url}}
         return {"tool": "media.play_pause", "status": "success", "title": "Spotify",
                 "message": "Toggled playback.", "url": page.url,
                 "data": {"url": page.url}}
 
 
-async def _create_via_new_page(user_id: str, tool: str, url: str, service: str,
-                               label: str) -> dict:
+async def _open_service_page(user_id: str, tool: str, url: str, service: str,
+                             intent: str, content_hint: str = "") -> dict:
+    """Open a service page for the user to finish — do NOT pretend the action completed.
+
+    These tools drive a cloud browser signed in via synced cookies. Full
+    create/post/send automation is incomplete; we open the right surface and
+    return an honest `opened` status so the agent/UI don't claim success.
+    """
     async with cloud_page(user_id) as page:
         await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-        return {"tool": tool, "status": "success", "title": label,
-                "message": f"Opened {service} to {label.lower()}.", "url": page.url,
-                "speak": f"Opened {service}.", "data": {"url": page.url}}
+        hint = f" Suggested content: {content_hint}" if content_hint else ""
+        return {
+            "tool": tool,
+            "status": "success",
+            "title": f"{service} opened",
+            "message": (
+                f"Opened {service} for you to {intent} yourself in the cloud browser."
+                f"{hint} Lumis cannot fully automate this action yet."
+            ),
+            "url": page.url,
+            "speak": f"Opened {service}. Finish {intent} there.",
+            "data": {"url": page.url, "automated": False, "intent": intent},
+        }
 
 
 async def notion_create_page(args: dict, user_id: str) -> dict:
-    return await _create_via_new_page(user_id, "notion.create_page",
-                                      "https://www.notion.so/new", "Notion", "New page")
+    title = str(args.get("title") or args.get("name") or "").strip()
+    return await _open_service_page(
+        user_id, "notion.create_page", "https://www.notion.so/new", "Notion",
+        "create the page", title)
 
 
 async def notion_append_to_page(args: dict, user_id: str) -> dict:
     url = str(args.get("url") or "https://www.notion.so").strip()
-    return await _create_via_new_page(user_id, "notion.append_to_page", url,
-                                      "Notion", "Page")
+    text = str(args.get("text") or args.get("content") or "").strip()
+    return await _open_service_page(
+        user_id, "notion.append_to_page", url, "Notion",
+        "append the content", text[:200])
 
 
 async def linkedin_post_update(args: dict, user_id: str) -> dict:
-    return await _create_via_new_page(user_id, "linkedin.post_update",
-                                      "https://www.linkedin.com/feed/", "LinkedIn", "Post")
+    text = str(args.get("text") or args.get("content") or "").strip()
+    return await _open_service_page(
+        user_id, "linkedin.post_update", "https://www.linkedin.com/feed/",
+        "LinkedIn", "post the update", text[:200])
 
 
 async def slack_send_message(args: dict, user_id: str) -> dict:
-    return await _create_via_new_page(user_id, "slack.send_message",
-                                      "https://app.slack.com/client", "Slack", "Message")
+    text = str(args.get("text") or args.get("message") or "").strip()
+    return await _open_service_page(
+        user_id, "slack.send_message", "https://app.slack.com/client",
+        "Slack", "send the message", text[:200])
 
 
 async def airtable_add_record(args: dict, user_id: str) -> dict:
-    return await _create_via_new_page(user_id, "airtable.add_record",
-                                      "https://airtable.com", "Airtable", "Record")
+    return await _open_service_page(
+        user_id, "airtable.add_record", "https://airtable.com",
+        "Airtable", "add the record")
 
 
 _BROWSER_TOOLS = {

@@ -190,7 +190,13 @@ final class LumisViewModel: ObservableObject {
     /// panels either way.
     func send(image: UIImage?, text: String) {
         var command = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !command.isEmpty else { return }
+        // Photo-only capture: the camera shutter used to no-op because empty
+        // text short-circuited here. Ground the agent on the image with a
+        // clear default instruction when the user didn't speak.
+        if command.isEmpty {
+            guard image != nil else { return }
+            command = "Look at this photo and help me with it."
+        }
 
         if awaitingReply, var chat = currentChat, !viewingArchived {
             // Answering the agent's clarifying question: same stack continues.

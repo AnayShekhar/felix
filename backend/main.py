@@ -3,6 +3,13 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+
+# Load backend/.env before any local module reads os.environ (auth JWT secret,
+# Groq key, Browserbase, Google OAuth). Safe no-op when vars are already set
+# (Railway) or when no .env file exists.
+load_dotenv()
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 

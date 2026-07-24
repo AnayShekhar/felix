@@ -201,3 +201,10 @@ def record_from_result(user_id: str, tool: str, args: dict, result: dict) -> Non
         if ref:
             desc = str(result.get("message") or result.get("title") or tool)[:200]
             record(user_id, tool.split(".", 1)[0], ref, desc, data.get("url"))
+
+
+def delete_user_data(user_id: str) -> None:
+    """Remove working-memory rows for account deletion."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM recent_activity WHERE user_id = ?", (user_id,))
+        conn.commit()

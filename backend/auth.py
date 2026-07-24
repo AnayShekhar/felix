@@ -248,6 +248,14 @@ def _verify_apple(identity_token: str, full_name: Optional[str]) -> dict:
         raise HTTPException(status_code=401, detail="Bad Apple issuer")
     if claims.get("exp", 0) < int(time.time()):
         raise HTTPException(status_code=401, detail="Apple token expired")
+    aud = claims.get("aud")
+    # Apple may return aud as a string or a list of client ids.
+    aud_ok = (
+        aud == _APPLE_BUNDLE_ID
+        or (isinstance(aud, list) and _APPLE_BUNDLE_ID in aud)
+    )
+    if not aud_ok:
+        raise HTTPException(status_code=401, detail="Bad Apple audience")
     email = claims.get("email")
     if not email:
         raise HTTPException(status_code=401, detail="Apple token has no email")
@@ -345,9 +353,37 @@ async def logout(user: dict = Depends(current_user)):
 
 @router.delete("/account")
 async def delete_account(user: dict = Depends(current_user)):
+    """Delete the account and every per-user store (history, memory, tokens…)."""
+    uid = user["id"]
+    # User row first so auth fails immediately for concurrent requests.
     with _connect() as conn:
-        conn.execute("DELETE FROM users WHERE id = ?", (user["id"],))
+        conn.execute("DELETE FROM users WHERE id = ?", (uid,))
         conn.commit()
+    try:
+        import connections
+        connections.delete_user_data(uid)
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed clearing connections for %s", uid)
+    try:
+        import google_oauth
+        google_oauth.delete_user_tokens(uid)
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed clearing Google tokens for %s", uid)
+    try:
+        import recent_activity
+        recent_activity.delete_user_data(uid)
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed clearing recent activity for %s", uid)
+    try:
+        import db as actions_db
+        actions_db.delete_user_actions(uid)
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed clearing action history for %s", uid)
+    try:
+        import memory
+        memory.delete_user(uid)
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed clearing memory for %s", uid)
     return {"success": True}
 
 
