@@ -1,4 +1,4 @@
-"""Authentication for Lumis: email/password + Sign in with Apple + Google.
+"""Authentication for Felix: email/password + Sign in with Apple + Google.
 
 Standard-library + already-installed deps only (no new pip packages):
 - Our own session tokens are HS256 JWTs signed with `hmac`/`hashlib`.
@@ -8,6 +8,8 @@ Standard-library + already-installed deps only (no new pip packages):
 
 Users live in the same SQLite file as the action history (see db.py).
 """
+from brand_config import brand_env
+
 import base64
 import hashlib
 import hmac
@@ -25,25 +27,25 @@ from pydantic import BaseModel
 
 import db
 
-logger = logging.getLogger("lumis.auth")
+logger = logging.getLogger("felix.auth")
 
-# Signing secret for our session JWTs. Set LUMIS_JWT_SECRET in the Railway env
+# Signing secret for our session JWTs. Set FELIX_JWT_SECRET in the Railway env
 # for production; the dev fallback keeps local dev working out of the box but
 # is REFUSED when running on Railway so a deploy can't silently ship it.
-_jwt_secret_raw = os.getenv("LUMIS_JWT_SECRET", "")
+_jwt_secret_raw = brand_env("FELIX_JWT_SECRET", "")
 if not _jwt_secret_raw:
     if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
         raise RuntimeError(
-            "LUMIS_JWT_SECRET is not set. Refusing to start in production with "
-            "the built-in dev secret — set LUMIS_JWT_SECRET in the Railway "
+            "FELIX_JWT_SECRET is not set. Refusing to start in production with "
+            "the built-in dev secret — set FELIX_JWT_SECRET in the Railway "
             "environment (any long random string) and redeploy."
         )
-    logger.warning("LUMIS_JWT_SECRET is not set — using the dev-only fallback secret.")
-    _jwt_secret_raw = "lumis-dev-secret-change-me"
+    logger.warning("FELIX_JWT_SECRET is not set — using the dev-only fallback secret.")
+    _jwt_secret_raw = "felix-dev-secret-change-me"
 _JWT_SECRET = _jwt_secret_raw.encode()
 _TOKEN_TTL = 60 * 60 * 24 * 30  # 30 days
-_GOOGLE_CLIENT_ID = os.getenv("LUMIS_GOOGLE_CLIENT_ID")  # optional audience check
-_APPLE_BUNDLE_ID = os.getenv("LUMIS_APPLE_BUNDLE_ID", "com.anay.lumis")
+_GOOGLE_CLIENT_ID = brand_env("FELIX_GOOGLE_CLIENT_ID")  # optional audience check
+_APPLE_BUNDLE_ID = brand_env("FELIX_APPLE_BUNDLE_ID", "com.anay.lumis")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

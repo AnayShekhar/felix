@@ -1,6 +1,6 @@
-"""Persistent user-preference memory for Lumis (Phase 3).
+"""Persistent user-preference memory for Felix (Phase 3).
 
-Why this exists: Lumis should get smarter the more you use it. After every
+Why this exists: Felix should get smarter the more you use it. After every
 successful action we extract durable, deterministic preferences (where your
 expense file lives, who you last emailed, that you use Spotify) and persist them
 to a simple key/value JSON file. At planning time these are injected into the
@@ -10,6 +10,8 @@ the file) and defaults get filled in.
 Stored as memory.json (key -> {"value", "updated"}) so it's human-inspectable
 and editable. Standard library only.
 """
+from brand_config import brand_env
+
 import json
 import logging
 import os
@@ -17,13 +19,13 @@ import time
 from contextvars import ContextVar
 from typing import Optional
 
-logger = logging.getLogger("lumis.memory")
+logger = logging.getLogger("felix.memory")
 
 # Memory is scoped per account. The current request/workflow sets the active
 # user; all reads/writes below transparently target that user's sub-store, so
 # the phone and the Mac (signed into the same account) share one memory.
 GLOBAL_USER = "_global"
-_current_user: ContextVar[str] = ContextVar("lumis_memory_user", default=GLOBAL_USER)
+_current_user: ContextVar[str] = ContextVar("felix_memory_user", default=GLOBAL_USER)
 
 
 def set_user(user_id: Optional[str]) -> None:
@@ -31,10 +33,10 @@ def set_user(user_id: Optional[str]) -> None:
     _current_user.set(user_id or GLOBAL_USER)
 
 MEMORY_PATH = os.path.expanduser(
-    os.getenv("LUMIS_MEMORY_PATH", os.path.join(os.path.dirname(__file__), "memory.json"))
+    brand_env("FELIX_MEMORY_PATH", os.path.join(os.path.dirname(__file__), "memory.json"))
 )
 
-# On hosted deploys (Railway) LUMIS_MEMORY_PATH points at a mounted volume like
+# On hosted deploys (Railway) FELIX_MEMORY_PATH points at a mounted volume like
 # /app/data/memory.json whose parent may not exist yet — create it up front.
 _memory_dir = os.path.dirname(MEMORY_PATH)
 if _memory_dir:

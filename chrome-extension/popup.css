@@ -1,4 +1,4 @@
-/* Lumis for Chrome mirrors the iOS semantic system.
+/* Felix for Chrome mirrors the iOS semantic system.
    Carbon, Alabaster, and Cool Steel are the only brand colors. */
 :root {
   color-scheme: light dark;
@@ -101,8 +101,8 @@ input:focus-visible {
   height: 27px;
   flex: none;
   background: var(--text-primary);
-  -webkit-mask: url(icons/lumis-mark.png) no-repeat center / contain;
-  mask: url(icons/lumis-mark.png) no-repeat center / contain;
+  -webkit-mask: url(icons/felix-mark.png) no-repeat center / contain;
+  mask: url(icons/felix-mark.png) no-repeat center / contain;
 }
 
 .app-name {

@@ -1,4 +1,4 @@
-"""Background autonomous-task queue for Lumis (Phase 5).
+"""Background autonomous-task queue for Felix (Phase 5).
 
 Why this exists: some commands are multi-step jobs the user shouldn't have to
 wait on synchronously ("research X, make a deck, email it to Sam"). This module
@@ -18,10 +18,10 @@ from typing import Optional
 
 import db
 import memory
-from agent import LumisAgent
+from agent import FelixAgent
 from websocket import manager
 
-logger = logging.getLogger("lumis.tasks")
+logger = logging.getLogger("felix.tasks")
 
 # task_id -> task record (in-memory; tasks are ephemeral background jobs).
 _tasks: dict[str, dict] = {}
@@ -99,7 +99,7 @@ async def _run_task(task_id: str) -> None:
             })
         await manager.broadcast(evt)  # keep step_* / workflow_complete intact
 
-    agent = LumisAgent(
+    agent = FelixAgent(
         user_id=task.get("user_id", db.GLOBAL_USER),
         session_id=task["session_id"],
         broadcast=task_broadcast,

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Lumis",
+  "name": "Felix",
   "version": "1.0.0",
-  "description": "Connect your accounts to Lumis so it can act on your behalf.",
+  "description": "Connect your accounts to Felix so it can act on your behalf.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

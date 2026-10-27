@@ -1,6 +1,6 @@
-"""Lumis cloud tool layer.
+"""Felix cloud tool layer.
 
-After the Mac-agent removal, Lumis executes entirely in the cloud. Tools split
+After the Mac-agent removal, Felix executes entirely in the cloud. Tools split
 three ways (see TOOL_REGISTRY "runs_on"):
 
   - "google_api"    → backend/google_tools.py (Docs, Sheets, Gmail, Calendar,
@@ -20,7 +20,7 @@ import os
 import re
 import urllib.parse
 
-logger = logging.getLogger("lumis.tools")
+logger = logging.getLogger("felix.tools")
 
 # Browser-like UA so search engines / sites return real HTML to the research agent.
 _WEB_UA = (

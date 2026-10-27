@@ -1,6 +1,6 @@
-# Lumis iOS — holds the hardcoded Groq API key. Never push the real key.
-ios/LumisApp/LumisApp/WhisperTranscriber.swift
-ios/LumisApp/GoogleSignIn-iOS
+# Felix iOS — holds the hardcoded Groq API key. Never push the real key.
+ios/FelixApp/FelixApp/WhisperTranscriber.swift
+ios/FelixApp/GoogleSignIn-iOS
 
 # Local Python envs / secrets (never commit)
 venv/

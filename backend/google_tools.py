@@ -1,6 +1,6 @@
 """Google API tool implementations (replaces the old AppleScript Mac tools).
 
-Every function takes (args, user_id) and returns the standard Lumis result
+Every function takes (args, user_id) and returns the standard Felix result
 contract. Authentication uses per-user OAuth credentials from google_oauth; if
 the user has no Google API credentials, tools return a clean error contract
 (status "error", data.error == "google_not_connected") so the agent can tell the
@@ -18,7 +18,7 @@ import google_oauth
 import memory
 from google_oauth import GoogleNotConnected
 
-logger = logging.getLogger("lumis.google_tools")
+logger = logging.getLogger("felix.google_tools")
 
 
 # --------------------------------------------------------------------------- #
@@ -125,7 +125,7 @@ def sheets_add_row(args: dict, user_id: str) -> dict:
     # Auto-create the expense sheet on first use, then remember it.
     if not ss_id and is_expense:
         created = svc.spreadsheets().create(
-            body={"properties": {"title": "Lumis Expenses"}}).execute()
+            body={"properties": {"title": "Felix Expenses"}}).execute()
         ss_id = created["spreadsheetId"]
         svc.spreadsheets().values().append(
             spreadsheetId=ss_id, range="A1", valueInputOption="USER_ENTERED",

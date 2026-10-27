@@ -1,6 +1,6 @@
-"""SQLite action-history store for Lumis (Phase 2).
+"""SQLite action-history store for Felix (Phase 2).
 
-Why this exists: trust comes from being able to see and undo what Lumis did.
+Why this exists: trust comes from being able to see and undo what Felix did.
 Every tool execution is logged here *before* it runs (so even a crash leaves a
 trail) and updated with its result + undo info afterward. Powers GET /history
 and POST /undo/{id}.
@@ -9,6 +9,8 @@ Standard-library only (sqlite3) per the Phase 1/2 constraints. A fresh
 connection is opened per call so it is safe to use from the event loop and from
 executor threads without sharing handles.
 """
+from brand_config import brand_env
+
 import json
 import logging
 import os
@@ -16,13 +18,13 @@ import sqlite3
 import time
 from typing import Optional
 
-logger = logging.getLogger("lumis.db")
+logger = logging.getLogger("felix.db")
 
 DB_PATH = os.path.expanduser(
-    os.getenv("LUMIS_DB_PATH", os.path.join(os.path.dirname(__file__), "actions.db"))
+    brand_env("FELIX_DB_PATH", os.path.join(os.path.dirname(__file__), "actions.db"))
 )
 
-# On hosted deploys (Railway) LUMIS_DB_PATH points at a mounted volume like
+# On hosted deploys (Railway) FELIX_DB_PATH points at a mounted volume like
 # /app/data/actions.db whose parent may not exist yet — create it up front.
 _db_dir = os.path.dirname(DB_PATH)
 if _db_dir:

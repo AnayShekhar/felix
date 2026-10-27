@@ -1,4 +1,4 @@
-"""Short-term "recent activity" memory — what Lumis just created or touched.
+"""Short-term "recent activity" memory — what Felix just created or touched.
 
 Distinct from memory.py (durable preferences): this is working memory. Each
 entry is an artifact the user might refer back to in conversation shortly
@@ -21,7 +21,7 @@ from typing import List, Optional
 
 import db
 
-logger = logging.getLogger("lumis.recent_activity")
+logger = logging.getLogger("felix.recent_activity")
 
 # How long an artifact stays "the thing I just made" in conversation.
 RECENT_TTL_S = 3 * 60 * 60
@@ -123,7 +123,7 @@ def context_block(user_id: str) -> str:
     ]
     return (
         "\n\nRECENT ACTIVITY (background context, NOT part of the command — "
-        "things Lumis recently created or touched for this user. Consult this "
+        "things Felix recently created or touched for this user. Consult this "
         "list ONLY if the current command contains an ambiguous back-reference "
         "('that draft', 'the doc I just made', 'add to it') that needs "
         "resolving; then act on the EXISTING artifact via its real id instead "

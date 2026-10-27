@@ -1,6 +1,6 @@
 """Account connection store for the Chrome extension cookie-sync flow.
 
-Two things are persisted per Lumis user:
+Two things are persisted per Felix user:
   * their Browserbase persistent-context id (so all future cloud-browser
     sessions reuse the same logged-in cookies), and
   * the set of services they have connected (Gmail, Notion, ...), surfaced by
@@ -17,7 +17,7 @@ from typing import List, Optional
 
 import db
 
-logger = logging.getLogger("lumis.connections")
+logger = logging.getLogger("felix.connections")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS browser_contexts (

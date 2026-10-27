@@ -1,4 +1,4 @@
-// popup.js — UI logic for the Lumis extension popup. All network/auth work is
+// popup.js — UI logic for the Felix extension popup. All network/auth work is
 // delegated to background.js via chrome.runtime messaging.
 
 const SUPPORTED_SERVICES = [
@@ -49,7 +49,7 @@ async function init() {
   } catch {
     showLoginView();
     document.getElementById("login-error").textContent =
-      "Lumis couldn’t start. Close this popup and try again.";
+      "Felix couldn’t start. Close this popup and try again.";
   }
 }
 
@@ -63,7 +63,7 @@ async function showConnectedView(user) {
   document.getElementById("connected-view").classList.remove("hidden");
   document.getElementById("user-email").textContent = user?.email || "Signed in";
 
-  setSyncBanner("unknown", "Checking status…", "Asking the Lumis server which accounts are linked.");
+  setSyncBanner("unknown", "Checking status…", "Asking the Felix server which accounts are linked.");
   await renderServicesList();
   await renderCurrentSite();
 }
@@ -97,7 +97,7 @@ function renderSyncBanner(status) {
   const everSynced = status.ever_synced && status.last_synced_at;
   if (!status.ever_synced) {
     setSyncBanner("never", "No accounts connected yet",
-      "Connect an account below so Lumis on your phone can use it.");
+      "Connect an account below so Felix on your phone can use it.");
     return;
   }
   if (!everSynced) {
@@ -126,7 +126,7 @@ async function renderServicesList() {
   if (status.ok === false) {
     // The check failed — say so; never pretend nothing is connected.
     setSyncBanner("unknown", "Can't check right now",
-      "The Lumis server didn't answer. Your accounts may still be connected — try again in a moment.");
+      "The Felix server didn't answer. Your accounts may still be connected — try again in a moment.");
   } else {
     renderSyncBanner(status);
   }

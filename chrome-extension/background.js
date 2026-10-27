@@ -1,6 +1,6 @@
-// background.js — Lumis Chrome extension service worker.
+// background.js — Felix Chrome extension service worker.
 // Handles auth (email + Google), reading cookies for chosen services, and
-// syncing them to the user's Lumis account on the backend. Reuses the same
+// syncing them to the user's Felix account on the backend. Reuses the same
 // /auth/* endpoints the iPhone app uses — no new auth logic.
 
 const API_BASE = "https://lumis-production-b878.up.railway.app";
@@ -22,8 +22,8 @@ async function loginWithEmail(email, password) {
   if (!res.ok) throw new Error("Invalid email or password");
   const data = await res.json();
   await chrome.storage.local.set({
-    lumis_token: data.token,
-    lumis_user: data.user
+    felix_token: data.token,
+    felix_user: data.user
   });
   return data.user;
 }
@@ -80,19 +80,24 @@ async function loginWithGoogle() {
 
   const data = await res.json();
   await chrome.storage.local.set({
-    lumis_token: data.token,
-    lumis_user: data.user
+    felix_token: data.token,
+    felix_user: data.user
   });
   return data.user;
 }
 
 async function getStoredAuth() {
-  const { lumis_token, lumis_user } = await chrome.storage.local.get(["lumis_token", "lumis_user"]);
-  return { token: lumis_token, user: lumis_user };
+  const saved = await chrome.storage.local.get([
+    "felix_token", "felix_user", "lumis_token", "lumis_user"
+  ]);
+  return {
+    token: saved.felix_token ?? saved.lumis_token,
+    user: saved.felix_user ?? saved.lumis_user
+  };
 }
 
 async function logout() {
-  await chrome.storage.local.remove(["lumis_token", "lumis_user"]);
+  await chrome.storage.local.remove(["felix_token", "felix_user", "lumis_token", "lumis_user"]);
 }
 
 // ── Service connection status ────────────────────────────────────────────
@@ -128,7 +133,7 @@ async function fetchConnectStatus() {
 // page in a new tab; the backend's callback stores the tokens.
 async function connectGoogleAPI() {
   const { token } = await getStoredAuth();
-  if (!token) throw new Error("Not signed into Lumis");
+  if (!token) throw new Error("Not signed into Felix");
   const res = await fetch(`${API_BASE}/connect/google/start`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` }
@@ -178,7 +183,7 @@ async function syncServiceCookies(serviceName) {
   }
 
   const { token } = await getStoredAuth();
-  if (!token) throw new Error("Not signed into Lumis");
+  if (!token) throw new Error("Not signed into Felix");
 
   const res = await fetch(`${API_BASE}/connect/cookies/sync`, {
     method: "POST",
@@ -219,7 +224,7 @@ async function syncCurrentTabCookies() {
   }
 
   const { token } = await getStoredAuth();
-  if (!token) throw new Error("Not signed into Lumis");
+  if (!token) throw new Error("Not signed into Felix");
 
   const res = await fetch(`${API_BASE}/connect/cookies/sync`, {
     method: "POST",

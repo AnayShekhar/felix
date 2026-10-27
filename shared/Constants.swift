@@ -1,12 +1,12 @@
 import SwiftUI
 
-// Shared design + configuration constants for the Lumis iOS app.
+// Shared design + configuration constants for the Felix iOS app.
 // Keep it free of platform-specific APIs so it stays easy to reuse.
 
-enum LumisBrand {
-    // MARK: Palette — mirrors iOS `LumisColors` raw palette (Carbon #212222,
+enum FelixBrand {
+    // MARK: Palette — mirrors iOS `FelixColors` raw palette (Carbon #212222,
     // Alabaster #DBDDDE, Cool Steel #99ACBE). These are the LIGHT-mode
-    // resolutions; in-app use should go through the adaptive `LumisColors`
+    // resolutions; in-app use should go through the adaptive `FelixColors`
     // tokens, which handle dark mode.
 
     /// Light-mode elevated-surface tone. Alabaster, #DBDDDE. (The light-mode
@@ -45,7 +45,7 @@ enum LumisBrand {
     static let authTokenKey = "lumis.auth.token"
 
     /// Google OAuth client ID (same client the iOS app uses, so Mac sign-in
-    /// lands in the same Lumis account).
+    /// lands in the same Felix account).
     static let googleClientID = "955535830862-t9jp1lql7ert69up16jr27pj248f58fi.apps.googleusercontent.com"
 
     static let appVersion = "1.1"
@@ -76,7 +76,7 @@ enum ToolStyle {
         case "slides":  return Color(red: 0.96, green: 0.58, blue: 0.26)
         case "numbers": return Color(red: 0.40, green: 0.80, blue: 0.70)
         case "ios":     return Color(red: 0.58, green: 0.56, blue: 0.98)
-        default:        return LumisBrand.accent
+        default:        return FelixBrand.accent
         }
     }
 

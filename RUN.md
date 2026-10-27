@@ -1,6 +1,6 @@
-# Running Lumis
+# Running Felix
 
-Lumis is three pieces: the **backend** (brain, FastAPI on Railway), the **iOS app**
+Felix is three pieces: the **backend** (brain, FastAPI on Railway), the **iOS app**
 (eyes/ears), and the **Chrome extension** (connects your accounts). Execution is
 100% cloud — the backend runs every tool via Google REST APIs, a Browserbase cloud
 browser, or a phone-side URL scheme. There is no Mac app or Mac agent to run.
@@ -29,13 +29,13 @@ The backend serves, among others:
 
 ## 2. Run the iOS app
 
-Open `ios/LumisApp/LumisApp.xcodeproj` in Xcode and run on a device or simulator.
-The app points at the deployed Railway backend by default (`LumisConfig`).
+Open `ios/FelixApp/FelixApp.xcodeproj` in Xcode and run on a device or simulator.
+The app points at the deployed Railway backend by default (`FelixConfig`).
 
 ## 3. Connect your accounts (Chrome extension)
 
 Load the unpacked `chrome-extension/` in Chrome (`chrome://extensions` → Developer
-mode → Load unpacked). Sign in with the same Lumis account used on your phone, then
+mode → Load unpacked). Sign in with the same Felix account used on your phone, then
 connect each service — its logged-in cookies sync to your private Browserbase
 context so the cloud browser is already signed in. Google API tools additionally
 require the Google OAuth consent flow.
@@ -48,3 +48,15 @@ curl -X POST http://localhost:8000/ingest -H 'Content-Type: application/json' \
   -d '{"session_id":"test","image":"","voice_text":"what is on my calendar today"}'
 curl http://localhost:8000/history
 ```
+
+
+## Felix rename compatibility
+
+The app, extension, source symbols, and Xcode project now use Felix. Open
+`ios/FelixApp/FelixApp.xcodeproj`. The voice wake phrase is **Hey Felix**.
+
+The existing Railway endpoint, support/legal destinations, Apple bundle/app-group
+identifiers, and iOS preference/Keychain keys remain stable so existing services
+and saved data continue to work. Backend configuration now uses `FELIX_*` names,
+with `LUMIS_*` accepted as fallback settings. The extension accepts existing login
+storage and clears both old and new keys on sign-out.

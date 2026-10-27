@@ -2,7 +2,7 @@
 Browserbase context (so the cookies synced from the Chrome extension are already
 signed in). Replaces the local-Playwright browser tools that ran on the Mac.
 
-Each tool is async and takes (args, user_id), returning the standard Lumis
+Each tool is async and takes (args, user_id), returning the standard Felix
 contract. web.* tools have no browser/auth dependency and are delegated to
 tools.py so they keep working even when Browserbase isn't configured.
 """
@@ -13,7 +13,7 @@ from typing import Optional
 import cloud_browser
 from cloud_browser import CloudBrowserNotConfigured
 
-logger = logging.getLogger("lumis.browser_tools")
+logger = logging.getLogger("felix.browser_tools")
 
 
 @contextlib.asynccontextmanager

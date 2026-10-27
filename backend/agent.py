@@ -1,4 +1,4 @@
-"""Lumis ReAct agent.
+"""Felix ReAct agent.
 
 A deep reasoning loop on Groq (multimodal): THINK -> ACT -> OBSERVE -> ...
 One tool call per iteration, reading the real result before deciding the next
@@ -43,7 +43,7 @@ from agent_prompt import AGENT_SYSTEM_PROMPT
 
 load_dotenv()
 
-logger = logging.getLogger("lumis.agent")
+logger = logging.getLogger("felix.agent")
 
 
 def _debug_dump(payload: dict) -> str:
@@ -156,7 +156,7 @@ def _conversation_block(session_id: str) -> str:
         return ""
     recent = turns[-_HISTORY_INJECT_TURNS:]
     lines = [
-        f"{'User' if t.get('role') == 'user' else 'Lumis'}: {t.get('content', '')}"
+        f"{'User' if t.get('role') == 'user' else 'Felix'}: {t.get('content', '')}"
         for t in recent
     ]
     return "RECENT CONVERSATION:\n" + "\n".join(lines) + "\n\n"
@@ -291,7 +291,7 @@ def _normalize_datetimes(tool: str, args: dict) -> dict:
 # The agent
 # --------------------------------------------------------------------------- #
 
-class LumisAgent:
+class FelixAgent:
     def __init__(
         self,
         user_id: str,
@@ -333,7 +333,7 @@ class LumisAgent:
         await self._emit({
             "event": "agent_start",
             "session_id": self.session_id,
-            "message": "Lumis is thinking…",
+            "message": "Felix is thinking…",
         })
         # Compat: spin up the existing UI's working indicator.
         await self._emit({"event": "step_started",
@@ -499,9 +499,9 @@ class LumisAgent:
             if service == "google":
                 # Cookie sync is NOT enough for Google REST tools — point the
                 # user at the OAuth consent flow in Settings specifically.
-                msg = ("Google isn't connected for API access yet. Open Lumis "
+                msg = ("Google isn't connected for API access yet. Open Felix "
                        "Settings and tap Connect next to Google to grant access.")
-                speak = "Connect Google in Lumis Settings first."
+                speak = "Connect Google in Felix Settings first."
             else:
                 msg = f"{service.capitalize()} isn't connected yet."
                 speak = f"You'll need to connect {service} first."
@@ -623,9 +623,9 @@ class LumisAgent:
         })
         # Compat: show the question as a result card + speak it, then stop the
         # spinner. The user answers by capturing again; routes resumes us.
-        q_result = {"tool": "lumis.ask", "status": "success", "title": "One quick question",
+        q_result = {"tool": "felix.ask", "status": "success", "title": "One quick question",
                     "message": question, "speak": question}
-        await self._emit_step_executed("lumis.ask", {}, None, False, q_result)
+        await self._emit_step_executed("felix.ask", {}, None, False, q_result)
         await self._complete([q_result])
 
     async def _handle_finish(self, decision: dict) -> None:
@@ -633,7 +633,7 @@ class LumisAgent:
         speak = decision.get("speak") or summary
         title = decision.get("title") or "Complete"
         url = decision.get("url")
-        _append_turn(self.session_id, "lumis", summary)
+        _append_turn(self.session_id, "felix", summary)
 
         agent_done_payload = {
             "event": "agent_done",
@@ -643,11 +643,11 @@ class LumisAgent:
         # DEBUG: full agent_done payload right before it's broadcast.
         logger.info("DEBUG agent_done payload: %s", _debug_dump(agent_done_payload))
         await self._emit(agent_done_payload)
-        final = {"tool": "lumis.finish", "status": "success", "title": title,
+        final = {"tool": "felix.finish", "status": "success", "title": title,
                  "message": summary, "summary": summary, "speak": speak}
         if url:
             final["url"] = url
-        await self._emit_step_executed("lumis.finish", {}, None, False, final)
+        await self._emit_step_executed("felix.finish", {}, None, False, final)
         await self._complete(self.results + [final])
 
     async def _handle_step_limit(self) -> None:
@@ -657,9 +657,9 @@ class LumisAgent:
             "session_id": self.session_id,
             "message": msg, "speak": msg,
         })
-        err = {"tool": "lumis.finish", "status": "error", "title": "Didn't finish",
+        err = {"tool": "felix.finish", "status": "error", "title": "Didn't finish",
                "message": msg, "speak": msg}
-        await self._emit_step_executed("lumis.finish", {}, None, False, err)
+        await self._emit_step_executed("felix.finish", {}, None, False, err)
         await self._complete(self.results + [err])
 
     # ----- emit helpers ------------------------------------------------------
@@ -714,7 +714,7 @@ class LumisAgent:
 
         ctx = memory.get_context_block()
         memory_block = (
-            "\n\nWHAT LUMIS KNOWS ABOUT THIS USER (use as defaults; never override "
+            "\n\nWHAT FELIX KNOWS ABOUT THIS USER (use as defaults; never override "
             f"what the user explicitly says):\n{ctx}" if ctx else ""
         )
         # Working memory of just-created artifacts, so "send that draft" /

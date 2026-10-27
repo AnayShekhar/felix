@@ -1,4 +1,4 @@
-"""Lumis pipeline: INPUT -> ReAct AGENT -> REAL ACTIONS (cloud + Mac agent)."""
+"""Felix pipeline: INPUT -> ReAct AGENT -> REAL ACTIONS (cloud + Mac agent)."""
 import asyncio
 import logging
 import time
@@ -11,17 +11,17 @@ import memory
 import tasks
 import tools
 import websocket as ws_module
-from agent import LumisAgent
+from agent import FelixAgent
 from auth import current_user
 from websocket import manager
 
-logger = logging.getLogger("lumis.routes")
+logger = logging.getLogger("felix.routes")
 router = APIRouter()
 
 # Live agent sessions keyed by session_id. In-memory and ephemeral (cleared on
 # restart, which is fine). A session lingers here while it waits on the user to
 # answer a clarifying question, so the next /ingest can resume it with context.
-active_agents: dict[str, LumisAgent] = {}
+active_agents: dict[str, FelixAgent] = {}
 _AGENT_TTL_S = 30 * 60
 
 
@@ -58,11 +58,11 @@ async def ingest(payload: IngestPayload, user: dict = Depends(current_user)):
 
     existing = active_agents.get(payload.session_id)
     if existing is not None and existing.pending_question and existing.user_id == user["id"]:
-        # The user is answering Lumis's question — resume with full context.
+        # The user is answering Felix's question — resume with full context.
         asyncio.create_task(existing.resume(payload.voice_text, payload.image or None))
         return {"status": "resumed", "session_id": payload.session_id}
 
-    agent = LumisAgent(
+    agent = FelixAgent(
         user_id=user["id"],
         session_id=payload.session_id,
         broadcast=manager.broadcast,
@@ -167,7 +167,7 @@ async def task_status(task_id: str):
 
 @router.get("/memory")
 async def get_memory(user: dict = Depends(current_user)):
-    """Return the preferences Lumis has learned about the signed-in account."""
+    """Return the preferences Felix has learned about the signed-in account."""
     memory.set_user(user["id"])
     return {"memory": memory.get_all()}
 
@@ -294,7 +294,7 @@ async def google_oauth_callback(http_request: Request, code: str = "", state: st
 
     if error:
         return page("Google sign-in was cancelled",
-                    "You can close this tab and try again from Lumis.", ok=False)
+                    "You can close this tab and try again from Felix.", ok=False)
     try:
         user_id = google_oauth.verify_state(state)
         redirect_uri = _public_base_url(http_request) + "/connect/google/callback"
@@ -312,7 +312,7 @@ async def google_oauth_callback(http_request: Request, code: str = "", state: st
         "service": "google",
     })
     return page("Google connected",
-                "Gmail, Sheets, Calendar, Docs and Drive now work in Lumis. "
+                "Gmail, Sheets, Calendar, Docs and Drive now work in Felix. "
                 "You can close this tab.", ok=True)
 
 

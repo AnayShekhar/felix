@@ -2,7 +2,7 @@
 
 The Chrome extension reads the user's logged-in cookies for a service and POSTs
 them to /connect/cookies/sync. This module injects those cookies into the user's
-*persistent* Browserbase context so every future cloud-browser session Lumis
+*persistent* Browserbase context so every future cloud-browser session Felix
 runs is already signed in — no re-login required.
 
 Config (Railway env vars):
@@ -21,7 +21,7 @@ from typing import Dict, List, Optional
 
 import connections
 
-logger = logging.getLogger("lumis.cloud_browser")
+logger = logging.getLogger("felix.cloud_browser")
 
 API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
 PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")

@@ -2,7 +2,7 @@
 
 The Google REST APIs (Docs, Sheets, Gmail, Calendar, Tasks, People, Drive) need
 OAuth 2.0 credentials with a refresh token — not the browser cookies the Chrome
-extension syncs. This module is where those credentials live, keyed by Lumis
+extension syncs. This module is where those credentials live, keyed by Felix
 user_id, where the authorization-code consent flow that populates them is
 implemented (build_consent_url / exchange_code, driven by the
 /connect/google/* routes), and where a googleapiclient is built from them.
@@ -18,6 +18,8 @@ Config (Railway env vars):
                                  {PUBLIC_BASE_URL}/connect/google/callback as an
                                  authorized redirect URI.
 """
+from brand_config import brand_env
+
 import base64
 import hashlib
 import hmac
@@ -31,7 +33,7 @@ from urllib.parse import urlencode
 
 import db
 
-logger = logging.getLogger("lumis.google_oauth")
+logger = logging.getLogger("felix.google_oauth")
 
 CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
@@ -69,13 +71,13 @@ class GoogleOAuthNotConfigured(RuntimeError):
 # --------------------------------------------------------------------------- #
 # Consent flow (authorization code + offline access)
 # --------------------------------------------------------------------------- #
-# The OAuth `state` is a short-lived signed token carrying the Lumis user_id
+# The OAuth `state` is a short-lived signed token carrying the Felix user_id
 # through Google's redirect. It is signed with a key DERIVED from the JWT
-# secret (domain-separated), so a state token can never be replayed as a Lumis
+# secret (domain-separated), so a state token can never be replayed as a Felix
 # session token or vice versa.
 _STATE_TTL_S = 10 * 60
 _STATE_KEY = hashlib.sha256(
-    os.getenv("LUMIS_JWT_SECRET", "lumis-dev-secret-change-me").encode()
+    brand_env("FELIX_JWT_SECRET", "felix-dev-secret-change-me").encode()
     + b"|google-oauth-state"
 ).digest()
 
@@ -160,7 +162,7 @@ def exchange_code(code: str, redirect_uri: str) -> dict:
         )
     if not body.get("refresh_token"):
         raise RuntimeError(
-            "Google didn't return a refresh token. Remove Lumis from "
+            "Google didn't return a refresh token. Remove Felix from "
             "https://myaccount.google.com/permissions and connect again."
         )
     return {
@@ -225,7 +227,7 @@ def get_credentials(user_id: str):
     tok = _load_token(user_id)
     if not tok or not tok.get("refresh_token"):
         raise GoogleNotConnected(
-            "Google isn't connected for API access yet. Connect Google to Lumis "
+            "Google isn't connected for API access yet. Connect Google to Felix "
             "to enable Docs, Sheets, Gmail, Calendar, Tasks and Drive."
         )
     try:

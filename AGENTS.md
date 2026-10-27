@@ -1,4 +1,4 @@
-# Lumis – AGENTS.md
+# Felix – AGENTS.md
 
 ## Stack
 - Backend: Python + FastAPI + uvicorn, SQLite for persistence, deployed on Railway
@@ -29,10 +29,10 @@ chrome-extension/  "Connect your accounts" browser extension (auth + cookie sync
 - Adaptive light/dark theme across frontends from three raw colors: Carbon
   #212222, Alabaster #DBDDDE, Cool Steel #99ACBE. Light: Alabaster bg / Carbon
   text; dark: swapped; the tint (Cool Steel) is constant in both modes. iOS
-  uses semantic `LumisColors` tokens (never raw hex outside that file) plus
-  `LumisSpacing`/`LumisRadius`; the extension mirrors them as CSS custom
+  uses semantic `FelixColors` tokens (never raw hex outside that file) plus
+  `FelixSpacing`/`FelixRadius`; the extension mirrors them as CSS custom
   properties with `prefers-color-scheme`. Users can override System/Light/Dark
-  in iOS Settings (`LumisAppearance`). shared/Constants.swift (`LumisBrand`)
+  in iOS Settings (`FelixAppearance`). shared/Constants.swift (`FelixBrand`)
   mirrors the light-mode hex values.
 - SF Pro font everywhere except the New York serif home greeting; single brand
   accent (Cool Steel). The app shell is Home + slide-in sidebar + Settings
@@ -103,7 +103,7 @@ and the iOS app tells the user which account to connect. Otherwise it dispatches
 - runs_on ios_native    -> tools.execute_ios_tool(tool, args, user_id)
 
 ## Account connections (backend/connections.py, cloud_browser.py, google_oauth.py)
-The Chrome extension signs into the user's Lumis account (reusing /auth/*), then
+The Chrome extension signs into the user's Felix account (reusing /auth/*), then
 syncs each service's logged-in cookies to POST /connect/cookies/sync, which injects
 them into the user's persistent Browserbase context (cloud_browser.py). connections
 stores the per-user context id + connected-services set. Google REST tools need
@@ -127,5 +127,5 @@ this transcript (not the live loop context) carries cross-command memory.
 ## Key patterns
 - Backend broadcasts all events over WebSocket — frontends never poll
 - All tools return { status: "success"|"error"|"ios_action", message, data?, … }
-- Backend URL: LumisConfig.backendURL (iOS); auth token in the Keychain
+- Backend URL: FelixConfig.backendURL (iOS); auth token in the Keychain
 - Session IDs prefixed by client type: "ios-", "web-"

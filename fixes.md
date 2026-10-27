@@ -1,4 +1,4 @@
-# Lumis — UI Quality (Real Design System Rules) + Correctness + Deploy Readiness
+# Felix — UI Quality (Real Design System Rules) + Correctness + Deploy Readiness
 
 This covers two categories: concrete UI rules translated from Anthropic's actual
 production design system (not vague guidance this time — specific, numeric,
@@ -94,7 +94,7 @@ not their own competing headline.
 ## Part 2 — Fix the Logo Placeholder
 
 An SVG asset already exists in the codebase (`image.svg`). Replace the empty
-bordered placeholder box currently shown next to the "Lumis" wordmark with
+bordered placeholder box currently shown next to the "Felix" wordmark with
 this real asset.
 
 Note: SwiftUI does not natively render arbitrary SVG content well without
@@ -164,7 +164,7 @@ This is an important architectural point to verify explicitly, since it's easy
 to get subtly wrong given how the system evolved. Once the Chrome extension
 has synced a user's cookies into their persistent cloud browser context, task
 execution happens entirely in the cloud (Browserbase) — the local computer
-running the extension should not need to be on, awake, or connected for Lumis
+running the extension should not need to be on, awake, or connected for Felix
 to actually complete tasks using those synced credentials afterward. The
 extension's only job is the initial (and periodic re-) sync; it is not a
 runtime dependency for executing tasks.
@@ -325,7 +325,7 @@ assuming Alabaster as the base rather than as an elevated tone.
 - Secondary/muted text uses a distinct defined color, not the primary text
   color at reduced opacity — verify this by checking the actual color values
   used, not just the visual appearance
-- The Lumis logo asset renders correctly (not a placeholder box) at the top
+- The Felix logo asset renders correctly (not a placeholder box) at the top
   of the main screen, in both light and dark mode
 - Connection status between iOS and the Chrome extension is verified accurate
   by directly testing: sync a service, confirm iOS immediately reflects it

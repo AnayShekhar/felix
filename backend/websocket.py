@@ -14,7 +14,7 @@ from typing import Dict, Optional
 
 from fastapi import WebSocket
 
-logger = logging.getLogger("lumis.ws")
+logger = logging.getLogger("felix.ws")
 
 # Most recent user-scoped broadcast, keyed by user_id (replayed on connect).
 latest_result: Optional[dict] = None  # legacy global (kept for GET /latest)

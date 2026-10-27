@@ -1,25 +1,25 @@
-# Lumis
+# Felix
 
-## What is Lumis?
+## What is Felix?
 
-Lumis is a magic assistant that lives in your phone and acts on your real accounts.
+Felix is a magic assistant that lives in your phone and acts on your real accounts.
 You point your phone's camera at something in real life (a whiteboard, a receipt,
-some messy notes), you say what you want out loud, and Lumis actually goes and does
+some messy notes), you say what you want out loud, and Felix actually goes and does
 it — drafts the email, logs the expense, creates the doc, plays the song. For real.
 Not fake.
 
-The big idea: **the brain of Lumis is the backend, and the hands are your cloud
+The big idea: **the brain of Felix is the backend, and the hands are your cloud
 accounts.** The phone app is the eyes and ears. All the smart stuff happens in one
-place (the cloud), so Lumis can act whether or not any particular device is on.
+place (the cloud), so Felix can act whether or not any particular device is on.
 
-A normal app makes you type and tap. Lumis lets you just *show it* something and
+A normal app makes you type and tap. Felix lets you just *show it* something and
 *tell it* what to do, and then it turns real life into things happening in your
 Google account, your browser, and on your phone.
 
 ### A quick example
 
-1. You open the Lumis app and point it at a receipt.
-2. You say: **"Hey Lumis, add this to my expense spreadsheet."**
+1. You open the Felix app and point it at a receipt.
+2. You say: **"Hey Felix, add this to my expense spreadsheet."**
 3. The phone sends the picture + your words to the backend.
 4. The backend reads the receipt with AI, figures out the store, date, and price.
 5. It appends a row to your **Google Sheet** via the Sheets API. Done.
@@ -37,7 +37,7 @@ Google account, your browser, and on your phone.
   - **Google APIs** for Docs, Sheets, Gmail, Calendar, Tasks, Contacts, and Drive.
   - **A Browserbase cloud browser** for everything else (Spotify, Notion, Slack,
     LinkedIn, Airtable, and general web browsing) — signed in using the cookies you
-    sync from the **Lumis Chrome extension**.
+    sync from the **Felix Chrome extension**.
 
 So a single command travels **phone → cloud brain → your real accounts → back to the
 phone**, live, in a couple of seconds. There is no Mac app and nothing to install on
@@ -47,25 +47,25 @@ a computer except the browser extension.
 
 ## Accounts & connections
 
-Lumis is account-based, so everything is scoped to one login and one memory.
+Felix is account-based, so everything is scoped to one login and one memory.
 
 - **Sign in.** Email + password, **Sign in with Apple**, or **Sign in with Google**.
   Sessions are JWTs (30 days); passwords are hashed with PBKDF2. On iOS the token
   lives in the Keychain.
-- **Connect your accounts.** Install the **Lumis Chrome extension**
-  (`chrome-extension/`), sign in with the same Lumis account, and click *Connect* on
+- **Connect your accounts.** Install the **Felix Chrome extension**
+  (`chrome-extension/`), sign in with the same Felix account, and click *Connect* on
   the services you want (Gmail, Sheets, Notion, Spotify, …). The extension syncs your
-  logged-in cookies into your private Browserbase context so Lumis is already signed
+  logged-in cookies into your private Browserbase context so Felix is already signed
   in when it acts. `GET /connect/status` reports what's connected.
 - **Graceful when something isn't connected.** If you ask for a service you haven't
   linked, the agent emits a `service_required` event and the app tells you exactly
   what to connect — it never fails silently.
-- **Per-account memory.** Everything Lumis learns (your expense sheet, who you email
+- **Per-account memory.** Everything Felix learns (your expense sheet, who you email
   most) is scoped to your account.
 
 ---
 
-## What Lumis can do
+## What Felix can do
 
 | Family | Examples |
 | --- | --- |
@@ -90,7 +90,7 @@ finishing.
 
 ## Architecture
 
-Lumis has three layers, all in the cloud behind the backend:
+Felix has three layers, all in the cloud behind the backend:
 
 ```
 ┌────────────────────────────────────────────────────┐

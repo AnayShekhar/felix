@@ -1,8 +1,8 @@
-# Lumis Chrome Extension
+# Felix Chrome Extension
 
-A lightweight companion to the Lumis phone app. Its only job: let you sign into
-your existing Lumis account, then sync your logged-in browser sessions (cookies)
-for chosen services up to Lumis so it can act on your behalf. No automation, no
+A lightweight companion to the Felix phone app. Its only job: let you sign into
+your existing Felix account, then sync your logged-in browser sessions (cookies)
+for chosen services up to Felix so it can act on your behalf. No automation, no
 content scripts, no page control — just **auth + cookie sync**.
 
 Reuses the exact same `/auth/*` endpoints the iPhone app uses.
@@ -13,14 +13,14 @@ Reuses the exact same `/auth/*` endpoints the iPhone app uses.
 chrome-extension/
 ├── manifest.json        MV3 manifest (cookies/storage/tabs/identity perms)
 ├── background.js        service worker: auth + cookie reading + sync
-├── popup.html/js/css    the popup UI (Lumis design tokens, brand comet mark)
-├── icons/               Lumis mark icons (16/48/128) + google logo
+├── popup.html/js/css    the popup UI (Felix design tokens, brand comet mark)
+├── icons/               Felix mark icons (16/48/128) + google logo
 └── README.md
 ```
 
-The icons in `icons/` are generated from the Lumis brand mark (`image.svg` at
+The icons in `icons/` are generated from the Felix brand mark (`image.svg` at
 the repo root) — Cool Steel `#99ACBE` on transparent for the toolbar. The header
-logo in the popup uses `icons/lumis-mark.png` as a CSS mask over the theme's ink
+logo in the popup uses `icons/felix-mark.png` as a CSS mask over the theme's ink
 color, so it adapts to light/dark automatically.
 
 ## Install (unpacked — no Web Store needed)
@@ -29,9 +29,9 @@ color, so it adapts to light/dark automatically.
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked**
 4. Select this `chrome-extension/` folder
-5. The Lumis icon appears in the toolbar — pin it for easy access
+5. The Felix icon appears in the toolbar — pin it for easy access
 
-After editing any file, click the **refresh** icon on the Lumis card in
+After editing any file, click the **refresh** icon on the Felix card in
 `chrome://extensions` to reload.
 
 ## Google sign-in setup (`launchWebAuthFlow` id_token flow)
